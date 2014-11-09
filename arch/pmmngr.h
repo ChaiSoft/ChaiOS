@@ -15,8 +15,26 @@ Description: Physical Memory Manager
 
 #ifdef __cplusplus
 //C++ is the native ChaiOS interface (COM virtual calling style, C++ classes & Class Factory)
+#include "stdafx.h"
 
+EXPORT_CLASS(CPMemMngr)
+{
+protected:
+	~CPMemMngr();
+public:
+	virtual void CALLING_CONVENTION destroy() = 0;
+	virtual void CALLING_CONVENTION create() = 0;
+private:
+public:
+	void operator delete(void* p)
+	{
+		CPMemMngr* mngr = static_cast<CPMemMngr*>(p);
+		mngr->destroy();
+	}
 
+};
+
+EXTERN EXPORT_FUNC(CPMemMngr* DefaultPMemMngrFactory());
 
 #else
 //C wrapper API

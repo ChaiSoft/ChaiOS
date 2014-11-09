@@ -18,6 +18,7 @@ Description: ChaiOS kernel entry point
 #include "basicsegmentation.h"
 #include "basicphyscopy.h"
 #include "stack.h"
+#include "pmmngr.h"
 
 void displayWelcome()
 {
@@ -57,6 +58,8 @@ extern "C" void entry(PMULTIBOOT_INFO info)
 	info = multiboot;
 	//Now we have the basics
 	//We can now start getting ambitious
+	//Call global C++ constructors
+	CallConstructors();
 	//Now we need the full memory manager
 
 	DISABLE_INTERRUPTS();

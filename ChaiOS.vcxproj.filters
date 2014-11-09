@@ -54,6 +54,15 @@
     <ClCompile Include="arch\pmmngr.h">
       <Filter>arch</Filter>
     </ClCompile>
+    <ClCompile Include="arch\i386\pmmngr.cpp">
+      <Filter>arch\i386\mmngr</Filter>
+    </ClCompile>
+    <ClCompile Include="msvc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="arch\x64\pmmngr.cpp">
+      <Filter>arch\x64\mmngr</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Include\msvc.h">
@@ -97,6 +106,9 @@
     </ClInclude>
     <ClInclude Include="CHAIKRNL.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="memory.h">
+      <Filter>arch</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
