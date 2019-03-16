@@ -1,6 +1,3 @@
 [submodule "uefi"]
 	path = uefi
 	url = https://github.com/kiznit/uefi-headers.git
-[submodule "acpica"]
-	path = acpica
-	url = https://github.com/acpica/acpica.git
