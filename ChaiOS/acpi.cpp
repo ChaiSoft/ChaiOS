@@ -1,4 +1,5 @@
 #include "acpi.h"
+#include "kterm.h"
 
 #define EFI_ACPI_20_TABLE_GUID \
 {0x8868e871,0xe4f1,0x11d3,\
@@ -24,11 +25,13 @@ static void* RSDP = 0;
 static void acpi10start(EFI_ACPI_1_0_ROOT_SYSTEM_DESCRIPTION_POINTER* rsdp)
 {
 	EFI_ACPI_DESCRIPTION_HEADER* rsdt = (EFI_ACPI_DESCRIPTION_HEADER*)rsdp->RsdtAddress;
+	UINT32* tablebases = (UINT32*)&rsdt[1];
 }
 
 static void acpi20start(EFI_ACPI_2_0_ROOT_SYSTEM_DESCRIPTION_POINTER* rsdp)
 {
 	EFI_ACPI_DESCRIPTION_HEADER* xsdt = (EFI_ACPI_DESCRIPTION_HEADER*)rsdp->XsdtAddress;
+	UINT64* tablebases = (UINT64*)&xsdt[1];
 	
 }
 
@@ -54,11 +57,11 @@ void startup_acpi(EFI_SYSTEM_TABLE *SystemTable)
 	}
 	if (bestacpi == 0)
 	{
-		SystemTable->ConOut->OutputString(SystemTable->ConOut, (CHAR16*)L"ACPI unsupported\n");
+		puts(u"ACPI unsupported\n");
 		return;
 	}
 	else
-		SystemTable->ConOut->OutputString(SystemTable->ConOut, (CHAR16*)L"Found ACPI tables\n");
+		puts(u"Found ACPI tables\n");
 
 	RSDP = bestacpitab;
 	if (bestacpi == 1)

@@ -229,10 +229,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="acpi.cpp" />
+    <ClCompile Include="kterm.cpp" />
     <ClCompile Include="uefientry.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="acpi.h" />
+    <ClInclude Include="kterm.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
