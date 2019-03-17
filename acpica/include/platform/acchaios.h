@@ -184,8 +184,8 @@ typedef UINTN cpu_status_t;
 /* ACPICA cache implementation is adequate. */
 #define ACPI_USE_LOCAL_CACHE
 
-extern void wbinvd();
-#define ACPI_FLUSH_CPU_CACHE() wbinvd();
+extern void cacheflush();
+#define ACPI_FLUSH_CPU_CACHE() cacheflush();
 
 /* Based on FreeBSD's due to lack of documentation */
 extern int AcpiOsAcquireGlobalLock(UINT32 *lock);

@@ -3,6 +3,7 @@
 #include "liballoc.h"
 #include "uefilib.h"
 #include <acpi.h>
+#include "assembly.h"
 
 #define EFI_ACPI_20_TABLE_GUID \
 {0x8868e871,0xe4f1,0x11d3,\
@@ -649,13 +650,13 @@ AcpiOsReadPort(
 	switch (Width)
 	{
 	case 8:
-		
+		*Value = inportb(Address);
 		break;
 	case 16:
-		
+		*Value = inportw(Address);
 		break;
 	case 32:
-		
+		*Value = inportd(Address);
 		break;
 	default:
 		return AE_BAD_VALUE;
@@ -672,13 +673,13 @@ AcpiOsWritePort(
 	switch (Width)
 	{
 	case 8:
-
+		outportb(Address, Value);
 		break;
 	case 16:
-
+		outportw(Address, Value);
 		break;
 	case 32:
-
+		outportd(Address, Value);
 		break;
 	default:
 		return AE_BAD_VALUE;

@@ -1,4 +1,5 @@
 #include "kterm.h"
+#include "liballoc.h"
 #include <acpi.h>
 
 static void(*puts_s)(const char16_t*) = nullptr;
@@ -79,4 +80,25 @@ void printf(const char16_t* format, ...)
 	}
 
 	va_end(args);
+}
+
+static size_t strlen_simple(const char* s)
+{
+	size_t l;
+	while (*s++)++l;
+	return l;
+}
+
+void atow(char16_t* buf, const char* source)
+{
+	while(*source != 0)*buf++ = *source++;
+	*buf = u'\0';
+}
+
+
+void puts(const char* s)
+{
+	char16_t* buffer = (char16_t*)kmalloc(strlen_simple(s) * 2 + 2);
+	atow(buffer, s);
+	puts(buffer);
 }

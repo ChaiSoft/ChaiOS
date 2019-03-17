@@ -4,6 +4,7 @@
 #include "kterm.h"
 #include "uefilib.h"
 #include "liballoc.h"
+#include "assembly.h"
 
 
 EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
@@ -40,6 +41,14 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 		madtsubs = (ACPI_SUBTABLE_HEADER*)((char*)madtsubs + madtsubs->Length);
 	}
 	printf(u"%d CPUs, %d enabled\r\n", numcpus, enabledcpus);
+	char buffer[49];
+	buffer[48] = '\0';
+	cpuid(0x80000002, (size_t*)&buffer[0], (size_t*)&buffer[4], (size_t*)&buffer[8], (size_t*)&buffer[12]);
+	cpuid(0x80000003, (size_t*)&buffer[16], (size_t*)&buffer[20], (size_t*)&buffer[24], (size_t*)&buffer[28]);
+	cpuid(0x80000004, (size_t*)&buffer[32], (size_t*)&buffer[36], (size_t*)&buffer[40], (size_t*)&buffer[44]);
+	puts(buffer);
+	puts("\r\n");
+
 	while ((Status = SystemTable->ConIn->ReadKeyStroke(SystemTable->ConIn, &Key)) == EFI_NOT_READY);
 	return EFI_SUCCESS;
 }
