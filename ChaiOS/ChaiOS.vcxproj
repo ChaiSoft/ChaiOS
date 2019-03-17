@@ -96,11 +96,11 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <AssemblerOutput>AssemblyAndSourceCode</AssemblerOutput>
       <UseUnicodeForAssemblerListing>true</UseUnicodeForAssemblerListing>
-      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include\Ia32;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\acpica\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\ChaiOS;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include\Ia32;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>CHAIOS;CHAIOS_EFI;X86;_MBCS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies />
+      <AdditionalDependencies>Acpica.lib</AdditionalDependencies>
     </Link>
     <Link>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
@@ -131,12 +131,11 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <AssemblerOutput>AssemblyAndSourceCode</AssemblerOutput>
       <UseUnicodeForAssemblerListing>true</UseUnicodeForAssemblerListing>
-      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include\X64;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\acpica\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\ChaiOS;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include\X64;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>CHAIOS;CHAIOS_EFI;X64;_MBCS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>
-      </AdditionalDependencies>
+      <AdditionalDependencies>Acpica.lib</AdditionalDependencies>
     </Link>
     <Link>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
@@ -169,13 +168,13 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <AssemblerOutput>AssemblyAndSourceCode</AssemblerOutput>
       <UseUnicodeForAssemblerListing>true</UseUnicodeForAssemblerListing>
-      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include\Ia32;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\acpica\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\ChaiOS;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include\Ia32;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>CHAIOS;CHAIOS_EFI;X86;_MBCS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies />
+      <AdditionalDependencies>Acpica.lib</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <EnableUAC>false</EnableUAC>
       <GenerateDebugInformation>false</GenerateDebugInformation>
@@ -206,14 +205,13 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <AssemblerOutput>AssemblyAndSourceCode</AssemblerOutput>
       <UseUnicodeForAssemblerListing>true</UseUnicodeForAssemblerListing>
-      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include\X64;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\acpica\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\ChaiOS;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include\X64;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>CHAIOS;CHAIOS_EFI;X64;_MBCS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>
-      </AdditionalDependencies>
+      <AdditionalDependencies>Acpica.lib</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <EnableUAC>false</EnableUAC>
       <GenerateDebugInformation>false</GenerateDebugInformation>
@@ -230,11 +228,15 @@
   <ItemGroup>
     <ClCompile Include="acpi.cpp" />
     <ClCompile Include="kterm.cpp" />
+    <ClCompile Include="liballoc.c" />
     <ClCompile Include="uefientry.cpp" />
+    <ClCompile Include="uefilib.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="acpi.h" />
     <ClInclude Include="kterm.h" />
+    <ClInclude Include="liballoc.h" />
+    <ClInclude Include="uefilib.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

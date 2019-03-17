@@ -24,12 +24,24 @@
     <ClCompile Include="kterm.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="uefilib.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="liballoc.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="acpi.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="kterm.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="uefilib.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="liballoc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
