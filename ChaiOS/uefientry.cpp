@@ -6,7 +6,7 @@ static EFI_SYSTEM_TABLE* ST = nullptr;
 
 static void uefi_puts(const char16_t* p)
 {
-	ST->ConOut->OutputString(ST->ConOut, (CHAR16*)p);
+	ST->ConOut->OutputString(ST->ConOut, (CHAR16*)p);;
 }
 
 
