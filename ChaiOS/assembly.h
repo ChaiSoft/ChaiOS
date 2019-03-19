@@ -2,9 +2,14 @@
 #define CHAIOS_ASSEMBLY_H
 
 #include <stdint.h>
+
+#define EXTERN extern "C"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef size_t cpu_status_t;
 
 uint8_t inportb(uint16_t port);
 uint16_t inportw(uint16_t port);
@@ -12,8 +17,23 @@ uint32_t inportd(uint16_t port);
 void outportb(uint16_t port, uint8_t val);
 void outportw(uint16_t port, uint16_t val);
 void outportd(uint16_t port, uint32_t val);
+#ifdef __cplusplus
 void cpuid(size_t page, size_t* a, size_t* b, size_t* c, size_t* d, size_t subpage=0);
+#else
+void cpuid(size_t page, size_t* a, size_t* b, size_t* c, size_t* d, size_t subpage);
+#endif
 void cacheflush();
+#ifdef __cplusplus
+bool compareswap(size_t* location, size_t oldv, size_t newv);
+#else
+int compareswap(size_t* location, size_t oldv, size_t newv);
+#endif
+cpu_status_t disable();
+void restore(cpu_status_t flags);
+void memory_barrier();
+void* get_paging_root();
+void set_paging_root(void*);
+void cpu_startup();
 
 #ifdef __cplusplus
 }

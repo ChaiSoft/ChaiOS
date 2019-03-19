@@ -98,7 +98,7 @@ void atow(char16_t* buf, const char* source)
 
 void puts(const char* s)
 {
-	char16_t* buffer = (char16_t*)kmalloc(strlen_simple(s) * 2 + 2);
+	char16_t* buffer = new char16_t[strlen_simple(s) + 1];
 	atow(buffer, s);
 	puts(buffer);
 }

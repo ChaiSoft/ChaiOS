@@ -27,9 +27,6 @@
     <ClCompile Include="uefientry.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="acpi.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="kterm.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -39,11 +36,20 @@
     <ClCompile Include="liballoc.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="multiprocessor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="spinlock.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="acpihelp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="cpp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="acpi.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="kterm.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -56,10 +62,27 @@
     <ClInclude Include="assembly.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="multiprocessor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="spinlock.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="acpihelp.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <NASM Include="arch\x64\asmhelper.asm">
       <Filter>arch\x64</Filter>
     </NASM>
+    <NASM Include="arch\x86\asmhelper86.asm">
+      <Filter>arch\x86</Filter>
+    </NASM>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="arch\x86\ap_startup.asm">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

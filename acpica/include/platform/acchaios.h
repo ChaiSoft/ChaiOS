@@ -153,10 +153,15 @@
 #define __ACCAHIOS_H__
 
 #include <Uefi.h>
+#include <spinlock.h>
 //#define ACPI_USE_STANDARD_HEADERS
 //#define ACPI_USE_SYSTEM_CLIBRARY
 
-typedef UINTN cpu_status_t;
+#define ACPI_SPINLOCK spinlock_t
+#define ACPI_MUTEX void*
+#define ACPI_SEMAPHORE void*
+
+#define ACPI_REDUCED_HARDWARE 0
 
 
 /* Host-dependent types and defines for user- and kernel-space ACPICA */

@@ -76,3 +76,42 @@ global cacheflush
 cacheflush:
 wbinvd
 ret
+
+global compareswap
+compareswap:
+mov rax, rdx
+lock cmpxchg [rcx], r8
+jz .true
+mov rax, 0
+ret
+.true:
+mov rax, 1
+ret
+
+global disable
+disable:
+pushfq
+cli
+pop rax
+ret
+
+global restore
+restore:
+push rcx
+popfq
+ret
+
+global memory_barrier
+memory_barrier:
+mfence
+ret
+
+global get_paging_root
+get_paging_root:
+mov rax, cr3
+ret
+
+global set_paging_root
+set_paging_root:
+mov cr3, rcx
+ret

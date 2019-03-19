@@ -4,6 +4,7 @@
 #include "uefilib.h"
 #include <acpi.h>
 #include "assembly.h"
+#include "spinlock.h"
 
 #define EFI_ACPI_20_TABLE_GUID \
 {0x8868e871,0xe4f1,0x11d3,\
@@ -175,19 +176,22 @@ ACPI_STATUS AcpiOsSignalSemaphore(ACPI_SEMAPHORE Handle, UINT32 Units)
 }
 ACPI_STATUS AcpiOsCreateLock(ACPI_SPINLOCK *OutHandle)
 {
+	*OutHandle = create_spinlock();
 	return AE_OK;
 }
-void AcpiOsDeleteLock(ACPI_HANDLE Handle)
+void AcpiOsDeleteLock(ACPI_SPINLOCK Handle)
 {
-
+	delete_spinlock(Handle);
 }
 ACPI_CPU_FLAGS AcpiOsAcquireLock(ACPI_SPINLOCK Handle)
 {
-	return 0;
+	return acquire_spinlock(Handle);
 }
 void AcpiOsReleaseLock(ACPI_SPINLOCK Handle, ACPI_CPU_FLAGS Flags)
 {
+	release_spinlock(Handle, Flags);
 }
+
 ACPI_STATUS AcpiOsInstallInterruptHandler(UINT32 InterruptLevel, ACPI_OSD_HANDLER Handler, void *Context)
 {
 	return AE_OK;

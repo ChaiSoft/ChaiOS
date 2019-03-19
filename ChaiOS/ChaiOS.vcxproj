@@ -227,26 +227,42 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="acpi.cpp" />
+    <ClCompile Include="acpihelp.cpp" />
+    <ClCompile Include="cpp.cpp" />
     <ClCompile Include="kterm.cpp" />
     <ClCompile Include="liballoc.c" />
+    <ClCompile Include="multiprocessor.cpp" />
+    <ClCompile Include="spinlock.cpp" />
     <ClCompile Include="uefientry.cpp" />
     <ClCompile Include="uefilib.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="acpi.h" />
+    <ClInclude Include="acpihelp.h" />
     <ClInclude Include="assembly.h" />
     <ClInclude Include="kterm.h" />
     <ClInclude Include="liballoc.h" />
+    <ClInclude Include="multiprocessor.h" />
+    <ClInclude Include="spinlock.h" />
     <ClInclude Include="uefilib.h" />
   </ItemGroup>
   <ItemGroup>
     <NASM Include="arch\x64\asmhelper.asm">
       <FileType>Document</FileType>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
+    </NASM>
+    <None Include="arch\x86\ap_startup.asm">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <FileType>Document</FileType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </None>
+    <NASM Include="arch\x86\asmhelper86.asm">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </NASM>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
