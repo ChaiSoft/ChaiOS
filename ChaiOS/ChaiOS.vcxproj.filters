@@ -71,6 +71,9 @@
     <ClInclude Include="acpihelp.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="redblack.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <NASM Include="arch\x64\asmhelper.asm">
@@ -82,7 +85,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="arch\x86\ap_startup.asm">
-      <Filter>Source Files</Filter>
+      <Filter>arch\x86</Filter>
     </None>
   </ItemGroup>
 </Project>

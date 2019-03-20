@@ -14,7 +14,7 @@ void puts(const char16_t* s)
 }
 
 static char* chars = "0123456789ABCDEF";
-char*  sztoa(size_t value, char16_t * str, int base)
+char16_t*  sztoa(size_t value, char16_t * str, int base)
 {
 	if (base < 2 || base > 16)
 		return nullptr;
@@ -30,6 +30,7 @@ char*  sztoa(size_t value, char16_t * str, int base)
 		str[z] = str[i];
 		str[i] = tmp;
 	}
+	return str;
 }
 
 void printf(const char16_t* format, ...)
@@ -84,7 +85,7 @@ void printf(const char16_t* format, ...)
 
 static size_t strlen_simple(const char* s)
 {
-	size_t l;
+	size_t l = 0;
 	while (*s++)++l;
 	return l;
 }

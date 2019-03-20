@@ -96,7 +96,7 @@
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <AssemblerOutput>AssemblyAndSourceCode</AssemblerOutput>
-      <UseUnicodeForAssemblerListing>true</UseUnicodeForAssemblerListing>
+      <UseUnicodeForAssemblerListing>false</UseUnicodeForAssemblerListing>
       <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\acpica\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\ChaiOS;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include\Ia32;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>CHAIOS;CHAIOS_EFI;X86;_MBCS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
@@ -115,6 +115,8 @@
       <DataExecutionPrevention>false</DataExecutionPrevention>
       <EntryPointSymbol>efi_main</EntryPointSymbol>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
+      <OptimizeReferences>false</OptimizeReferences>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -131,7 +133,7 @@
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <AssemblerOutput>AssemblyAndSourceCode</AssemblerOutput>
-      <UseUnicodeForAssemblerListing>true</UseUnicodeForAssemblerListing>
+      <UseUnicodeForAssemblerListing>false</UseUnicodeForAssemblerListing>
       <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\acpica\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\ChaiOS;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include\X64;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>CHAIOS;CHAIOS_EFI;X64;_MBCS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
@@ -150,6 +152,8 @@
       <DataExecutionPrevention>false</DataExecutionPrevention>
       <EntryPointSymbol>efi_main</EntryPointSymbol>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
+      <OptimizeReferences>false</OptimizeReferences>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -168,13 +172,13 @@
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <AssemblerOutput>AssemblyAndSourceCode</AssemblerOutput>
-      <UseUnicodeForAssemblerListing>true</UseUnicodeForAssemblerListing>
+      <UseUnicodeForAssemblerListing>false</UseUnicodeForAssemblerListing>
       <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\acpica\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\ChaiOS;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include\Ia32;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>CHAIOS;CHAIOS_EFI;X86;_MBCS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
+      <OptimizeReferences>false</OptimizeReferences>
       <AdditionalDependencies>Acpica.lib</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <EnableUAC>false</EnableUAC>
@@ -187,6 +191,7 @@
       <DataExecutionPrevention>false</DataExecutionPrevention>
       <EntryPointSymbol>efi_main</EntryPointSymbol>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -205,13 +210,13 @@
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <AssemblerOutput>AssemblyAndSourceCode</AssemblerOutput>
-      <UseUnicodeForAssemblerListing>true</UseUnicodeForAssemblerListing>
+      <UseUnicodeForAssemblerListing>false</UseUnicodeForAssemblerListing>
       <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\acpica\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\ChaiOS;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include\X64;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>CHAIOS;CHAIOS_EFI;X64;_MBCS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
+      <OptimizeReferences>false</OptimizeReferences>
       <AdditionalDependencies>Acpica.lib</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <EnableUAC>false</EnableUAC>
@@ -224,6 +229,7 @@
       <DataExecutionPrevention>false</DataExecutionPrevention>
       <EntryPointSymbol>efi_main</EntryPointSymbol>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -242,6 +248,7 @@
     <ClInclude Include="kterm.h" />
     <ClInclude Include="liballoc.h" />
     <ClInclude Include="multiprocessor.h" />
+    <ClInclude Include="redblack.h" />
     <ClInclude Include="spinlock.h" />
     <ClInclude Include="uefilib.h" />
   </ItemGroup>

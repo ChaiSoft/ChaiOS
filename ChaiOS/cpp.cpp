@@ -119,3 +119,8 @@ void __cdecl operator delete[](void *p, size_t size)
 	}
 	kfree(p);
 }
+
+extern "C" int __cdecl atexit(void(__cdecl*)(void))
+{
+	return 0;
+}

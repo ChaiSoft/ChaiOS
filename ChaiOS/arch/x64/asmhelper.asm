@@ -115,3 +115,88 @@ global set_paging_root
 set_paging_root:
 mov cr3, rcx
 ret
+
+global cpu_startup
+cpu_startup:
+ret
+;Enable SSE
+mov rax, cr0
+and ax, 0xFFFB
+or ax, 0x2
+mov cr0, rax	;Clear CR0.EM, set CR0.MP
+mov rax, cr4
+or ax, (3<<9)
+mov cr4, rax
+;SSE is enabled. Now enable AVX, if AVX is supported
+
+push rax
+push rcx
+xor rcx, rcx
+xgetbv		;Load XCR0
+or al, 7	;AVX, SSE, X87
+xsetbv
+pop rcx
+pop rax
+ret
+
+global pause
+pause:
+pause
+ret
+
+global save_gdt
+save_gdt:
+sgdt [rcx]
+ret
+
+global get_segment_register
+get_segment_register:
+and rcx, 0x7
+mov rdx, .jmp_tab
+add rdx, rcx
+add rdx, rcx
+jmp rdx
+.jmp_tab:
+jmp short .cs
+jmp short .ds
+jmp short .es
+jmp short .fs
+jmp short .gs
+jmp short .ss
+jmp short .invalid
+jmp short .invalid
+.cs:
+mov ax, cs
+ret
+.ds:
+mov ax, ds
+ret
+.es:
+mov ax, es
+ret
+.fs:
+mov ax, fs
+ret
+.gs:
+mov ax, gs
+ret
+.ss:
+mov ax, ss
+ret
+.invalid:
+xor ax, ax
+ret
+
+global rdmsr
+rdmsr:
+rdmsr
+shl rdx, 32
+or rax, rdx
+ret
+
+global wrmsr
+wrmsr:
+mov rax, rdx
+shr rdx, 32
+wrmsr
+ret

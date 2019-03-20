@@ -64,10 +64,12 @@ extern "C" {
 
 ACPI_STATUS AcpiOsInitialize()
 {
+	return AE_OK;
 }
 
 ACPI_STATUS AcpiOsTerminate()
 {
+	return AE_OK;
 }
 
 ACPI_PHYSICAL_ADDRESS AcpiOsGetRootPointer()
@@ -106,6 +108,7 @@ void AcpiOsUnmapMemory(void *where, ACPI_SIZE length)
 ACPI_STATUS AcpiOsGetPhysicalAddress(void *LogicalAddress, ACPI_PHYSICAL_ADDRESS *PhysicalAddress)
 {
 	*PhysicalAddress = (ACPI_PHYSICAL_ADDRESS)LogicalAddress;
+	return AE_OK;
 }
 void *AcpiOsAllocate(ACPI_SIZE Size)
 {
@@ -701,7 +704,6 @@ UINT64 AcpiOsGetTimer()
 
 void AcpiOsWaitEventsComplete()
 {
-
 }
 
 }
