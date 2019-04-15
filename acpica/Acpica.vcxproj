@@ -26,22 +26,22 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v141</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v141</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v141</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v141</PlatformToolset>
   </PropertyGroup>
@@ -65,19 +65,27 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
+    <GenerateManifest>false</GenerateManifest>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>true</LinkIncremental>
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <GenerateManifest>false</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <GenerateManifest>false</GenerateManifest>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <PreprocessorDefinitions>CHAIOS;X86;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CHAIOS;ACPICA_DLL;X86;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>
       </RuntimeLibrary>
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\ChaiOS;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include\Ia32;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\acpica\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Chaikrnl;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include\Ia32;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\acpica\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
@@ -88,7 +96,18 @@
     <Link>
       <TargetMachine>MachineX86</TargetMachine>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Native</SubSystem>
+      <AdditionalDependencies>Chaikrnl.lib</AdditionalDependencies>
+      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
+      <EnableUAC>false</EnableUAC>
+      <Driver>Driver</Driver>
+      <EntryPointSymbol>
+      </EntryPointSymbol>
+      <FixedBaseAddress>false</FixedBaseAddress>
+      <BaseAddress>0xFFFFC00010000000</BaseAddress>
+      <NoEntryPoint>true</NoEntryPoint>
+      <LargeAddressAware>true</LargeAddressAware>
+      <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
     </Link>
     <Lib>
       <SubSystem>EFI Application</SubSystem>
@@ -96,11 +115,11 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <PreprocessorDefinitions>CHAIOS;X86;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CHAIOS;ACPICA_DLL;X86;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\ChaiOS;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include\Ia32;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\acpica\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Chaikrnl;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include\Ia32;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\acpica\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
@@ -110,9 +129,20 @@
     <Link>
       <TargetMachine>MachineX86</TargetMachine>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Native</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>Chaikrnl.lib</AdditionalDependencies>
+      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
+      <EnableUAC>false</EnableUAC>
+      <Driver>Driver</Driver>
+      <EntryPointSymbol>
+      </EntryPointSymbol>
+      <FixedBaseAddress>false</FixedBaseAddress>
+      <BaseAddress>0xFFFFC00010000000</BaseAddress>
+      <NoEntryPoint>true</NoEntryPoint>
+      <LargeAddressAware>true</LargeAddressAware>
+      <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
     </Link>
     <Lib>
       <SubSystem>EFI Application</SubSystem>
@@ -120,12 +150,12 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\ChaiOS;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include\X64;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\acpica\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Chaikrnl;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include\X64;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\acpica\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <WarningLevel>Level4</WarningLevel>
       <ExceptionHandling>false</ExceptionHandling>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <PreprocessorDefinitions>CHAIOS;X64</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CHAIOS;ACPICA_DLL;X64</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <IntrinsicFunctions>false</IntrinsicFunctions>
       <BasicRuntimeChecks />
@@ -134,21 +164,53 @@
     <Lib>
       <SubSystem>EFI Application</SubSystem>
     </Lib>
+    <Link>
+      <AdditionalDependencies>Chaikrnl.lib</AdditionalDependencies>
+    </Link>
+    <Link>
+      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
+      <EnableUAC>false</EnableUAC>
+      <SubSystem>Native</SubSystem>
+      <Driver>Driver</Driver>
+      <EntryPointSymbol>
+      </EntryPointSymbol>
+      <FixedBaseAddress>false</FixedBaseAddress>
+      <BaseAddress>0xFFFFC00010000000</BaseAddress>
+      <NoEntryPoint>true</NoEntryPoint>
+      <LargeAddressAware>true</LargeAddressAware>
+      <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
+    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\ChaiOS;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include\X64;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\acpica\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Chaikrnl;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include\X64;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\uefi\Include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\acpica\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <WarningLevel>Level4</WarningLevel>
       <ExceptionHandling>false</ExceptionHandling>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <PreprocessorDefinitions>CHAIOS;X64</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CHAIOS;ACPICA_DLL;X64</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <IntrinsicFunctions>false</IntrinsicFunctions>
     </ClCompile>
     <Lib>
       <SubSystem>EFI Application</SubSystem>
     </Lib>
+    <Link>
+      <AdditionalDependencies>Chaikrnl.lib</AdditionalDependencies>
+    </Link>
+    <Link>
+      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
+      <EnableUAC>false</EnableUAC>
+      <SubSystem>Native</SubSystem>
+      <Driver>Driver</Driver>
+      <EntryPointSymbol>
+      </EntryPointSymbol>
+      <FixedBaseAddress>false</FixedBaseAddress>
+      <BaseAddress>0xFFFFC00010000000</BaseAddress>
+      <NoEntryPoint>true</NoEntryPoint>
+      <LargeAddressAware>true</LargeAddressAware>
+      <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
+    </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="dsargs.c" />

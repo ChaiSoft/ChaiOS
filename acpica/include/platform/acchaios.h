@@ -152,8 +152,11 @@
 #ifndef __ACCAHIOS_H__
 #define __ACCAHIOS_H__
 
-#include <Uefi.h>
+#include <stdheaders.h>
 #include <spinlock.h>
+#include <chaikrnl.h>
+
+#define OS_DLL_FUNC CHAIKRNL_FUNC
 //#define ACPI_USE_STANDARD_HEADERS
 //#define ACPI_USE_SYSTEM_CLIBRARY
 
@@ -189,12 +192,12 @@
 /* ACPICA cache implementation is adequate. */
 #define ACPI_USE_LOCAL_CACHE
 
-extern void cacheflush();
-#define ACPI_FLUSH_CPU_CACHE() cacheflush();
+extern CHAIKRNL_FUNC void arch_flush_cache();
+#define ACPI_FLUSH_CPU_CACHE() arch_flush_cache();
 
 /* Based on FreeBSD's due to lack of documentation */
-extern int AcpiOsAcquireGlobalLock(UINT32 *lock);
-extern int AcpiOsReleaseGlobalLock(UINT32 *lock);
+extern OS_DLL_FUNC int AcpiOsAcquireGlobalLock(uint32_t *lock);
+extern OS_DLL_FUNC int AcpiOsReleaseGlobalLock(uint32_t *lock);
 
 #define ACPI_ACQUIRE_GLOBAL_LOCK(GLptr, Acq)    do {                \
         (Acq) = AcpiOsAcquireGlobalLock(&((GLptr)->GlobalLock));    \
@@ -203,6 +206,14 @@ extern int AcpiOsReleaseGlobalLock(UINT32 *lock);
 #define ACPI_RELEASE_GLOBAL_LOCK(GLptr, Acq)    do {                \
         (Acq) = AcpiOsReleaseGlobalLock(&((GLptr)->GlobalLock));    \
 } while (0)
+
+#ifdef ACPICA_DLL
+#define ACPICA_FUNC DLLEXPORT
+#else
+#define ACPICA_FUNC DLLIMPORT
+#endif
+
+#define ACPI_API_FUNCTION ACPICA_FUNC
 
 #else /* _KERNEL_MODE */
 /* Host-dependent types and defines for user-space ACPICA */

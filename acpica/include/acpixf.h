@@ -550,29 +550,29 @@ ACPI_GLOBAL (BOOLEAN,               AcpiGbl_SystemAwakeAndRunning);
  * Initialization
  */
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS ACPI_INIT_FUNCTION
+ACPI_API_FUNCTION ACPI_STATUS ACPI_INIT_FUNCTION
 AcpiInitializeTables (
     ACPI_TABLE_DESC         *InitialStorage,
     UINT32                  InitialTableCount,
     BOOLEAN                 AllowResize))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS ACPI_INIT_FUNCTION
+ACPI_API_FUNCTION ACPI_STATUS ACPI_INIT_FUNCTION
 AcpiInitializeSubsystem (
     void))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS ACPI_INIT_FUNCTION
+ACPI_API_FUNCTION ACPI_STATUS ACPI_INIT_FUNCTION
 AcpiEnableSubsystem (
     UINT32                  Flags))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS ACPI_INIT_FUNCTION
+ACPI_API_FUNCTION ACPI_STATUS ACPI_INIT_FUNCTION
 AcpiInitializeObjects (
     UINT32                  Flags))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS ACPI_INIT_FUNCTION
+ACPI_API_FUNCTION ACPI_STATUS ACPI_INIT_FUNCTION
 AcpiTerminate (
     void))
 
@@ -581,57 +581,57 @@ AcpiTerminate (
  * Miscellaneous global interfaces
  */
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+ACPI_API_FUNCTION ACPI_STATUS
 AcpiEnable (
     void))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+ACPI_API_FUNCTION ACPI_STATUS
 AcpiDisable (
     void))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+ACPI_API_FUNCTION ACPI_STATUS
 AcpiSubsystemStatus (
     void))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetSystemInfo (
     ACPI_BUFFER             *RetBuffer))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetStatistics (
     ACPI_STATISTICS         *Stats))
 
 ACPI_EXTERNAL_RETURN_PTR (
-const char *
+	ACPI_API_FUNCTION const char *
 AcpiFormatException (
     ACPI_STATUS             Exception))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiPurgeCachedObjects (
     void))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiInstallInterface (
     ACPI_STRING             InterfaceName))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiRemoveInterface (
     ACPI_STRING             InterfaceName))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiUpdateInterfaces (
     UINT8                   Action))
 
 ACPI_EXTERNAL_RETURN_UINT32 (
-UINT32
+	ACPI_API_FUNCTION UINT32
 AcpiCheckAddressRange (
     ACPI_ADR_SPACE_TYPE     SpaceId,
     ACPI_PHYSICAL_ADDRESS   Address,
@@ -639,7 +639,7 @@ AcpiCheckAddressRange (
     BOOLEAN                 Warn))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiDecodePldBuffer (
     UINT8                   *InBuffer,
     ACPI_SIZE               Length,
@@ -650,23 +650,23 @@ AcpiDecodePldBuffer (
  * ACPI table load/unload interfaces
  */
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS ACPI_INIT_FUNCTION
+	ACPI_API_FUNCTION ACPI_STATUS ACPI_INIT_FUNCTION
 AcpiInstallTable (
     ACPI_PHYSICAL_ADDRESS   Address,
     BOOLEAN                 Physical))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiLoadTable (
     ACPI_TABLE_HEADER       *Table))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiUnloadParentTable (
     ACPI_HANDLE             Object))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS ACPI_INIT_FUNCTION
+	ACPI_API_FUNCTION ACPI_STATUS ACPI_INIT_FUNCTION
 AcpiLoadTables (
     void))
 
@@ -680,7 +680,7 @@ AcpiReallocateRootTable (
     void))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS ACPI_INIT_FUNCTION
+ACPI_API_FUNCTION ACPI_STATUS ACPI_INIT_FUNCTION
 AcpiFindRootPointer (
     ACPI_PHYSICAL_ADDRESS   *RsdpAddress))
 
@@ -692,31 +692,31 @@ AcpiGetTableHeader (
     ACPI_TABLE_HEADER       *OutTableHeader))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetTable (
     ACPI_STRING             Signature,
     UINT32                  Instance,
     ACPI_TABLE_HEADER       **OutTable))
 
 ACPI_EXTERNAL_RETURN_VOID (
-void
+	ACPI_API_FUNCTION void
 AcpiPutTable (
     ACPI_TABLE_HEADER       *Table))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetTableByIndex (
     UINT32                  TableIndex,
     ACPI_TABLE_HEADER       **OutTable))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiInstallTableHandler (
     ACPI_TABLE_HANDLER      Handler,
     void                    *Context))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiRemoveTableHandler (
     ACPI_TABLE_HANDLER      Handler))
 
@@ -725,7 +725,7 @@ AcpiRemoveTableHandler (
  * Namespace and name interfaces
  */
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiWalkNamespace (
     ACPI_OBJECT_TYPE        Type,
     ACPI_HANDLE             StartObject,
@@ -736,7 +736,7 @@ AcpiWalkNamespace (
     void                    **ReturnValue))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetDevices (
     char                    *HID,
     ACPI_WALK_CALLBACK      UserFunction,
@@ -744,41 +744,41 @@ AcpiGetDevices (
     void                    **ReturnValue))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetName (
     ACPI_HANDLE             Object,
     UINT32                  NameType,
     ACPI_BUFFER             *RetPathPtr))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetHandle (
     ACPI_HANDLE             Parent,
     ACPI_STRING             Pathname,
     ACPI_HANDLE             *RetHandle))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiAttachData (
     ACPI_HANDLE             Object,
     ACPI_OBJECT_HANDLER     Handler,
     void                    *Data))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiDetachData (
     ACPI_HANDLE             Object,
     ACPI_OBJECT_HANDLER     Handler))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetData (
     ACPI_HANDLE             Object,
     ACPI_OBJECT_HANDLER     Handler,
     void                    **Data))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiDebugTrace (
     const char              *Name,
     UINT32                  DebugLevel,
@@ -790,7 +790,7 @@ AcpiDebugTrace (
  * Object manipulation and enumeration
  */
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiEvaluateObject (
     ACPI_HANDLE             Object,
     ACPI_STRING             Pathname,
@@ -798,7 +798,7 @@ AcpiEvaluateObject (
     ACPI_BUFFER             *ReturnObjectBuffer))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiEvaluateObjectTyped (
     ACPI_HANDLE             Object,
     ACPI_STRING             Pathname,
@@ -807,18 +807,18 @@ AcpiEvaluateObjectTyped (
     ACPI_OBJECT_TYPE        ReturnType))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetObjectInfo (
     ACPI_HANDLE             Object,
     ACPI_DEVICE_INFO        **ReturnBuffer))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiInstallMethod (
     UINT8                   *Buffer))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetNextObject (
     ACPI_OBJECT_TYPE        Type,
     ACPI_HANDLE             Parent,
@@ -826,13 +826,13 @@ AcpiGetNextObject (
     ACPI_HANDLE             *OutHandle))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetType (
     ACPI_HANDLE             Object,
     ACPI_OBJECT_TYPE        *OutType))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetParent (
     ACPI_HANDLE             Object,
     ACPI_HANDLE             *OutHandle))
@@ -842,43 +842,43 @@ AcpiGetParent (
  * Handler interfaces
  */
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiInstallInitializationHandler (
     ACPI_INIT_HANDLER       Handler,
     UINT32                  Function))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiInstallSciHandler (
     ACPI_SCI_HANDLER        Address,
     void                    *Context))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiRemoveSciHandler (
     ACPI_SCI_HANDLER        Address))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiInstallGlobalEventHandler (
     ACPI_GBL_EVENT_HANDLER  Handler,
     void                    *Context))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiInstallFixedEventHandler (
     UINT32                  AcpiEvent,
     ACPI_EVENT_HANDLER      Handler,
     void                    *Context))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiRemoveFixedEventHandler (
     UINT32                  AcpiEvent,
     ACPI_EVENT_HANDLER      Handler))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiInstallGpeHandler (
     ACPI_HANDLE             GpeDevice,
     UINT32                  GpeNumber,
@@ -887,7 +887,7 @@ AcpiInstallGpeHandler (
     void                    *Context))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiInstallGpeRawHandler (
     ACPI_HANDLE             GpeDevice,
     UINT32                  GpeNumber,
@@ -896,14 +896,14 @@ AcpiInstallGpeRawHandler (
     void                    *Context))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiRemoveGpeHandler (
     ACPI_HANDLE             GpeDevice,
     UINT32                  GpeNumber,
     ACPI_GPE_HANDLER        Address))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiInstallNotifyHandler (
     ACPI_HANDLE             Device,
     UINT32                  HandlerType,
@@ -911,14 +911,14 @@ AcpiInstallNotifyHandler (
     void                    *Context))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiRemoveNotifyHandler (
     ACPI_HANDLE             Device,
     UINT32                  HandlerType,
     ACPI_NOTIFY_HANDLER     Handler))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiInstallAddressSpaceHandler (
     ACPI_HANDLE             Device,
     ACPI_ADR_SPACE_TYPE     SpaceId,
@@ -927,19 +927,19 @@ AcpiInstallAddressSpaceHandler (
     void                    *Context))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiRemoveAddressSpaceHandler (
     ACPI_HANDLE             Device,
     ACPI_ADR_SPACE_TYPE     SpaceId,
     ACPI_ADR_SPACE_HANDLER  Handler))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiInstallExceptionHandler (
     ACPI_EXCEPTION_HANDLER  Handler))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiInstallInterfaceHandler (
     ACPI_INTERFACE_HANDLER  Handler))
 
@@ -948,13 +948,13 @@ AcpiInstallInterfaceHandler (
  * Global Lock interfaces
  */
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiAcquireGlobalLock (
     UINT16                  Timeout,
     UINT32                  *Handle))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiReleaseGlobalLock (
     UINT32                  Handle))
 
@@ -963,14 +963,14 @@ AcpiReleaseGlobalLock (
  * Interfaces to AML mutex objects
  */
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiAcquireMutex (
     ACPI_HANDLE             Handle,
     ACPI_STRING             Pathname,
     UINT16                  Timeout))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiReleaseMutex (
     ACPI_HANDLE             Handle,
     ACPI_STRING             Pathname))
@@ -980,24 +980,24 @@ AcpiReleaseMutex (
  * Fixed Event interfaces
  */
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiEnableEvent (
     UINT32                  Event,
     UINT32                  Flags))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiDisableEvent (
     UINT32                  Event,
     UINT32                  Flags))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiClearEvent (
     UINT32                  Event))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetEventStatus (
     UINT32                  Event,
     ACPI_EVENT_STATUS       *EventStatus))
@@ -1007,98 +1007,98 @@ AcpiGetEventStatus (
  * General Purpose Event (GPE) Interfaces
  */
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiUpdateAllGpes (
     void))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiEnableGpe (
     ACPI_HANDLE             GpeDevice,
     UINT32                  GpeNumber))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiDisableGpe (
     ACPI_HANDLE             GpeDevice,
     UINT32                  GpeNumber))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiClearGpe (
     ACPI_HANDLE             GpeDevice,
     UINT32                  GpeNumber))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiSetGpe (
     ACPI_HANDLE             GpeDevice,
     UINT32                  GpeNumber,
     UINT8                   Action))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiFinishGpe (
     ACPI_HANDLE             GpeDevice,
     UINT32                  GpeNumber))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiMaskGpe (
     ACPI_HANDLE             GpeDevice,
     UINT32                  GpeNumber,
     BOOLEAN                 IsMasked))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiMarkGpeForWake (
     ACPI_HANDLE             GpeDevice,
     UINT32                  GpeNumber))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiSetupGpeForWake (
     ACPI_HANDLE             ParentDevice,
     ACPI_HANDLE             GpeDevice,
     UINT32                  GpeNumber))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiSetGpeWakeMask (
     ACPI_HANDLE             GpeDevice,
     UINT32                  GpeNumber,
     UINT8                   Action))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetGpeStatus (
     ACPI_HANDLE             GpeDevice,
     UINT32                  GpeNumber,
     ACPI_EVENT_STATUS       *EventStatus))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiDisableAllGpes (
     void))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiEnableAllRuntimeGpes (
     void))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiEnableAllWakeupGpes (
     void))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetGpeDevice (
     UINT32                  GpeIndex,
     ACPI_HANDLE             *GpeDevice))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiInstallGpeBlock (
     ACPI_HANDLE             GpeDevice,
     ACPI_GENERIC_ADDRESS    *GpeBlockAddress,
@@ -1106,7 +1106,7 @@ AcpiInstallGpeBlock (
     UINT32                  InterruptNumber))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiRemoveGpeBlock (
     ACPI_HANDLE             GpeDevice))
 
@@ -1120,7 +1120,7 @@ ACPI_STATUS (*ACPI_WALK_RESOURCE_CALLBACK) (
     void                    *Context);
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetVendorResource (
     ACPI_HANDLE             Device,
     char                    *Name,
@@ -1128,32 +1128,32 @@ AcpiGetVendorResource (
     ACPI_BUFFER             *RetBuffer))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetCurrentResources (
     ACPI_HANDLE             Device,
     ACPI_BUFFER             *RetBuffer))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetPossibleResources (
     ACPI_HANDLE             Device,
     ACPI_BUFFER             *RetBuffer))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetEventResources (
     ACPI_HANDLE             DeviceHandle,
     ACPI_BUFFER             *RetBuffer))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiWalkResourceBuffer (
     ACPI_BUFFER                 *Buffer,
     ACPI_WALK_RESOURCE_CALLBACK UserFunction,
     void                        *Context))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiWalkResources (
     ACPI_HANDLE                 Device,
     char                        *Name,
@@ -1161,25 +1161,25 @@ AcpiWalkResources (
     void                        *Context))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiSetCurrentResources (
     ACPI_HANDLE             Device,
     ACPI_BUFFER             *InBuffer))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetIrqRoutingTable (
     ACPI_HANDLE             Device,
     ACPI_BUFFER             *RetBuffer))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiResourceToAddress64 (
     ACPI_RESOURCE           *Resource,
     ACPI_RESOURCE_ADDRESS64 *Out))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiBufferToResource (
     UINT8                   *AmlBuffer,
     UINT16                  AmlBufferLength,
@@ -1190,30 +1190,30 @@ AcpiBufferToResource (
  * Hardware (ACPI device) interfaces
  */
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiReset (
     void))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiRead (
     UINT64                  *Value,
     ACPI_GENERIC_ADDRESS    *Reg))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiWrite (
     UINT64                  Value,
     ACPI_GENERIC_ADDRESS    *Reg))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiReadBitRegister (
     UINT32                  RegisterId,
     UINT32                  *ReturnValue))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiWriteBitRegister (
     UINT32                  RegisterId,
     UINT32                  Value))
@@ -1223,39 +1223,39 @@ AcpiWriteBitRegister (
  * Sleep/Wake interfaces
  */
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetSleepTypeData (
     UINT8                   SleepState,
     UINT8                   *Slp_TypA,
     UINT8                   *Slp_TypB))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiEnterSleepStatePrep (
     UINT8                   SleepState))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiEnterSleepState (
     UINT8                   SleepState))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiEnterSleepStateS4bios (
     void))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiLeaveSleepStatePrep (
     UINT8                   SleepState))
 
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiLeaveSleepState (
     UINT8                   SleepState))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiSetFirmwareWakingVector (
     ACPI_PHYSICAL_ADDRESS   PhysicalAddress,
     ACPI_PHYSICAL_ADDRESS   PhysicalAddress64))
@@ -1265,17 +1265,17 @@ AcpiSetFirmwareWakingVector (
  * ACPI Timer interfaces
  */
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetTimerResolution (
     UINT32                  *Resolution))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetTimer (
     UINT32                  *Ticks))
 
 ACPI_HW_DEPENDENT_RETURN_STATUS (
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetTimerDuration (
     UINT32                  StartTicks,
     UINT32                  EndTicks,
@@ -1287,7 +1287,7 @@ AcpiGetTimerDuration (
  */
 ACPI_MSG_DEPENDENT_RETURN_VOID (
 ACPI_PRINTF_LIKE(3)
-void ACPI_INTERNAL_VAR_XFACE
+ACPI_API_FUNCTION void ACPI_INTERNAL_VAR_XFACE
 AcpiError (
     const char              *ModuleName,
     UINT32                  LineNumber,
@@ -1296,7 +1296,7 @@ AcpiError (
 
 ACPI_MSG_DEPENDENT_RETURN_VOID (
 ACPI_PRINTF_LIKE(4)
-void  ACPI_INTERNAL_VAR_XFACE
+ACPI_API_FUNCTION void  ACPI_INTERNAL_VAR_XFACE
 AcpiException (
     const char              *ModuleName,
     UINT32                  LineNumber,
@@ -1306,7 +1306,7 @@ AcpiException (
 
 ACPI_MSG_DEPENDENT_RETURN_VOID (
 ACPI_PRINTF_LIKE(3)
-void ACPI_INTERNAL_VAR_XFACE
+ACPI_API_FUNCTION void ACPI_INTERNAL_VAR_XFACE
 AcpiWarning (
     const char              *ModuleName,
     UINT32                  LineNumber,
@@ -1315,14 +1315,14 @@ AcpiWarning (
 
 ACPI_MSG_DEPENDENT_RETURN_VOID (
 ACPI_PRINTF_LIKE(1)
-void ACPI_INTERNAL_VAR_XFACE
+ACPI_API_FUNCTION void ACPI_INTERNAL_VAR_XFACE
 AcpiInfo (
     const char              *Format,
     ...))
 
 ACPI_MSG_DEPENDENT_RETURN_VOID (
 ACPI_PRINTF_LIKE(3)
-void ACPI_INTERNAL_VAR_XFACE
+ACPI_API_FUNCTION void ACPI_INTERNAL_VAR_XFACE
 AcpiBiosError (
     const char              *ModuleName,
     UINT32                  LineNumber,
@@ -1331,7 +1331,7 @@ AcpiBiosError (
 
 ACPI_MSG_DEPENDENT_RETURN_VOID (
 ACPI_PRINTF_LIKE(4)
-void  ACPI_INTERNAL_VAR_XFACE
+ACPI_API_FUNCTION void  ACPI_INTERNAL_VAR_XFACE
 AcpiBiosException (
     const char              *ModuleName,
     UINT32                  LineNumber,
@@ -1341,7 +1341,7 @@ AcpiBiosException (
 
 ACPI_MSG_DEPENDENT_RETURN_VOID (
 ACPI_PRINTF_LIKE(3)
-void ACPI_INTERNAL_VAR_XFACE
+ACPI_API_FUNCTION void ACPI_INTERNAL_VAR_XFACE
 AcpiBiosWarning (
     const char              *ModuleName,
     UINT32                  LineNumber,
@@ -1384,19 +1384,19 @@ AcpiTracePoint (
     UINT8                   *Aml,
     char                    *Pathname))
 
-ACPI_STATUS
+	ACPI_API_FUNCTION ACPI_STATUS
 AcpiInitializeDebugger (
     void);
 
-void
+ACPI_API_FUNCTION void
 AcpiTerminateDebugger (
     void);
 
-void
+ACPI_API_FUNCTION void
 AcpiRunDebugger (
     char                    *BatchBuffer);
 
-void
+ACPI_API_FUNCTION void
 AcpiSetDebuggerThreadId (
     ACPI_THREAD_ID          ThreadId);
 

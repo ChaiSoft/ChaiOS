@@ -1,7 +1,5 @@
-#include "arch_paging.h"
-#include "assembly.h"
-#include "pmmngr.h"
-#include "kterm.h"
+#include <arch/paging.h>
+#include <arch/cpu.h>
 
 static void* pml4ptr = 0;
 static size_t recursive_slot = 0;
@@ -41,12 +39,6 @@ typedef size_t(*get_tab_index)(void*);
 
 static PML4_ENTRY* getPML4(void* addr)
 {
-	if (pml4ptr);
-	else
-	{
-		void* pml4 = get_paging_root();
-		pml4ptr = (void*)((size_t)pml4 & ~(size_t)0xFFF);
-	}
 	return (PML4_ENTRY*)pml4ptr;
 }
 
@@ -103,37 +95,6 @@ static get_tab_index get_index_dispatch[] =
 	&getPML4index
 };
 
-static PML4_ENTRY* setPML4_recursive(PML4_ENTRY* pml4, size_t slot)
-{
-	recursive_slot = slot;
-	pml4[recursive_slot] = (size_t)pml4 | PAGING_PRESENT | PAGING_WRITABLE;
-	//Now calculate new PML4 address
-	void* new_pml4 = make_canonical((recursive_slot << 39) | (recursive_slot << 30) | (recursive_slot << 21) | (recursive_slot << 12));
-	//Flush the TLB
-	set_paging_root(get_paging_root());
-	pml4ptr = new_pml4;
-	return (PML4_ENTRY*)new_pml4;
-}
-
-void arch_initialize_paging()
-{
-	PML4_ENTRY* pml4 = getPML4(nullptr);
-	//Just in case PML4 is read only
-	size_t cr0 = read_cr0();
-	write_cr0(cr0 & (SIZE_MAX-(1<<16)));		//Clear WP
-	//Find a free slot
-	for (size_t x = (PAGESIZE / sizeof(PML4_ENTRY));x > 0; --x)
-	{
-		if ((pml4[x-1] & PAGING_PRESENT) == 0)
-		{
-			pml4 = setPML4_recursive(pml4, x-1);
-			break;
-		}
-	}
-	printf(u"Paging recursive slot at %d, PML4 @ %x\r\n", recursive_slot, pml4);
-	write_cr0(cr0);		//Restore CR0
-}
-
 static void clear_ptabs(void* addr)
 {
 	PTAB_ENTRY* pt = (PTAB_ENTRY*)addr;
@@ -141,6 +102,22 @@ static void clear_ptabs(void* addr)
 	{
 		pt[n] = 0;
 	}
+}
+
+static size_t get_arch_paging_attributes(size_t attributes, bool present = true)
+{
+	size_t result = 0;
+	if (present)
+		result |= PAGING_PRESENT;
+	if (attributes & PAGE_ATTRIBUTE_WRITABLE)
+		result |= PAGING_WRITABLE;
+	if (attributes & PAGE_ATTRIBUTE_NO_EXECUTE)
+		result |= PAGING_NXE;
+	if (attributes & PAGE_ATTRIBUTE_NO_CACHING)
+		result |= PAGING_NOCACHE;
+	if (attributes & PAGE_ATTRIBUTE_NO_PAGING)
+		result |= PAGING_CHAIOS_NOSWAP;
+	return result;
 }
 
 bool paging_map(void* vaddr, paddr_t paddr, size_t attributes)
@@ -153,14 +130,14 @@ bool paging_map(void* vaddr, paddr_t paddr, size_t attributes)
 	PML4_ENTRY& pml4ent = pml4[getPML4index(vaddr)];
 	if ((pml4ent & PAGING_PRESENT) == 0)
 	{
-		paddr_t addr = PmmngrAllocate();
+		paddr_t addr = pmmngr_allocate(1);
 		if (addr == 0)
 		{
 			return false;
 		}
 		pml4ent = addr | PAGING_PRESENT | PAGING_WRITABLE;
-		tlbflush(pdpt);
-		memory_barrier();
+		arch_flush_tlb(pdpt);
+		arch_memory_barrier();
 		clear_ptabs(pdpt);
 	}
 	else if (pml4ent & PAGING_SIZEBIT)
@@ -168,14 +145,14 @@ bool paging_map(void* vaddr, paddr_t paddr, size_t attributes)
 	PDPT_ENTRY& pdptent = pdpt[getPDPTindex(vaddr)];
 	if ((pdptent & PAGING_PRESENT) == 0)
 	{
-		paddr_t addr = PmmngrAllocate();
+		paddr_t addr = pmmngr_allocate(1);
 		if (addr == 0)
 		{
 			return false;
 		}
 		pdptent = addr | PAGING_PRESENT | PAGING_WRITABLE;
-		tlbflush(pdir);
-		memory_barrier();
+		arch_flush_tlb(pdir);
+		arch_memory_barrier();
 		clear_ptabs(pdir);
 	}
 	else if (pdptent & PAGING_SIZEBIT)
@@ -183,14 +160,14 @@ bool paging_map(void* vaddr, paddr_t paddr, size_t attributes)
 	PD_ENTRY& pdent = pdir[getPDindex(vaddr)];
 	if ((pdent & PAGING_PRESENT) == 0)
 	{
-		paddr_t addr = PmmngrAllocate();
+		paddr_t addr = pmmngr_allocate(1);
 		if (addr == 0)
 		{
 			return false;
 		}
 		pdent = addr | PAGING_PRESENT | PAGING_WRITABLE;
-		tlbflush(ptab);
-		memory_barrier();
+		arch_flush_tlb(ptab);
+		arch_memory_barrier();
 		clear_ptabs(ptab);
 	}
 	else if (pdent & PAGING_SIZEBIT)
@@ -198,16 +175,14 @@ bool paging_map(void* vaddr, paddr_t paddr, size_t attributes)
 	PTAB_ENTRY& ptabent = ptab[getPTABindex(vaddr)];
 	if ((ptabent & PAGING_PRESENT) != 0)
 		return false;
-	if (paddr == PADDR_T_MAX)
+	if (paddr == PADDR_ALLOCATE)
 	{
-		if (!(paddr = PmmngrAllocate()))
+		if (!(paddr = pmmngr_allocate(1)))
 			return false;
 	}
-	ptabent = (size_t)paddr | PAGING_PRESENT;
-	if (attributes & PAGE_ATTRIBUTE_WRITABLE)
-		ptabent |= PAGING_WRITABLE;
-	tlbflush(vaddr);
-	memory_barrier();
+	ptabent = (size_t)paddr | get_arch_paging_attributes(attributes, true);
+	arch_flush_tlb(vaddr);
+	arch_memory_barrier();
 	return true;
 }
 
@@ -242,7 +217,7 @@ static bool check_free(int level, void* start_addr, void* end_addr)
 
 bool check_free(void* vaddr, size_t length)
 {
-	void* endaddr = raw_offset<void*>(vaddr, length-1);
+	void* endaddr = raw_offset<void*>(vaddr, length - 1);
 	return check_free(4, vaddr, endaddr);
 }
 
@@ -254,7 +229,7 @@ bool paging_map(void* vaddr, paddr_t paddr, size_t length, size_t attributes)
 	size_t pgoffset = vptr & (PAGESIZE - 1);
 	vaddr = (void*)(vptr ^ pgoffset);
 	length += pgoffset;
-	if (paddr != PADDR_T_MAX)
+	if (paddr != PADDR_ALLOCATE)
 	{
 		if ((paddr & (PAGESIZE - 1)) != pgoffset)
 			return false;
@@ -267,7 +242,7 @@ bool paging_map(void* vaddr, paddr_t paddr, size_t length, size_t attributes)
 			return false;
 
 		vaddr = raw_offset<void*>(vaddr, PAGESIZE);
-		if(paddr != PADDR_T_MAX)
+		if (paddr != PADDR_ALLOCATE)
 			paddr = raw_offset<paddr_t>(paddr, PAGESIZE);
 	}
 	return true;
@@ -278,50 +253,21 @@ void set_paging_attributes(void* vaddr, size_t length, size_t attrset, size_t at
 	PTAB_ENTRY* ptab = getPTAB(vaddr);
 	for (size_t index = getPTABindex(vaddr); index < (length + PAGESIZE - 1) / PAGESIZE; ++index)
 	{
-		if ((attrset & PAGE_ATTRIBUTE_WRITABLE) != 0)
-		{
-			ptab[index] |= PAGING_WRITABLE;
-		}
-
-		if ((attrclear & PAGE_ATTRIBUTE_WRITABLE) != 0)
-		{
-			ptab[index] &= ~((size_t)PAGING_WRITABLE);
-		}
-		if ((attrset & PAGE_ATTRIBUTE_NO_EXECUTE) != 0)
-		{
-			ptab[index] |= PAGING_NXE;
-		}
-		if ((attrclear & PAGE_ATTRIBUTE_NO_EXECUTE) != 0)
-		{
-			ptab[index] &= ~((size_t)PAGING_NXE);
-		}
-		if ((attrset & PAGE_ATTRIBUTE_NO_CACHING) != 0)
-		{
-			ptab[index] |= PAGING_NOCACHE;
-		}
-		if ((attrclear & PAGE_ATTRIBUTE_NO_CACHING) != 0)
-		{
-			ptab[index] &= ~((size_t)PAGING_NOCACHE);
-		}
-		if ((attrset & PAGE_ATTRIBUTE_NO_PAGING) != 0)
-		{
-			ptab[index] |= PAGING_CHAIOS_NOSWAP;
-		}
-		if ((attrclear & PAGE_ATTRIBUTE_NO_PAGING) != 0)
-		{
-			ptab[index] &= ~((size_t)PAGING_CHAIOS_NOSWAP);
-		}
+		ptab[index] |= get_arch_paging_attributes(attrset);
+		ptab[index] &= ~get_arch_paging_attributes(attrclear);
 	}
 }
 
-static struct {
+struct paging_info  {
 	size_t recursive_slot;
 	void* pml4ptr;
-}paging_info;
+};
 
-void fill_arch_paging_info(void*& info)
+void paging_initialize(void*& info)
 {
-	info = &paging_info;
-	paging_info.recursive_slot = recursive_slot;
-	paging_info.pml4ptr = pml4ptr;
+	paging_info* pinfo = (paging_info*)info;
+	recursive_slot = pinfo->recursive_slot;
+	pml4ptr = pinfo->pml4ptr;
+	//Copy the PML4 so we don't depend on UEFI/bootloader
+	
 }

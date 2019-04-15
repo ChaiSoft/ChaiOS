@@ -264,7 +264,7 @@ AcpiTbValidateRsdp (
  *
  ******************************************************************************/
 
-ACPI_STATUS ACPI_INIT_FUNCTION
+ACPI_API_FUNCTION ACPI_STATUS ACPI_INIT_FUNCTION
 AcpiFindRootPointer (
     ACPI_PHYSICAL_ADDRESS   *TableAddress)
 {

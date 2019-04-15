@@ -3,12 +3,10 @@
 #include "pmmngr.h"
 #include "kterm.h"
 
-static void* pml4ptr = 0;
+static void* pdptr = 0;
 static size_t recursive_slot = 0;
 
-static_assert(sizeof(size_t) == 8, "X64 paging size mismatch");
-typedef size_t PML4_ENTRY;
-typedef size_t PDPT_ENTRY;
+static_assert(sizeof(size_t) == 4, "X86 paging size mismatch");
 typedef size_t PD_ENTRY;
 typedef size_t PTAB_ENTRY;
 
@@ -16,60 +14,23 @@ typedef size_t PTAB_ENTRY;
 #define PAGING_WRITABLE 0x2
 #define PAGING_SIZEBIT 0x80
 
-static void* make_canonical(size_t addr)
-{
-	if (addr & ((size_t)1 << 47))
-		addr |= 0xFFFF000000000000;
-	return (void*)addr;
-}
-
-static void* make_canonical(void* addr)
-{
-	return make_canonical((size_t)addr);
-}
-
-static size_t decanonical(void* addr)
-{
-	return (size_t)addr & 0x0000FFFFFFFFFFFF;
-}
-
 typedef size_t*(*get_tab_ptr)(void*);
 typedef size_t(*get_tab_index)(void*);
 
-static PML4_ENTRY* getPML4(void* addr)
+static PD_ENTRY* getPDIR(void* addr)
 {
-	if (pml4ptr);
+	if (pdptr);
 	else
 	{
-		void* pml4 = get_paging_root();
-		pml4ptr = (void*)((size_t)pml4 & ~(size_t)0xFFF);
+		void* pd = get_paging_root();
+		pdptr = (void*)((size_t)pd & ~(size_t)0xFFF);
 	}
-	return (PML4_ENTRY*)pml4ptr;
+	return (PD_ENTRY*)pdptr;
 }
 
-static size_t getPML4index(void* addr)
+static size_t getPDIRindex(void* addr)
 {
-	return (decanonical(addr) >> 39) & 0x1FF;
-}
-
-static PDPT_ENTRY* getPDPT(void* addr)
-{
-	return (PDPT_ENTRY*)make_canonical((recursive_slot << 39) | (recursive_slot << 30) | (recursive_slot << 21) | (((decanonical(addr) >> 27) & 0x1FF000)));
-}
-
-static size_t getPDPTindex(void* addr)
-{
-	return (decanonical(addr) >> 30) & 0x1FF;
-}
-
-static PD_ENTRY* getPD(void* addr)
-{
-	return (PD_ENTRY*)make_canonical((recursive_slot << 39) | (recursive_slot << 30) | ((decanonical(addr) >> 18) & 0x3FFFF000));
-}
-
-static size_t getPDindex(void* addr)
-{
-	return (decanonical(addr) >> 21) & 0x1FF;
+	return (addr >> 21) & 0x3FF;
 }
 
 static PTAB_ENTRY* getPTAB(void* addr)

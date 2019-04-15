@@ -82,8 +82,8 @@ tlbflush:
 invlpg [rcx]
 ret
 
-global compareswap
-compareswap:
+global x64_locked_cas
+x64_locked_cas:
 mov rax, rdx
 lock cmpxchg [rcx], r8
 jz .true
@@ -204,4 +204,14 @@ wrmsr:
 mov rax, rdx
 shr rdx, 32
 wrmsr
+ret
+
+global read_cr0
+read_cr0:
+mov rax, cr0
+ret
+
+global write_cr0
+write_cr0:
+mov cr0, rcx
 ret

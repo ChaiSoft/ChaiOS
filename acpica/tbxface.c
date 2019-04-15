@@ -211,7 +211,7 @@ AcpiAllocateRootTable (
  *
  ******************************************************************************/
 
-ACPI_STATUS ACPI_INIT_FUNCTION
+ACPI_API_FUNCTION ACPI_STATUS ACPI_INIT_FUNCTION
 AcpiInitializeTables (
     ACPI_TABLE_DESC         *InitialTableArray,
     UINT32                  InitialTableCount,

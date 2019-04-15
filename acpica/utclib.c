@@ -216,7 +216,7 @@
  *
  ******************************************************************************/
 #ifdef _MSC_VER
-#pragma function(memcmp, memcpy, memset, strlen, strcpy, strcmp, strcat)
+#pragma function(memcmp, memcpy, memset, memmove, strlen, strcpy, strcmp, strcat)
 #endif
 int
 memcmp (

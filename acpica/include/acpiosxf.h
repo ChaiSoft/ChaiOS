@@ -194,13 +194,13 @@ typedef struct acpi_signal_fatal_info
  * OSL Initialization and shutdown primitives
  */
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsInitialize
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsInitialize (
     void);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsTerminate
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsTerminate (
     void);
 #endif
@@ -210,27 +210,27 @@ AcpiOsTerminate (
  * ACPI Table interfaces
  */
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsGetRootPointer
-ACPI_PHYSICAL_ADDRESS
+OS_DLL_FUNC ACPI_PHYSICAL_ADDRESS
 AcpiOsGetRootPointer (
     void);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsPredefinedOverride
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsPredefinedOverride (
     const ACPI_PREDEFINED_NAMES *InitVal,
     ACPI_STRING                 *NewVal);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsTableOverride
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsTableOverride (
     ACPI_TABLE_HEADER       *ExistingTable,
     ACPI_TABLE_HEADER       **NewTable);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsPhysicalTableOverride
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsPhysicalTableOverride (
     ACPI_TABLE_HEADER       *ExistingTable,
     ACPI_PHYSICAL_ADDRESS   *NewAddress,
@@ -242,25 +242,25 @@ AcpiOsPhysicalTableOverride (
  * Spinlock primitives
  */
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsCreateLock
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsCreateLock (
     ACPI_SPINLOCK           *OutHandle);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsDeleteLock
-void
+OS_DLL_FUNC void
 AcpiOsDeleteLock (
     ACPI_SPINLOCK           Handle);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsAcquireLock
-ACPI_CPU_FLAGS
+OS_DLL_FUNC ACPI_CPU_FLAGS
 AcpiOsAcquireLock (
     ACPI_SPINLOCK           Handle);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsReleaseLock
-void
+OS_DLL_FUNC void
 AcpiOsReleaseLock (
     ACPI_SPINLOCK           Handle,
     ACPI_CPU_FLAGS          Flags);
@@ -271,7 +271,7 @@ AcpiOsReleaseLock (
  * Semaphore primitives
  */
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsCreateSemaphore
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsCreateSemaphore (
     UINT32                  MaxUnits,
     UINT32                  InitialUnits,
@@ -279,13 +279,13 @@ AcpiOsCreateSemaphore (
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsDeleteSemaphore
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsDeleteSemaphore (
     ACPI_SEMAPHORE          Handle);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsWaitSemaphore
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsWaitSemaphore (
     ACPI_SEMAPHORE          Handle,
     UINT32                  Units,
@@ -293,7 +293,7 @@ AcpiOsWaitSemaphore (
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsSignalSemaphore
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsSignalSemaphore (
     ACPI_SEMAPHORE          Handle,
     UINT32                  Units);
@@ -307,26 +307,26 @@ AcpiOsSignalSemaphore (
 #if (ACPI_MUTEX_TYPE != ACPI_BINARY_SEMAPHORE)
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsCreateMutex
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsCreateMutex (
     ACPI_MUTEX              *OutHandle);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsDeleteMutex
-void
+OS_DLL_FUNC void
 AcpiOsDeleteMutex (
     ACPI_MUTEX              Handle);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsAcquireMutex
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsAcquireMutex (
     ACPI_MUTEX              Handle,
     UINT16                  Timeout);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsReleaseMutex
-void
+OS_DLL_FUNC void
 AcpiOsReleaseMutex (
     ACPI_MUTEX              Handle);
 #endif
@@ -338,7 +338,7 @@ AcpiOsReleaseMutex (
  * Memory allocation and mapping
  */
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsAllocate
-void *
+OS_DLL_FUNC void *
 AcpiOsAllocate (
     ACPI_SIZE               Size);
 #endif
@@ -350,27 +350,27 @@ AcpiOsAllocateZeroed (
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsFree
-void
+OS_DLL_FUNC void
 AcpiOsFree (
     void *                  Memory);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsMapMemory
-void *
+OS_DLL_FUNC void *
 AcpiOsMapMemory (
     ACPI_PHYSICAL_ADDRESS   Where,
     ACPI_SIZE               Length);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsUnmapMemory
-void
+OS_DLL_FUNC void
 AcpiOsUnmapMemory (
     void                    *LogicalAddress,
     ACPI_SIZE               Size);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsGetPhysicalAddress
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsGetPhysicalAddress (
     void                    *LogicalAddress,
     ACPI_PHYSICAL_ADDRESS   *PhysicalAddress);
@@ -381,6 +381,9 @@ AcpiOsGetPhysicalAddress (
  * Memory/Object Cache
  */
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsCreateCache
+#ifndef ACPI_USE_LOCAL_CACHE
+OS_DLL_FUNC
+#endif
 ACPI_STATUS
 AcpiOsCreateCache (
     char                    *CacheName,
@@ -390,24 +393,36 @@ AcpiOsCreateCache (
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsDeleteCache
+#ifndef ACPI_USE_LOCAL_CACHE
+OS_DLL_FUNC
+#endif
 ACPI_STATUS
 AcpiOsDeleteCache (
     ACPI_CACHE_T            *Cache);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsPurgeCache
+#ifndef ACPI_USE_LOCAL_CACHE
+OS_DLL_FUNC
+#endif
 ACPI_STATUS
 AcpiOsPurgeCache (
     ACPI_CACHE_T            *Cache);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsAcquireObject
+#ifndef ACPI_USE_LOCAL_CACHE
+OS_DLL_FUNC
+#endif
 void *
 AcpiOsAcquireObject (
     ACPI_CACHE_T            *Cache);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsReleaseObject
+#ifndef ACPI_USE_LOCAL_CACHE
+OS_DLL_FUNC
+#endif
 ACPI_STATUS
 AcpiOsReleaseObject (
     ACPI_CACHE_T            *Cache,
@@ -419,7 +434,7 @@ AcpiOsReleaseObject (
  * Interrupt handlers
  */
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsInstallInterruptHandler
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsInstallInterruptHandler (
     UINT32                  InterruptNumber,
     ACPI_OSD_HANDLER        ServiceRoutine,
@@ -427,7 +442,7 @@ AcpiOsInstallInterruptHandler (
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsRemoveInterruptHandler
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsRemoveInterruptHandler (
     UINT32                  InterruptNumber,
     ACPI_OSD_HANDLER        ServiceRoutine);
@@ -438,13 +453,13 @@ AcpiOsRemoveInterruptHandler (
  * Threads and Scheduling
  */
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsGetThreadId
-ACPI_THREAD_ID
+OS_DLL_FUNC ACPI_THREAD_ID
 AcpiOsGetThreadId (
     void);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsExecute
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsExecute (
     ACPI_EXECUTE_TYPE       Type,
     ACPI_OSD_EXEC_CALLBACK  Function,
@@ -452,19 +467,19 @@ AcpiOsExecute (
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsWaitEventsComplete
-void
+OS_DLL_FUNC void
 AcpiOsWaitEventsComplete (
     void);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsSleep
-void
+OS_DLL_FUNC void
 AcpiOsSleep (
     UINT64                  Milliseconds);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsStall
-void
+OS_DLL_FUNC void
 AcpiOsStall (
     UINT32                  Microseconds);
 #endif
@@ -474,7 +489,7 @@ AcpiOsStall (
  * Platform and hardware-independent I/O interfaces
  */
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsReadPort
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsReadPort (
     ACPI_IO_ADDRESS         Address,
     UINT32                  *Value,
@@ -482,7 +497,7 @@ AcpiOsReadPort (
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsWritePort
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsWritePort (
     ACPI_IO_ADDRESS         Address,
     UINT32                  Value,
@@ -494,7 +509,7 @@ AcpiOsWritePort (
  * Platform and hardware-independent physical memory interfaces
  */
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsReadMemory
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsReadMemory (
     ACPI_PHYSICAL_ADDRESS   Address,
     UINT64                  *Value,
@@ -502,7 +517,7 @@ AcpiOsReadMemory (
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsWriteMemory
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsWriteMemory (
     ACPI_PHYSICAL_ADDRESS   Address,
     UINT64                  Value,
@@ -516,7 +531,7 @@ AcpiOsWriteMemory (
  * certain compilers complain.
  */
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsReadPciConfiguration
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsReadPciConfiguration (
     ACPI_PCI_ID             *PciId,
     UINT32                  Reg,
@@ -525,7 +540,7 @@ AcpiOsReadPciConfiguration (
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsWritePciConfiguration
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsWritePciConfiguration (
     ACPI_PCI_ID             *PciId,
     UINT32                  Reg,
@@ -538,34 +553,34 @@ AcpiOsWritePciConfiguration (
  * Miscellaneous
  */
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsReadable
-BOOLEAN
+OS_DLL_FUNC BOOLEAN
 AcpiOsReadable (
     void                    *Pointer,
     ACPI_SIZE               Length);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsWritable
-BOOLEAN
+OS_DLL_FUNC BOOLEAN
 AcpiOsWritable (
     void                    *Pointer,
     ACPI_SIZE               Length);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsGetTimer
-UINT64
+OS_DLL_FUNC UINT64
 AcpiOsGetTimer (
     void);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsSignal
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsSignal (
     UINT32                  Function,
     void                    *Info);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsEnterSleep
-ACPI_STATUS
+OS_DLL_FUNC ACPI_STATUS
 AcpiOsEnterSleep (
     UINT8                   SleepState,
     UINT32                  RegaValue,
@@ -577,14 +592,14 @@ AcpiOsEnterSleep (
  * Debug print routines
  */
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsPrintf
-void ACPI_INTERNAL_VAR_XFACE
+OS_DLL_FUNC void ACPI_INTERNAL_VAR_XFACE
 AcpiOsPrintf (
     const char              *Format,
     ...);
 #endif
 
 #ifndef ACPI_USE_ALTERNATE_PROTOTYPE_AcpiOsVprintf
-void
+OS_DLL_FUNC void
 AcpiOsVprintf (
     const char              *Format,
     va_list                 Args);
