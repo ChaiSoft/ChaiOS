@@ -116,6 +116,7 @@
       <BaseAddress>0xFFFFC00000000000</BaseAddress>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
       <Driver>Driver</Driver>
+      <StackReserveSize>0x100000</StackReserveSize>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -151,6 +152,7 @@
       <BaseAddress>0xC0000000</BaseAddress>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
       <Driver>Driver</Driver>
+      <StackReserveSize>0x100000</StackReserveSize>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -186,6 +188,7 @@
       <BaseAddress>0xFFFFC00000000000</BaseAddress>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
       <Driver>Driver</Driver>
+      <StackReserveSize>0x100000</StackReserveSize>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -222,12 +225,18 @@
       <BaseAddress>0xC0000000</BaseAddress>
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
       <Driver>Driver</Driver>
+      <StackReserveSize>0x100000</StackReserveSize>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="acpihelp.cpp" />
     <ClCompile Include="arch\paging_x64.cpp" />
+    <ClCompile Include="arch\x64\apic.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="arch\x64\cpu_x64.cpp" />
+    <ClCompile Include="kdraw.cpp" />
     <ClCompile Include="kentry.cpp" />
     <ClCompile Include="kgraphics.cpp" />
     <ClCompile Include="multiprocessor.cpp">
@@ -236,25 +245,37 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="pciexpress.cpp" />
     <ClCompile Include="pmmngr.cpp" />
+    <ClCompile Include="scheduler.cpp" />
     <ClCompile Include="spinlock.cpp" />
     <ClCompile Include="uefihelper.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\Include\arch\cpu.h" />
+    <ClInclude Include="..\Include\chaikrnl.h" />
     <ClInclude Include="..\Include\kernelinfo.h" />
     <ClInclude Include="..\Include\kgraphics.h" />
+    <ClInclude Include="..\Include\spinlock.h" />
     <ClInclude Include="acpihelp.h" />
-    <ClInclude Include="arch\cpu.h" />
     <ClInclude Include="arch\paging.h" />
-    <ClInclude Include="chaikrnl.h" />
+    <ClInclude Include="arch\x64\apic.h" />
+    <ClInclude Include="asciifont.h" />
+    <ClInclude Include="kdraw.h" />
     <ClInclude Include="multiprocessor.h" />
+    <ClInclude Include="pciexpress.h" />
     <ClInclude Include="pmmngr.h" />
     <ClInclude Include="redblack.h" />
+    <ClInclude Include="scheduler.h" />
     <ClInclude Include="uefihelper.h" />
   </ItemGroup>
   <ItemGroup>
     <NASM Include="arch\x64\asm_x64.asm">
       <FileType>Document</FileType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </NASM>
+    <NASM Include="arch\x64\interrupts_x64.asm">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </NASM>

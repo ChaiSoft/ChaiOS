@@ -419,6 +419,13 @@ static void link_image(KLOAD_HANDLE image)
 	}
 }
 
+size_t GetStackSize(KLOAD_HANDLE image)
+{
+	PIMAGE_DOS_HEADER dosHeader = (PIMAGE_DOS_HEADER)image;
+	PIMAGE_NT_HEADERS ntHeaders = raw_offset<PIMAGE_NT_HEADERS>(dosHeader, dosHeader->e_lfanew);
+	return ntHeaders->OptionalHeader.SizeOfStackReserve;
+}
+
 KLOAD_HANDLE LoadImage(void* filebuf, const char16_t* filename)
 {
 	PIMAGE_DOS_HEADER dosHeader = (PIMAGE_DOS_HEADER)filebuf;

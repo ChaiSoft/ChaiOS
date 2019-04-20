@@ -1,5 +1,6 @@
 #include <Uefi.h>
 #include "kterm.h"
+#include "kdraw.h"
 #include "uefilib.h"
 #include "liballoc.h"
 #include "assembly.h"
@@ -148,7 +149,12 @@ static bool match_config_resoultion(UINT32 Mode, EFI_GRAPHICS_OUTPUT_MODE_INFORM
 	return info->HorizontalResolution == graphics_width && info->VerticalResolution == graphics_height;
 }
 
+#ifdef X64
+void* stackaddr = (void*)0xFFFFE00000000000;
 void* heapaddr = (void*)0xFFFFD80000000000;
+#else
+#error "Unknown architecture"
+#endif
 static void* arch_allocate_pages(size_t numPages)
 {
 	if (!paging_map(heapaddr, PADDR_T_MAX, numPages*PAGESIZE, PAGE_ATTRIBUTE_WRITABLE))
@@ -272,6 +278,7 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	//Now load the OS!
 	bootfile = nullptr;
 	kimage_entry kentry = nullptr;
+	KLOAD_HANDLE kernel = NULL;
 	while (bootfile = iterateBootFiles(bootfile))
 	{
 		printf(u"Boot file: %s @ %x, length %d, type %d\n", bootfile->fileName, bootfile->loadLocation, bootfile->fileSize, bootfile->bootType);
@@ -280,18 +287,32 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 		if (bootfile->bootType == CHAIOS_DLL)
 		{
 			KLOAD_HANDLE dll = LoadImage(bootfile->loadLocation, bootfile->fileName);
+			if (GetProcAddress(dll, "memcpy"))
+			{
+				set_memcpy((memcpy_proc)GetProcAddress(dll, "memcpy"));
+			}
 		}
 		else if (bootfile->bootType == CHAIOS_KERNEL)
 		{
-			KLOAD_HANDLE kernel = LoadImage(bootfile->loadLocation, bootfile->fileName);
+			kernel = LoadImage(bootfile->loadLocation, bootfile->fileName);
 			kentry = GetEntryPoint(kernel);
 		}
 	}
+
+	size_t kstacksize = GetStackSize(kernel);
+
+	if (!paging_map(stackaddr, PADDR_T_MAX, kstacksize, PAGE_ATTRIBUTE_WRITABLE))
+	{
+		puts(u"Error: could not allocate kernel stack\n");
+		while (1);
+	}
+
 	KERNEL_BOOT_INFO bootinfo;
 	fill_pmmngr_info(bootinfo.pmmngr_info);
 	fill_arch_paging_info(bootinfo.paging_info);
 	fill_modloader_info(bootinfo.modloader_info);
 	get_framebuffer_info(bootinfo.fbinfo);
+	populate_kterm_info(bootinfo.kterm_status);
 	bootinfo.efi_system_table = SystemTable;
 	bootinfo.memory_map = &map;
 	bootinfo.loaded_files = &bootfiles;
@@ -299,8 +320,8 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	bootinfo.printf_proc = &printf;
 	bootinfo.puts_proc = &puts;
 
-	printf(u"Success: Kernel entry point at %x\n", kentry);
-	kentry(&bootinfo);
+	printf(u"Success: Kernel entry point at %x, stack at %x, length %x\n", kentry, stackaddr, kstacksize);
+	call_kernel(&bootinfo, kentry, stackaddr, kstacksize);
 	puts(u"Kernel returned");
 	while (1);
 }

@@ -215,3 +215,19 @@ global write_cr0
 write_cr0:
 mov cr0, rcx
 ret
+
+global call_kernel
+call_kernel:
+;RCX: param (just pass this directly)
+;RDX: kernel entry
+;R8: kernel stack
+;R9: stack size
+add r8, r9
+sub r8, 0x28
+mov rsp, r8
+push rbp
+mov rbp, rsp
+sub rsp, 32
+call rdx
+jmp $
+ret

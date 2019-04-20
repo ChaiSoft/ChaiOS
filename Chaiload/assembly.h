@@ -38,6 +38,7 @@ uint64_t rdmsr(size_t reg);
 void wrmsr(size_t reg, uint64_t val);
 size_t read_cr0();
 void write_cr0(size_t);
+void call_kernel(void* param, void* entry, void* stack, size_t stacksz);
 
 #ifdef __cplusplus
 }

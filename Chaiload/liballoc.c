@@ -827,6 +827,8 @@ void*   PREFIX(realloc)(void *p, size_t size)
 	return ptr;
 }
 
+
+
 int liballoc_lock()
 {
 	return 0;

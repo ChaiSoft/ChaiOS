@@ -1,8 +1,10 @@
 #ifndef CHAIOS_KCSTDLIB_H
 #define CHAIOS_KCSTDLIB_H
 
-#ifndef EXTERN
+#ifdef __cplusplus
 #define EXTERN extern "C"
+#else
+#define EXTERN
 #endif
 
 #ifndef DLLEXPORT

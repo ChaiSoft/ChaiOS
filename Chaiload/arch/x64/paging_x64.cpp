@@ -49,7 +49,6 @@ static PML4_ENTRY* getPML4(void* addr)
 	}
 	return (PML4_ENTRY*)pml4ptr;
 }
-
 static size_t getPML4index(void* addr)
 {
 	return (decanonical(addr) >> 39) & 0x1FF;

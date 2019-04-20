@@ -51,13 +51,22 @@
     <ClCompile Include="multiprocessor.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="kdraw.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="arch\x64\apic.cpp">
+      <Filter>arch\x64</Filter>
+    </ClCompile>
+    <ClCompile Include="pciexpress.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="scheduler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Include\kernelinfo.h">
       <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="arch\cpu.h">
-      <Filter>arch</Filter>
     </ClInclude>
     <ClInclude Include="..\Include\kgraphics.h">
       <Filter>Header Files</Filter>
@@ -80,12 +89,36 @@
     <ClInclude Include="redblack.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="chaikrnl.h">
+    <ClInclude Include="kdraw.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="asciifont.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="arch\x64\apic.h">
+      <Filter>arch\x64</Filter>
+    </ClInclude>
+    <ClInclude Include="pciexpress.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\spinlock.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\chaikrnl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\arch\cpu.h">
+      <Filter>arch</Filter>
+    </ClInclude>
+    <ClInclude Include="scheduler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <NASM Include="arch\x64\asm_x64.asm">
+      <Filter>arch\x64</Filter>
+    </NASM>
+    <NASM Include="arch\x64\interrupts_x64.asm">
       <Filter>arch\x64</Filter>
     </NASM>
   </ItemGroup>

@@ -52,3 +52,39 @@ sub r8, 8
 jmp .loop
 .end:
 ret
+
+export memset
+global memset
+memset:
+push rdi
+mov rdi, rcx
+mov rax, rdx
+mov rcx, r8
+rep stosb
+pop rdi
+ret
+
+export memcmp
+global memcmp
+memcmp:
+push rsi
+push rdi
+push rcx
+mov rsi, rcx
+mov rdi, rdx
+mov rcx, r8
+repz cmpsb
+mov rax, -1
+mov rcx, 1
+mov rdx, 0
+;cmovl rax, rax
+cmovg rax, rcx
+cmove rax, rdx
+pop rax
+pop rdi
+pop rsi
+ret
+
+mone: dq -1
+one: dq 1
+zero: dq 0

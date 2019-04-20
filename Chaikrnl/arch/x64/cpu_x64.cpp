@@ -1,5 +1,7 @@
 #include <arch/cpu.h>
 #include <kstdio.h>
+#include <redblack.h>
+#include <arch/paging.h>
 
 extern "C" size_t x64_read_cr0();
 extern "C" size_t x64_read_cr2();
@@ -23,9 +25,13 @@ extern "C" void x64_fxrstor(size_t* location);
 
 extern "C" void x64_lgdt(void* location);
 extern "C" void x64_sgdt(void* location);
+extern "C" void x64_lidt(void* location);
+extern "C" void x64_sidt(void* location);
+extern "C" void x64_ltr(uint16_t seg);
 
-extern "C" void (*x64_save_fpu)(size_t* location) = nullptr;
-extern "C" void(*x64_restore_fpu)(size_t* location) = nullptr;
+typedef void(*fpu_state_proc)(size_t* location);
+extern "C" fpu_state_proc x64_save_fpu = nullptr;
+extern "C" fpu_state_proc x64_restore_fpu = nullptr;
 
 extern "C" uint16_t x64_get_segment_register(size_t reg);
 extern "C" void x64_set_segment_register(size_t reg, uint16_t val);
@@ -46,6 +52,18 @@ extern "C" void x64_pause();
 extern "C" void x64_invlpg(void*);
 extern "C" void x64_mfence();
 extern "C" void x64_cacheflush();
+extern "C" uint8_t x64_gs_readb(size_t offset);
+extern "C" uint16_t x64_gs_readw(size_t offset);
+extern "C" uint32_t x64_gs_readd(size_t offset);
+extern "C" uint64_t x64_gs_readq(size_t offset);
+extern "C" void x64_gs_writeb(size_t offset, uint8_t val);
+extern "C" void x64_gs_writew(size_t offset, uint16_t val);
+extern "C" void x64_gs_writed(size_t offset, uint32_t val);
+extern "C" void x64_gs_writeq(size_t offset, uint64_t val);
+extern "C" size_t x64_context_size;
+extern "C" int x64_save_context(context_t context);
+extern "C" void x64_load_context(context_t context, int value);
+extern "C" void x64_new_context(context_t context, void* stackptr, void* entry);
 
 enum sregs {
 	SREG_CS,
@@ -58,6 +76,7 @@ enum sregs {
 
 extern "C" size_t xmask = 0;
 extern "C" size_t xsavearea_size = 0;
+extern "C" size_t x64_avx_level = 0;
 
 #define IA32_EFER 0xC0000080
 
@@ -143,6 +162,26 @@ static uint16_t oldsregs[8];
 #define GDT_ACCESS_RW 0x2
 #define GDT_ACCESS_AC 0x1
 
+#define MSR_IA32_MTRRCAP 0xFE
+#define MSR_IA32_MTRRBASE 0x200
+#define MSR_IA32_PAT 0x277
+#define MSR_IA32_MTRR_DEF_TYPE 0x2FF
+
+#define MSR_IA32_MISC_ENABLE 0x1A0
+#define MSR_IA32_ENERGY_PERF_BIAS 0x1B0
+#define MSR_IA32_PERF_CTL 0x199
+#define MSR_IA32_PERF_STATUS 0x198
+#define MSR_IA32_PM_ENABLE 0x770
+#define MSR_IA32_HWP_CAPABILITIES 0x771
+#define MSR_IA32_HWP_REQUEST_PKG 0x772
+#define MSR_IA32_HWP_INTERRUPT 0x773
+#define MSR_IA32_HWP_REQUEST 0x774
+#define MSR_IA32_HWP_PECI_REQUEST_INFO 0x775
+#define MSR_IA32_HWP_STATUS 0x777
+#define MSR_IA32_FS_BASE 0xC0000100
+#define MSR_IA32_GS_BASE 0xC0000101
+#define MSR_IA32_KERNELGS_BASE 0xC0000102
+
 static void set_gdt_entry(gdt_entry& entry, size_t base, size_t limit, uint8_t access, uint8_t flags)
 {
 	entry.base_low = base & 0xFFFF;
@@ -194,6 +233,73 @@ static void load_default_sregs()
 	x64_set_segment_register(SREG_GS, SEGVAL(GDT_ENTRY_KERNEL_DATA, 0));
 }
 
+static void x64_performance_features()
+{
+	size_t max_cpuid = max_cpuid_page();
+	uint64_t misc_enable = x64_rdmsr(MSR_IA32_MISC_ENABLE);
+	if (max_cpuid >= 1)
+	{
+		size_t a, b, c, d;
+		x64_cpuid(1, &a, &b, &c, &d);
+		if ((c & (1 << 7)) != 0)
+		{
+			//SpeedStep
+			misc_enable |= (1 << 16);
+		}
+	}
+	if (max_cpuid >= 6)
+	{
+		//Thermal and performance page
+		size_t a, b, c, d;
+		x64_cpuid(6, &a, &b, &c, &d);
+		if ((a & (1 << 1)) != 0)
+		{
+			//TurboBoost
+			uint64_t val = x64_rdmsr(MSR_IA32_PERF_CTL) & 0xFFFF;
+			x64_wrmsr(MSR_IA32_PERF_CTL, val);
+		}
+		if ((c & (1 << 3)) != 0)
+		{
+			//We have the performance msr
+			x64_wrmsr(MSR_IA32_ENERGY_PERF_BIAS, 0);	//Maximum performance
+		}
+		if ((a & (1 << 7)) != 0)
+		{
+			//HWP
+			//Disable interrupts for now
+			if((a & (1<<8)) != 0)
+				x64_wrmsr(MSR_IA32_HWP_INTERRUPT, 0);
+			x64_wrmsr(MSR_IA32_PM_ENABLE, 1);
+			//Set for highest performance
+			uint64_t perf_caps = x64_rdmsr(MSR_IA32_HWP_CAPABILITIES);
+			uint8_t max_perf_value = perf_caps & 0xFF;
+			uint8_t min_perf_value = (perf_caps >> 24) & 0xFF;
+			uint64_t requested_perf = min_perf_value | ((size_t)max_perf_value << 8);
+			//Bits 24 to 31 0 for maximum perfomance, 32 to 41 0 for hardware calculation
+			x64_wrmsr(MSR_IA32_HWP_REQUEST, requested_perf);
+			if((a & (1<<11)) != 0)
+				x64_wrmsr(MSR_IA32_HWP_REQUEST_PKG, requested_perf);
+			if ((a & (1 << 16)) != 0)
+			{
+				uint64_t peci = x64_rdmsr(MSR_IA32_HWP_PECI_REQUEST_INFO);
+				if ((peci & (1ui64 << 63)) != 0)
+				{
+					kprintf(u"PECI minimum override active: %d\n", peci & 0xFF);
+				}
+				if ((peci & (1ui64 << 62)) != 0)
+				{
+					kprintf(u"PECI maximum override active: %d\n", (peci>>8) & 0xFF);
+				}
+				if ((peci & (1ui64 << 60)) != 0)
+				{
+					kprintf(u"PECI preference override active: %d\n", (peci >> 24) & 0xFF);
+				}
+			}
+		}
+	}
+	x64_wrmsr(MSR_IA32_MISC_ENABLE, misc_enable);
+}
+
 extern "C" void arch_cpu_init()
 {
 	size_t cr0 = x64_read_cr0();
@@ -223,12 +329,16 @@ extern "C" void arch_cpu_init()
 		size_t cr4 = x64_read_cr4();
 		cr4 |= (1 << 10);		//OSXMMEXCPT
 		//SSE supported. Check for fxsave or xsave
+		static fpu_state_proc best_save = nullptr;
+		static fpu_state_proc best_restore = nullptr;
+		static size_t saveareasz = 0;
 		if ((d & (1 << 24)) != 0)
 		{
 			//FXSAVE support
 			cr4 |= (1 << 9);
-			x64_save_fpu = &x64_fxsave;
-			xsavearea_size = 512;
+			best_save = &x64_fxsave;
+			best_restore = &x64_fxrstor;
+			saveareasz = 512;
 		}
 		if ((c & (1 << 26)) != 0)
 		{
@@ -239,24 +349,35 @@ extern "C" void arch_cpu_init()
 			xcr0 |= 3;
 			//Check for AVX
 			if ((c & (1 << 28)) != 0)
+			{
 				xcr0 |= 7;		//AVX enable
+				x64_avx_level = 1;
+			}
 			//Check for AVX-512
 			if (max_cpuid >= 0xD)
 			{
 				size_t ax, bx, cx, dx;
 				x64_cpuid(0xD, &ax, &bx, &cx, &dx, 0);
 				xcr0 |= (ax&(7<<5));		//All supported bits of AVX 512 state
-				xsavearea_size = bx;		//Maximum xsave area size
+				saveareasz = bx;		//Maximum xsave area size
 			}
 			else
 			{
-				xsavearea_size = ((xcr0 & 4) != 0) ? 576 : 1088;
+				saveareasz = ((xcr0 & 4) != 0) ? 576 : 1088;
 			}
-			x64_save_fpu = &x64_xsave;
+			best_save = &x64_xsave;
+			best_restore = &x64_xrstor;
 			x64_write_xcr0(xcr0);
 			xmask = xcr0;
 		}
 		x64_write_cr4(cr4);
+		if (arch_is_bsp())
+		{
+			x64_save_fpu = best_save;
+			x64_restore_fpu = best_restore;
+			xsavearea_size = saveareasz;
+			kprintf(u"Setting FPU functions: %x, %x. Length %d\n", best_save, best_restore, saveareasz);
+		}
 	}
 	//SMEP and SMAP
 	if (max_cpuid >= 7)
@@ -280,6 +401,18 @@ extern "C" void arch_cpu_init()
 	efer |= (1 << 11);		//NXE
 	efer |= 1;				//SCE
 	x64_wrmsr(IA32_EFER, efer);
+	//Performance stuff
+	x64_performance_features();
+	if (!arch_is_bsp())
+	{
+		//Copy the GDT
+		gdtr* new_gdtr = new gdtr;
+		gdt_entry* new_gdt = new gdt_entry[GDT_ENTRIES];
+		fill_gdt(new_gdt);
+		new_gdtr->gdtaddr = new_gdt;
+		new_gdtr->size = GDT_ENTRIES * sizeof(gdt_entry) - 1;
+		x64_lgdt(new_gdtr);
+	}
 }
 
 size_t arch_read_port(size_t port, uint8_t width)
@@ -574,8 +707,278 @@ size_t iterate_cpu_caches(cpu_cache_callback callback)
 	return cache_info_dispatch(0, CACHE_TYPE_UNKNOWN, wanted_iterate, callback);
 }
 
+void arch_set_paging_root(size_t root)
+{
+	x64_write_cr3(root);
+}
+
+#pragma pack(push, 1)
+struct IDT {
+	uint16_t offset_1; // offset bits 0..15
+	uint16_t selector; // a code segment selector in GDT or LDT
+	uint8_t ist;       // bits 0..2 holds Interrupt Stack Table offset, rest of bits zero.
+	uint8_t type_attr; // type and attributes
+	uint16_t offset_2; // offset bits 16..31
+	uint32_t offset_3; // offset bits 32..63
+	uint32_t zero;     // reserved
+};
+struct IDTR {
+	uint16_t length;
+	void* idtaddr;
+};
+struct TSS {
+	uint32_t reserved;
+	size_t rsp[3];
+	size_t reserved2;
+	size_t IST[7];
+	size_t resv3;
+	uint16_t resv4;
+	uint16_t iomapbase;
+};
+struct interrupt_stack_frame {
+	size_t error;
+	size_t rip;
+	size_t cs;
+	size_t rflags;
+	size_t rsp;
+	size_t ss;
+};
+#pragma pack(pop)
+
+static void register_irq(IDT* entry, void* fn)
+{
+	size_t faddr = (size_t)fn;
+	entry->offset_1 = faddr & UINT16_MAX;
+	entry->offset_2 = (faddr >> 16) & UINT16_MAX;
+	entry->offset_3 = (faddr >> 32) & UINT32_MAX;
+}
+
+static RedBlackTree<uint32_t, arch_interrupt_subsystem*> interrupt_subsystems;
+
+extern "C" extern void* default_irq_handlers[];
+struct dispatch_data {
+	void* func;
+	void* param;
+	void(*post_event)();
+};
+static dispatch_data dispatch_funcs[256] = { {nullptr, nullptr} };
+
+extern "C" void x64_interrupt_dispatcher(size_t vector, interrupt_stack_frame* stack_frame)
+{
+	if (!dispatch_funcs[vector].func)
+	{
+		kprintf(u"An unknown interrupt occurred: %x\n", vector);
+		kprintf(u"Error code: %x\n", stack_frame->error);
+		kprintf(u"Return address: %x:%x\n", stack_frame->cs, stack_frame->rip);
+		while (1);
+	}
+	dispatch_interrupt_handler handler = reinterpret_cast<dispatch_interrupt_handler>(dispatch_funcs[vector].func);
+	void* param = dispatch_funcs[vector].param;
+	if (!param)
+		param = stack_frame;
+	handler(vector, param);
+	if (dispatch_funcs[vector].post_event)
+		dispatch_funcs[vector].post_event();
+}
+
+extern "C" uint8_t page_fault_handler(size_t vector, void* param)
+{
+	interrupt_stack_frame* frame = (interrupt_stack_frame*)param;
+	kputs(u"A page fault occurred\n");
+	kprintf(u"Error accessing address %x\n", x64_read_cr2());
+	kprintf(u"Error code: %x\n", frame->error);
+	kprintf(u"Return address: %x:%x\n", frame->cs, frame->rip);
+	while (1);
+}
+
+void register_native_irq(size_t vector, void* fn, void* param)
+{
+	IDTR current_idt;
+	x64_sidt(&current_idt);
+	IDT* idt = reinterpret_cast<IDT*>(current_idt.idtaddr);
+	register_irq(&idt[vector], fn);
+}
+
+void register_native_postevt(size_t vector, void(*evt)())
+{
+	//Unsupported
+}
+
+static arch_interrupt_subsystem subsystem_native
+{
+	&register_native_irq,
+	&register_native_postevt
+};
+
+void register_dispatch_irq(size_t vector, void* fn, void* param)
+{
+	dispatch_funcs[vector].func = fn;
+	dispatch_funcs[vector].param = param;
+	dispatch_funcs[vector].post_event = nullptr;
+}
+
+void register_dispatch_postevt(size_t vector, void(*evt)())
+{
+	dispatch_funcs[vector].post_event = evt;
+}
+
+static arch_interrupt_subsystem subsystem_dispatch
+{
+	&register_dispatch_irq,
+	&register_dispatch_postevt
+};
+
+#include <arch/x64/apic.h>
+
+static volatile bool bsp_set = false;
+static volatile uint32_t bsp = 0;
+uint8_t arch_is_bsp()
+{
+	if (!bsp_set)
+	{
+		bsp_set = true;
+		bsp = arch_current_processor_id();
+	}
+	return bsp == arch_current_processor_id();
+}
+
+uint64_t arch_read_per_cpu_data(uint32_t offset, uint8_t width)
+{
+	switch (width)
+	{
+	case 8:
+		return x64_gs_readb(offset);
+	case 16:
+		return x64_gs_readw(offset);
+	case 32:
+		return x64_gs_readd(offset);
+	case 64:
+		return x64_gs_readq(offset);
+	}
+	return 0;
+}
+void arch_write_per_cpu_data(uint32_t offset, uint8_t width, uint64_t value)
+{
+	switch (width)
+	{
+	case 8:
+		return x64_gs_writeb(offset, value);
+	case 16:
+		return x64_gs_writew(offset, value);
+	case 32:
+		return x64_gs_writed(offset, value);
+	case 64:
+		return x64_gs_writeq(offset, value);
+	}
+}
+
+void arch_setup_interrupts()
+{
+	//Create the TSS for this CPU
+	TSS* cpu_tss = new TSS;
+	cpu_tss->iomapbase = sizeof(TSS);
+	size_t tss_addr = (size_t)cpu_tss;
+	gdtr curr_gdt;
+	x64_sgdt(&curr_gdt);
+	gdt_entry* the_gdt = curr_gdt.gdtaddr;
+	set_gdt_entry(the_gdt[GDT_ENTRY_TSS], tss_addr & UINT32_MAX, sizeof(TSS), GDT_ACCESS_PRESENT | 0x9, 0);
+	*(uint64_t*)&the_gdt[GDT_ENTRY_TSS + 1] = (tss_addr >> 32);
+	x64_ltr(SEGVAL(GDT_ENTRY_TSS, 0));
+	//Create per-cpu structure
+	per_cpu_data* cpu_data = new per_cpu_data;
+	//Because we're in kernel mode, GS is active
+	x64_wrmsr(MSR_IA32_GS_BASE, (size_t)cpu_data);
+	x64_wrmsr(MSR_IA32_KERNELGS_BASE, 0);
+	pcpu_data.cpuid = arch_current_processor_id();
+	//Setup an IDT. We maintain a seperate IDT for each CPU, so allocation is dynamic
+	IDT* the_idt = new IDT[256];
+	IDTR* idtr = new IDTR;
+	idtr->idtaddr = the_idt;
+	idtr->length = 256 * sizeof(IDT) - 1;
+	x64_lidt(idtr);
+	for (size_t n = 0; n < 256; ++n)
+	{
+		the_idt[n].ist = 0;
+		the_idt[n].selector = SEGVAL(GDT_ENTRY_KERNEL_CODE, 0);
+		the_idt[n].zero = 0;
+		the_idt[n].type_attr = GDT_ACCESS_PRESENT | 0xE;
+		register_irq(&the_idt[n], default_irq_handlers[n]);
+	}
+	delete idtr;
+	if (arch_is_bsp())
+	{
+		//Register interrupt subsystems
+		arch_register_interrupt_subsystem(INTERRUPT_SUBSYSTEM_NATIVE, &subsystem_native);
+		arch_register_interrupt_subsystem(INTERRUPT_SUBSYSTEM_DISPATCH, &subsystem_dispatch);
+	}
+	//Now set up the interrupt controller, so we don't die for no apparent reason
+	x64_init_apic();
+	x64_restore_flags(x64_disable_interrupts() | (1<<9));
+	if (arch_is_bsp())
+	{
+		arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, 0xE, &page_fault_handler, nullptr);
+	}
+}
+
+CHAIKRNL_FUNC void arch_register_interrupt_subsystem(uint32_t subsystem, arch_interrupt_subsystem* system)
+{
+	interrupt_subsystems[subsystem] = system;
+}
+
+CHAIKRNL_FUNC void arch_register_interrupt_handler(uint32_t subsystem, size_t vector, void* fn, void* param)
+{
+	interrupt_subsystems[subsystem]->register_irq(vector, fn, param);
+}
+
+CHAIKRNL_FUNC void arch_install_interrupt_post_event(uint32_t subsystem, size_t vector, void(*evt)())
+{
+	interrupt_subsystems[subsystem]->post_evt(vector, evt);
+}
+
+context_t context_factory()
+{
+	return (context_t)new uint8_t[x64_context_size];
+}
+void context_destroy(context_t ctx)
+{
+	delete[](uint8_t*) ctx;
+}
+int save_context(context_t ctxt)
+{
+	return x64_save_context(ctxt);
+}
+void jump_context(context_t ctxt, int value)
+{
+	x64_load_context(ctxt, value);
+}
+
+static const size_t PAGES_STACK = 16;
+
+#include <liballoc.h>
+kstack_t arch_create_kernel_stack()
+{
+	void* kstack = kmalloc(PAGES_STACK*PAGESIZE);
+	return kstack;
+}
+
+void arch_destroy_kernel_stack(kstack_t stack)
+{
+	kfree(stack);
+}
+void* arch_init_stackptr(kstack_t stack)
+{
+	return raw_offset<void*>(stack, PAGESIZE *PAGES_STACK - sizeof(void*));
+}
+
+void arch_new_thread(context_t ctxt, kstack_t stack, void* entrypt)
+{
+	void* sp = arch_init_stackptr(stack);
+	x64_new_context(ctxt, sp, entrypt);
+}
+
 void cpu_print_information()
 {
+	kprintf(u"X64 context size: %d\n", x64_context_size);
 	size_t maxcpuid, a, b, c, d;
 	x64_cpuid(0, &maxcpuid, &b, &c, &d);
 	char vendor[13];

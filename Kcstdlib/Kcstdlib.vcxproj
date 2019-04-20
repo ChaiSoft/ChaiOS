@@ -101,7 +101,7 @@
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>false</OptimizeReferences>
-      <AdditionalDependencies>Kcstdbas.lib</AdditionalDependencies>
+      <AdditionalDependencies>Kcstdbas.lib; Chaikrnl.lib</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <EnableUAC>false</EnableUAC>
       <SubSystem>Native</SubSystem>
@@ -133,7 +133,7 @@
       <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Kcstdlib;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>Kcstdbas.lib</AdditionalDependencies>
+      <AdditionalDependencies>Kcstdbas.lib; Chaikrnl.lib</AdditionalDependencies>
     </Link>
     <Link>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
@@ -168,7 +168,7 @@
       <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Kcstdlib;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>Kcstdbas.lib</AdditionalDependencies>
+      <AdditionalDependencies>Kcstdbas.lib; Chaikrnl.lib</AdditionalDependencies>
     </Link>
     <Link>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
@@ -207,7 +207,7 @@
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>false</OptimizeReferences>
-      <AdditionalDependencies>Kcstdbas.lib</AdditionalDependencies>
+      <AdditionalDependencies>Kcstdbas.lib; Chaikrnl.lib</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
       <EnableUAC>false</EnableUAC>
       <SubSystem>Native</SubSystem>
@@ -225,6 +225,7 @@
     </NASM>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="basic_string.c" />
     <ClCompile Include="kcstdlib.cpp" />
     <ClCompile Include="liballoc.c" />
     <ClCompile Include="printf.cpp" />

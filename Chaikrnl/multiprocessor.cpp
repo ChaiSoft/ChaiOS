@@ -21,7 +21,7 @@ struct cpu_data {
 struct cpu_communication {
 	spinlock_t spinlock;
 	size_t stack;
-	void(*entryfunc)(void*);
+	ap_routine entryfunc;
 	void* data;
 	uint16_t segregs[8];
 	uint8_t gdt_entry[sizeof(size_t)+2];
@@ -34,11 +34,14 @@ void ap_startup_routine(void* data)
 	volatile cpu_communication* comms = (volatile cpu_communication*)data;
 	comms->entryfunc = nullptr;
 	comms->data = nullptr;
+	arch_setup_interrupts();
 	while (1)
 	{
 		cpu_status_t stat = acquire_spinlock(comms->spinlock);
-		void(*f)(void*) = comms->entryfunc;
-		void* dat = nullptr;
+		ap_routine f = comms->entryfunc;
+		void* dat = comms->data;
+		comms->entryfunc = nullptr;
+		comms->data = nullptr;
 		release_spinlock(comms->spinlock, stat);
 		if (f != nullptr)
 		{
@@ -108,15 +111,11 @@ static const size_t addrtrampoline = 0xA000;
 struct processor_info {
 	volatile cpu_communication* comms;
 	uint32_t acpi_id;
+	bool enabled;
+	kstack_t init_stack;
 };
 typedef RedBlackTree<uint32_t, processor_info*> cputree_t;
-cputree_t cputree;
-
-static void Stall(uint32_t microseconds)
-{
-	uint64_t current = AcpiOsGetTimer();
-	while (AcpiOsGetTimer() - current < microseconds * 10);
-}
+static cputree_t cputree;
 
 static processor_info* create_info(size_t cpuidt, size_t acpid)
 {
@@ -128,288 +127,79 @@ static processor_info* create_info(size_t cpuidt, size_t acpid)
 	comms->entryfunc = 0;
 	comms->data = 0;
 
-	const size_t PAGES_STACK = 16;
-	if (void* stack = kmalloc(PAGES_STACK*PAGESIZE))
+	if (cpuidt != arch_current_processor_id())
 	{
-		stack = raw_offset<void*>(stack, PAGESIZE *PAGES_STACK - sizeof(void*));	//Stack grows downwards
-		comms->stack = (size_t)stack;
-		//printf(u"CPU %d allocated stack at %x\r\n", cpuidt, stack);
-	}
-	else
-	{
-		kprintf(u"Stack allocation for CPU %d failed\r\n", cpuidt);
-		comms->stack = 0;
+		if (kstack_t stack = arch_create_kernel_stack())
+		{
+			comms->stack = (size_t)arch_init_stackptr(stack);
+			info->init_stack = stack;
+		}
+		else
+		{
+			kprintf(u"Stack allocation for CPU %d failed\r\n", cpuidt);
+			comms->stack = 0;
+		}
 	}
 	return info;
 }
 
-size_t find_apic(ACPI_TABLE_MADT* madt)
+static void sync_cpu(uint32_t cpuid, volatile cpu_data* data)
 {
-	size_t apic = madt->Address;
-	ACPI_SUBTABLE_HEADER* madtsubs = (ACPI_SUBTABLE_HEADER*)&madt[1];
-	while ((char*)madtsubs - (char*)madt < madt->Header.Length)
+	processor_info* info = cputree[cpuid];
+	volatile cpu_communication* comms = info->comms;
+	data->rendezvous = 0;
+	if (!arch_startup_cpu(cpuid, (void*)addrtrampoline, &data->rendezvous, (size_t)comms))
 	{
-		if (madtsubs->Type == ACPI_MADT_TYPE_LOCAL_APIC_OVERRIDE)
-		{
-			ACPI_MADT_LOCAL_APIC_OVERRIDE* overr = (ACPI_MADT_LOCAL_APIC_OVERRIDE*)madtsubs;
-			apic = overr->Address;
-			break;
-		}
-		madtsubs = (ACPI_SUBTABLE_HEADER*)((char*)madtsubs + madtsubs->Length);
+		kprintf(u"CPU %d wouldn't wake: %x\r\n", cpuid, data->rendezvous);
+		delete_spinlock(comms->spinlock);
+		arch_destroy_kernel_stack(info->init_stack);
+		return;
 	}
-	return apic;
+	while (data->rendezvous);
+	//CPU now has its comms area and stack
+	//now tell it the entry point
+	arch_cas((size_t*)&comms->entryfunc, 0, (size_t)&ap_startup_routine);
+	arch_cas((size_t*)&comms->data, 0, (size_t)comms);
 }
 
-enum StartupMode {
-	APIC,
-	X2APIC
-};
-
-StartupMode get_startup_mode(ACPI_TABLE_MADT* madt)
+static void get_cpu_count(ACPI_TABLE_MADT* madt, size_t* numcpus, size_t* numenabled)
 {
-	bool x2apic = false;
-	ACPI_SUBTABLE_HEADER* madtsubs = (ACPI_SUBTABLE_HEADER*)&madt[1];
-	while ((char*)madtsubs - (char*)madt < madt->Header.Length)
+	for (auto it = cputree.begin(); it != cputree.end(); ++it)
 	{
-		if (madtsubs->Type == ACPI_MADT_TYPE_LOCAL_X2APIC)
-		{
-			x2apic = true;
-			break;
-		}
-		madtsubs = (ACPI_SUBTABLE_HEADER*)((char*)madtsubs + madtsubs->Length);
-	}
-	if (x2apic)
-		return X2APIC;
-	else
-		return APIC;
-}
-
-static void apic_startup(ACPI_TABLE_MADT* madt, volatile cpu_data* data)
-{
-	void* apic = (void*)find_apic(madt);
-	ACPI_SUBTABLE_HEADER* madtsubs = (ACPI_SUBTABLE_HEADER*)&madt[1];
-	while ((char*)madtsubs - (char*)madt < madt->Header.Length)
-	{
-		if (madtsubs->Type == ACPI_MADT_TYPE_LOCAL_APIC)
-		{
-			ACPI_MADT_LOCAL_APIC* lapic = (ACPI_MADT_LOCAL_APIC*)madtsubs;
-			if (lapic->LapicFlags & ACPI_MADT_ENABLED)
-			{
-				//Current CPU so we don't startup the BSP
-				uint32_t apicid = read_apic(apic, 0x2) >> 24;
-				if (lapic->Id != apicid)
-				{
-					kprintf(u"Starting CPU with ID %d (ACPI: %d)\r\n", lapic->Id, lapic->ProcessorId);
-					data->rendezvous = 0;
-					processor_info* info = cputree[lapic->Id];
-					volatile cpu_communication* comms = info->comms;
-					//INIT
-					write_apic(apic, 0x31, lapic->Id << 24);
-					write_apic(apic, 0x30, 0x4500);
-					//Startup
-					while (read_apic(apic, 0x30) & (1 << 12));
-					write_apic(apic, 0x31, lapic->Id << 24);
-					write_apic(apic, 0x30, 0x4600 | (addrtrampoline >> 12));
-					while (read_apic(apic, 0x30) & (1 << 12));
-					Stall(10000);
-					if (!arch_cas(&data->rendezvous, 1, (size_t)comms))
-					{
-						write_apic(apic, 0x31, lapic->Id << 24);
-						write_apic(apic, 0x30, 0x4600 | (addrtrampoline >> 12));
-						while (read_apic(apic, 0x30) & (1 << 12));
-						Stall(100000);
-						if (!arch_cas(&data->rendezvous, 1, (size_t)comms))
-						{
-							kprintf(u"CPU %d wouldn't wake: %x\r\n", lapic->Id, data->rendezvous);
-							delete_spinlock(comms->spinlock);
-							delete comms;
-							info->comms = nullptr;
-							goto cont;
-						}
-					}
-					Stall(1);
-					while (data->rendezvous);
-					//CPU now has its comms area and stack
-					//now tell it the entry point
-					arch_cas((size_t*)&comms->entryfunc, 0, (size_t)&ap_startup_routine);
-					arch_cas((size_t*)&comms->data, 0, (size_t)comms);
-					//printf(u"CPU %d started up with stack %x, comms %x\r\n", lapic->Id, comms->stack, comms);
-				}
-			cont:
-				;
-			}
-		}
-		madtsubs = (ACPI_SUBTABLE_HEADER*)((char*)madtsubs + madtsubs->Length);
+		++*numcpus;
+		if (it->second->enabled)
+			++*numenabled;
+		else
+			kprintf(u"Disabled CPU with ID %d\n", it->first);
 	}
 }
 
-extern "C" uint64_t x64_rdmsr(size_t msr);
-extern "C" void x64_wrmsr(size_t msr, uint64_t);
-
-static void x2apic_startup(ACPI_TABLE_MADT* madt, volatile cpu_data* data)
+static void fill_cputree(ACPI_TABLE_MADT* madt)
 {
-	ACPI_SUBTABLE_HEADER* madtsubs = (ACPI_SUBTABLE_HEADER*)&madt[1];
-	//ENABLE X2APIC
-	static const uint32_t IA32_APIC_BASE = 0x1B;
-	static const uint32_t IA32_APIC_ID = 0x802;
-	static const uint32_t IA32_APIC_ICR = 0x830;
-	uint64_t x2amsr = x64_rdmsr(IA32_APIC_BASE);
-	x2amsr |= (3 << 10);
-	x64_wrmsr(IA32_APIC_BASE, x2amsr);
-
-	//Current CPU so we don't startup the BSP
-	uint32_t apicid = x64_rdmsr(IA32_APIC_ID);
-
+	ACPI_SUBTABLE_HEADER* madtsubs = mem_after<ACPI_SUBTABLE_HEADER*>(madt);
 	while ((char*)madtsubs - (char*)madt < madt->Header.Length)
 	{
 		if (madtsubs->Type == ACPI_MADT_TYPE_LOCAL_X2APIC)
 		{
 			ACPI_MADT_LOCAL_X2APIC* lapic = (ACPI_MADT_LOCAL_X2APIC*)madtsubs;
-			if (lapic->LapicFlags & ACPI_MADT_ENABLED)
+			if (cputree.find(lapic->LocalApicId) == cputree.end())
 			{
-				if (lapic->LocalApicId != apicid)
-				{
-					kprintf(u"x2APIC Starting CPU with ID %d (ACPI: %d)\r\n", lapic->LocalApicId, lapic->Uid);
-					data->rendezvous = 0;
-					processor_info* info = cputree[lapic->LocalApicId];
-					volatile cpu_communication* comms = info->comms;
-					//INIT
-					uint64_t ipi = ((uint64_t)lapic->LocalApicId << 32) | 0x4500;
-					x64_wrmsr(IA32_APIC_ICR, ipi);
-					//Startup
-					ipi = ((uint64_t)lapic->LocalApicId << 32) | 0x4600 | (addrtrampoline >> 12);
-					x64_wrmsr(IA32_APIC_ICR, ipi);
-					Stall(10000);
-					if (!arch_cas(&data->rendezvous, 1, (size_t)comms))
-					{
-						x64_wrmsr(IA32_APIC_ICR, ipi);
-						Stall(100000);
-						if (!arch_cas(&data->rendezvous, 1, (size_t)comms))
-						{
-							kprintf(u"x2APIC CPU %d wouldn't wake: %x\r\n", lapic->LocalApicId, data->rendezvous);
-							delete_spinlock(comms->spinlock);
-							delete comms;
-							info->comms = nullptr;
-							goto cont;
-						}
-					}
-					Stall(1);
-					while (data->rendezvous);
-					//CPU now has its comms area and stack
-					//now tell it the entry point
-					arch_cas((size_t*)&comms->entryfunc, 0, (size_t)&ap_startup_routine);
-					arch_cas((size_t*)&comms->data, 0, (size_t)comms);
-					//printf(u"CPU %d started up with stack %x, comms %x\r\n", lapic->Id, comms->stack, comms);
-				}
-			cont:
-				;
-			}
-		}
-		madtsubs = (ACPI_SUBTABLE_HEADER*)((char*)madtsubs + madtsubs->Length);
-	}
-}
-
-static void get_cpu_count(StartupMode mode, ACPI_TABLE_MADT* madt, size_t* numcpus, size_t* numenabled)
-{
-	if (mode == APIC)
-	{
-		ACPI_SUBTABLE_HEADER* madtsubs = (ACPI_SUBTABLE_HEADER*)&madt[1];
-		while ((char*)madtsubs - (char*)madt < madt->Header.Length)
-		{
-			if (madtsubs->Type == ACPI_MADT_TYPE_LOCAL_APIC)
-			{
-				ACPI_MADT_LOCAL_APIC* lapic = (ACPI_MADT_LOCAL_APIC*)madtsubs;
-				++*numcpus;
-				if (lapic->LapicFlags & ACPI_MADT_ENABLED)
-				{
-					//printf(u"Active CPU with ID %d (ACPI: %d)\r\n", lapic->Id, lapic->ProcessorId);
-					++*numenabled;
-				}
-				else
-				{
-					kprintf(u"Disabled CPU with ID %d (ACPI: %d)\r\n", lapic->Id, lapic->ProcessorId);
-				}
-			}
-			madtsubs = (ACPI_SUBTABLE_HEADER*)((char*)madtsubs + madtsubs->Length);
-		}
-	}
-	else if (mode == X2APIC)
-	{
-		ACPI_SUBTABLE_HEADER* madtsubs = (ACPI_SUBTABLE_HEADER*)&madt[1];
-		while ((char*)madtsubs - (char*)madt < madt->Header.Length)
-		{
-			if (madtsubs->Type == ACPI_MADT_TYPE_LOCAL_X2APIC)
-			{
-				ACPI_MADT_LOCAL_X2APIC* lapic = (ACPI_MADT_LOCAL_X2APIC*)madtsubs;
-				++*numcpus;
-				if (lapic->LapicFlags & ACPI_MADT_ENABLED)
-				{
-					//printf(u"Active CPU with ID %d (ACPI: %d)\r\n", lapic->Id, lapic->ProcessorId);
-					++*numenabled;
-				}
-				else
-				{
-					kprintf(u"Disabled CPU with ID %d (ACPI: %d)\r\n", lapic->LocalApicId, lapic->Uid);
-				}
-			}
-			madtsubs = (ACPI_SUBTABLE_HEADER*)((char*)madtsubs + madtsubs->Length);
-		}
-	}
-}
-static size_t lookup_cpu_acpid(StartupMode mode, ACPI_TABLE_MADT* madt, size_t id)
-{
-	ACPI_SUBTABLE_HEADER* madtsubs = (ACPI_SUBTABLE_HEADER*)&madt[1];
-	while ((char*)madtsubs - (char*)madt < madt->Header.Length)
-	{
-		if (mode == APIC && madtsubs->Type == ACPI_MADT_TYPE_LOCAL_APIC)
-		{
-			ACPI_MADT_LOCAL_APIC* lapic = (ACPI_MADT_LOCAL_APIC*)madtsubs;
-			if (lapic->Id == id)
-				return lapic->ProcessorId;
-		}
-		else if (mode == X2APIC && madtsubs->Type == ACPI_MADT_TYPE_LOCAL_X2APIC)
-		{
-			ACPI_MADT_LOCAL_X2APIC* lapic = (ACPI_MADT_LOCAL_X2APIC*)madtsubs;
-			if (lapic->LocalApicId == id)
-				return lapic->Uid;
-		}
-		madtsubs = (ACPI_SUBTABLE_HEADER*)((char*)madtsubs + madtsubs->Length);
-	}
-	return -1;
-}
-static void fill_cputree(StartupMode mode, ACPI_TABLE_MADT* madt)
-{
-	if (mode == X2APIC)
-	{
-		ACPI_SUBTABLE_HEADER* madtsubs = (ACPI_SUBTABLE_HEADER*)&madt[1];
-		while ((char*)madtsubs - (char*)madt < madt->Header.Length)
-		{
-			if (madtsubs->Type == ACPI_MADT_TYPE_LOCAL_X2APIC)
-			{
-				ACPI_MADT_LOCAL_X2APIC* lapic = (ACPI_MADT_LOCAL_X2APIC*)madtsubs;
 				processor_info* inf = create_info(lapic->LocalApicId, lapic->Uid);
+				inf->enabled = ((lapic->LapicFlags & ACPI_MADT_ENABLED) != 0);
 				cputree[lapic->LocalApicId] = inf;
 			}
-			madtsubs = (ACPI_SUBTABLE_HEADER*)((char*)madtsubs + madtsubs->Length);
 		}
-	}
-	else if (mode == APIC)
-	{
-		ACPI_SUBTABLE_HEADER* madtsubs = (ACPI_SUBTABLE_HEADER*)&madt[1];
-		while ((char*)madtsubs - (char*)madt < madt->Header.Length)
+		else if (madtsubs->Type == ACPI_MADT_TYPE_LOCAL_APIC)
 		{
-			if (madtsubs->Type == ACPI_MADT_TYPE_LOCAL_APIC)
+			ACPI_MADT_LOCAL_APIC* lapic = (ACPI_MADT_LOCAL_APIC*)madtsubs;
+			if (cputree.find(lapic->Id) == cputree.end())
 			{
-				ACPI_MADT_LOCAL_APIC* lapic = (ACPI_MADT_LOCAL_APIC*)madtsubs;
 				processor_info* inf = create_info(lapic->Id, lapic->ProcessorId);
+				inf->enabled = ((lapic->LapicFlags & ACPI_MADT_ENABLED) != 0);
 				cputree[lapic->Id] = inf;
 			}
-			madtsubs = (ACPI_SUBTABLE_HEADER*)((char*)madtsubs + madtsubs->Length);
 		}
-	}
-	else
-	{
-		kputs(u"Error: Unknown multiprocessor mode\r\n");
+		madtsubs = raw_offset<ACPI_SUBTABLE_HEADER*>(madtsubs, madtsubs->Length);
 	}
 }
 
@@ -421,15 +211,12 @@ void startup_multiprocessor()
 	ACPI_TABLE_MADT* madt = nullptr;
 	if (!ACPI_SUCCESS(AcpiGetTable(ACPI_SIG_MADT, 0, (ACPI_TABLE_HEADER**)&madt)))
 		return;
-	size_t lapicaddr = find_apic(madt);
-	kprintf(u"LAPIC address: %x\r\n", lapicaddr);
 
 	//Count the CPUs
 	size_t numcpus = 0; size_t enabledcpus = 0;
 
-	StartupMode mode = get_startup_mode(madt);
-	get_cpu_count(mode, madt, &numcpus, &enabledcpus);
-	fill_cputree(mode, madt);
+	fill_cputree(madt);
+	get_cpu_count(madt, &numcpus, &enabledcpus);
 	
 	kprintf(u"%d CPUs, %d enabled\r\n", numcpus, enabledcpus);
 	static const size_t SECOND = 1000000;
@@ -442,19 +229,35 @@ void startup_multiprocessor()
 
 		memcpy((void*)addrtrampoline, (void*)ap_startup, sizeof(ap_startup));
 
-		if (mode == APIC)
+		for (auto it = cputree.begin(); it != cputree.end(); ++it)
 		{
-			apic_startup(madt, data);
-		}
-		else if(mode == X2APIC)
-		{
-			x2apic_startup(madt, data);
-		}
-		else
-		{
-			kputs(u"Error: unknown multiprocessor startup mode\r\n");
+			if (it->first == arch_current_processor_id())
+			{
+				continue;
+			}
+			sync_cpu(it->first, data);
 		}
 	}
 	
 	//printf(u"%d CPUs successfully started up\r\n", cputree.size());
+}
+
+void ap_run_routine(uint32_t cpuid, ap_routine routine, void* data)
+{
+	auto comms = cputree[cpuid]->comms;
+	auto stat = acquire_spinlock(comms->spinlock);
+	comms->data = data;
+	comms->entryfunc = routine;
+	release_spinlock(comms->spinlock, stat);
+}
+
+void iterate_aps(ap_callback callback)
+{
+	for (auto it = cputree.begin(); it != cputree.end(); ++it)
+	{
+		if (it->first == arch_current_processor_id())
+			continue;
+		if (callback(it->first))
+			break;
+	}
 }

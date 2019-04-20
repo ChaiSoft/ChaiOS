@@ -1,5 +1,7 @@
 #include <arch/paging.h>
 #include <arch/cpu.h>
+#include <kstdio.h>
+#include <string.h>
 
 static void* pml4ptr = 0;
 static size_t recursive_slot = 0;
@@ -75,6 +77,21 @@ static PTAB_ENTRY* getPTAB(void* addr)
 static size_t getPTABindex(void* addr)
 {
 	return (decanonical(addr) >> 12) & 0x1FF;
+}
+
+static void* page_table_address(void* base, size_t index, int level)
+{
+	return make_canonical(raw_offset<void*>(base, index << (9 * level + 3)));
+}
+
+static paddr_t get_paddr(size_t ent)
+{
+	return ent & (SIZE_MAX - 0xFFF0000000000FFF);
+}
+
+static size_t get_attr(size_t ent)
+{
+	return ent & (SIZE_MAX - 0x000FFFFFFFFFF000);
 }
 
 static get_tab_ptr get_tab_dispatch[] =
@@ -201,16 +218,16 @@ static bool check_free(int level, void* start_addr, void* end_addr)
 	{
 		if ((paging_entry[pindex] & PAGING_PRESENT) == 0)
 		{
-			cur_addr >>= (level * 9 + 3);
-			cur_addr += 1;
-			cur_addr <<= (level * 9 + 3);
-			continue;
+			
 		}
 		else
 		{
 			if (!check_free(level - 1, (void*)cur_addr, end_addr))
 				return false;
 		}
+		cur_addr >>= (level * 9 + 3);
+		cur_addr += 1;
+		cur_addr <<= (level * 9 + 3);
 	}
 	return true;
 }
@@ -248,6 +265,19 @@ bool paging_map(void* vaddr, paddr_t paddr, size_t length, size_t attributes)
 	return true;
 }
 
+void paging_free(void* vaddr, size_t length, bool free_physical)
+{
+	PTAB_ENTRY* ptab = getPTAB(vaddr);
+	for (size_t index = getPTABindex(vaddr), offset = 0; offset < (length + PAGESIZE - 1) / PAGESIZE; ++index, ++offset)
+	{
+		paddr_t paddr = ptab[index] & (SIZE_MAX - 0xFFF);
+		ptab[index] = 0;
+		arch_flush_tlb(raw_offset<void*>(vaddr, index * PAGESIZE));
+		if (free_physical)
+			pmmngr_free(paddr, length);
+	}
+}
+
 void set_paging_attributes(void* vaddr, size_t length, size_t attrset, size_t attrclear)
 {
 	PTAB_ENTRY* ptab = getPTAB(vaddr);
@@ -263,11 +293,71 @@ struct paging_info  {
 	void* pml4ptr;
 };
 
+static paddr_t copy_paging_structure(void* mapping, void* memaddr, int level)
+{
+	if (level == 0)
+		return get_paddr(getPTAB(memaddr)[getPTABindex(memaddr)]);
+	size_t* table = get_tab_dispatch[level](memaddr);
+	size_t addresses[512];
+	for (uint_fast16_t idx = 0; idx < 512; ++idx)
+	{
+		if (level == 4 && idx < 256)
+		{
+			addresses[idx] = 0;
+			continue;
+		}
+		if (level == 4 && idx == recursive_slot)
+			continue;
+		if (table[idx] & PAGING_PRESENT)
+		{
+			addresses[idx] = copy_paging_structure(mapping, page_table_address(memaddr, idx, level), level - 1);
+			addresses[idx] |= get_attr(table[idx]);
+		}
+		else
+			addresses[idx] = 0;
+	}
+	paddr_t current_tab = pmmngr_allocate(1);
+	if (level == 4)
+		addresses[recursive_slot] = get_attr(table[recursive_slot]) | current_tab;
+	paging_map(mapping, current_tab, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE);
+	memcpy(mapping, addresses, PAGESIZE);
+	paging_free(mapping, PAGESIZE, false);
+	if (level == 5)
+	{
+		for (size_t n = 0; n < 512; ++n)
+		{
+			kprintf(u"%x ", ((size_t*)addresses)[n]);
+		}
+		kprintf(u"Physical %x mapped to %x, %x\n", current_tab, mapping, getPTAB(mapping)[getPTABindex(mapping)]);
+		while (1);
+	}
+	return current_tab;
+}
+
+static paddr_t copy_paging_structures()
+{
+	void* mapping_loc = find_free_paging(PAGESIZE);
+	//DFS
+	return copy_paging_structure(mapping_loc, nullptr, 4);
+}
+
+#define MSR_IA32_PAT 0x277
+extern "C" void x64_wrmsr(size_t msr, uint64_t);
+
 void paging_initialize(void*& info)
 {
 	paging_info* pinfo = (paging_info*)info;
 	recursive_slot = pinfo->recursive_slot;
 	pml4ptr = pinfo->pml4ptr;
-	//Copy the PML4 so we don't depend on UEFI/bootloader
-	
+	//Set up PAT
+	uint64_t patvalue = 0x0007040600070406;
+	x64_wrmsr(MSR_IA32_PAT, patvalue);
+}
+
+void paging_boot_free()
+{
+	//Free anything in lower half. Note that correct physical behaviour is determined by memory map
+	//Copy paging structures
+	paddr_t new_paging = copy_paging_structures();
+	arch_set_paging_root(new_paging);
 }

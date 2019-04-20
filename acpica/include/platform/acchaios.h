@@ -155,16 +155,19 @@
 #include <stdheaders.h>
 #include <spinlock.h>
 #include <chaikrnl.h>
+#include <string.h>
 
 #define OS_DLL_FUNC CHAIKRNL_FUNC
 //#define ACPI_USE_STANDARD_HEADERS
-//#define ACPI_USE_SYSTEM_CLIBRARY
+#define ACPI_USE_SYSTEM_CLIBRARY
 
 #define ACPI_SPINLOCK spinlock_t
 #define ACPI_MUTEX void*
 #define ACPI_SEMAPHORE void*
 
 #define ACPI_REDUCED_HARDWARE 0
+
+#define ACPI_DEBUG_OUTPUT
 
 
 /* Host-dependent types and defines for user- and kernel-space ACPICA */

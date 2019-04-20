@@ -1,4 +1,5 @@
 #include <liballoc.h>
+#include <spinlock.h>
 
 /**  Durand's Amazing Super Duper Memory functions.  */
 
@@ -827,12 +828,17 @@ void*   PREFIX(realloc)(void *p, size_t size)
 	return ptr;
 }
 
+static spinlock_t the_liballoc_lock = NULL;
+static cpu_status_t cpuflags = 0;
+
 int liballoc_lock()
 {
+	cpuflags = acquire_spinlock(the_liballoc_lock);
 	return 0;
 }
 int liballoc_unlock()
 {
+	release_spinlock(the_liballoc_lock, cpuflags);
 	return 0;
 }
 
@@ -849,6 +855,10 @@ int liballoc_free(void* ptr, size_t size)
 
 void setLiballocAllocator(void*(*a)(size_t), int(*f)(void*, size_t))
 {
+	if (the_liballoc_lock == NULL)
+		the_liballoc_lock = get_static_spinlock();
+	else if (the_liballoc_lock == get_static_spinlock())
+		the_liballoc_lock = create_spinlock();
 	allocate = a;
 	deallocate = f;
 }

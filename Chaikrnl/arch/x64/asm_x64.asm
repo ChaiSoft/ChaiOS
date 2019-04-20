@@ -116,6 +116,11 @@ x64_lidt:
 lidt [rcx]
 ret
 
+global x64_ltr
+x64_ltr:
+ltr cx
+ret
+
 global x64_cpuid
 ;Stack
 ;[RBP]: Backlink
@@ -306,3 +311,181 @@ global x64_cacheflush
 x64_cacheflush:
 wbinvd
 ret
+
+global x64_gs_readb
+x64_gs_readb:
+xor rax, rax
+mov al, [gs:rcx]
+ret
+
+global x64_gs_readw
+x64_gs_readw:
+xor rax, rax
+mov ax, [gs:rcx]
+ret
+
+global x64_gs_readd
+x64_gs_readd:
+xor rax, rax
+mov eax, [gs:rcx]
+ret
+
+global x64_gs_readq
+x64_gs_readq:
+mov rax, [gs:rcx]
+ret
+
+global x64_gs_writeb
+x64_gs_writeb:
+mov [gs:rcx], dl
+ret
+
+global x64_gs_writew
+x64_gs_writew:
+mov [gs:rcx], dx
+ret
+
+global x64_gs_writed
+x64_gs_writed:
+mov [gs:rcx], edx
+ret
+
+global x64_gs_writeq
+x64_gs_writeq:
+mov [gs:rcx], rdx
+ret
+
+struc CONTEXT
+.rip: resq 1
+.rbx: resq 1
+.rsi: resq 1
+.rdi: resq 1
+.rsp: resq 1
+.rbp: resq 1
+.r12: resq 1
+.r13: resq 1
+.r14: resq 1
+.r15: resq 1
+.floats: resy 10+1
+.end:
+endstruc
+
+extern x64_avx_level
+
+global x64_save_context
+x64_save_context:
+mov [rcx + CONTEXT.rbx], rbx
+mov [rcx + CONTEXT.rsi], rsi
+mov [rcx + CONTEXT.rdi], rdi
+mov [rcx + CONTEXT.rbp], rbp
+mov [rcx + CONTEXT.r12], r12
+mov [rcx + CONTEXT.r13], r13
+mov [rcx + CONTEXT.r14], r14
+mov [rcx + CONTEXT.r15], r15
+mov rax, [qword x64_avx_level]
+mov rdx, CONTEXT.floats
+add rdx, rcx
+cmp rax, 1
+jge .avx_save
+;Align to 16 byte boundary
+and dl, 0xF0
+add rdx, 0x10
+movaps [rdx], xmm6
+movaps [rdx+0x10], xmm7
+movaps [rdx+0x20], xmm8
+movaps [rdx+0x30], xmm9
+movaps [rdx+0x40], xmm10
+movaps [rdx+0x50], xmm11
+movaps [rdx+0x60], xmm12
+movaps [rdx+0x70], xmm13
+movaps [rdx+0x80], xmm14
+movaps [rdx+0x90], xmm15
+jmp .finish
+.avx_save:
+;Align to 32 byte boundary
+and dl, 0xE0
+add rdx, 0x20
+vmovaps [rdx], ymm6
+vmovaps [rdx+0x20], ymm7
+vmovaps [rdx+0x40], ymm8
+vmovaps [rdx+0x60], ymm9
+vmovaps [rdx+0x80], ymm10
+vmovaps [rdx+0x100], ymm11
+vmovaps [rdx+0x120], ymm12
+vmovaps [rdx+0x140], ymm13
+vmovaps [rdx+0x160], ymm14
+vmovaps [rdx+0x180], ymm15
+.finish:
+;Now sort out the returning
+pop rdx		;Return address
+mov [rcx + CONTEXT.rip], rdx
+mov [rcx + CONTEXT.rsp], rsp
+xor rax, rax
+jmp rdx
+
+global x64_load_context
+x64_load_context:
+mov r8, rdx		;Return value, if any
+mov rbx, [rcx + CONTEXT.rbx]
+mov rsi, [rcx + CONTEXT.rsi]
+mov rdi, [rcx + CONTEXT.rdi]
+mov rbp, [rcx + CONTEXT.rbp]
+mov r12, [rcx + CONTEXT.r12]
+mov r13, [rcx + CONTEXT.r13]
+mov r14, [rcx + CONTEXT.r14]
+mov r15, [rcx + CONTEXT.r15]
+mov rax, [qword x64_avx_level]
+mov rdx, CONTEXT.floats
+add rdx, rcx
+cmp rax, 1
+jge .avx_save
+;Align to 16 byte boundary
+and dl, 0xF0
+add rdx, 0x10
+movaps xmm6, [rdx]
+movaps xmm7, [rdx+0x10]
+movaps xmm8, [rdx+0x20]
+movaps xmm9, [rdx+0x30]
+movaps xmm10, [rdx+0x40]
+movaps xmm11, [rdx+0x50]
+movaps xmm12, [rdx+0x60]
+movaps xmm13, [rdx+0x70]
+movaps xmm14, [rdx+0x80]
+movaps xmm15, [rdx+0x90]
+jmp .finish
+.avx_save:
+;Align to 32 byte boundary
+and dl, 0xE0
+add rdx, 0x20
+vmovaps ymm6, [rdx]
+vmovaps ymm7, [rdx+0x20]
+vmovaps ymm8, [rdx+0x40]
+vmovaps ymm9, [rdx+0x60]
+vmovaps ymm10, [rdx+0x80]
+vmovaps ymm11, [rdx+0x100]
+vmovaps ymm12, [rdx+0x120]
+vmovaps ymm13, [rdx+0x140]
+vmovaps ymm14, [rdx+0x160]
+vmovaps ymm15, [rdx+0x180]
+.finish:
+; Now returning
+mov rsp, [rcx + CONTEXT.rsp]
+mov rdx, [rcx + CONTEXT.rip]
+cmp r8, 0
+je .ret1
+mov rax, r8
+jmp rdx
+.ret1:
+mov rax, 1
+jmp rdx
+
+global x64_new_context
+x64_new_context:
+;RCX is new context, RDX is new stack, R8 is entry point
+mov [rcx + CONTEXT.rsp], rdx
+mov [rcx + CONTEXT.rip], r8
+ret
+
+section .data
+global x64_context_size
+x64_context_size: dq CONTEXT.end

@@ -36,6 +36,19 @@ public:
 		if (!m_start)
 			m_start = val;
 	}
+	T pop()
+	{
+		if (!m_start)
+			return nullptr;
+		T temp = m_start;
+		m_start = m_conv(m_start).next;
+		if (!m_start)
+			m_end = m_start;
+		else
+			m_conv(m_start).prev = nullptr;
+		m_conv(temp).next = nullptr;
+		return temp;
+	}
 private:
 	T m_start;
 	T m_end;
@@ -49,6 +62,7 @@ public:
 	{
 		m_start = m_end = nullptr;
 		m_conv = converter;
+		m_length = 0;
 	}
 	void init(node_converter conv)
 	{
@@ -63,8 +77,9 @@ public:
 		m_end = val;
 		if (!m_start)
 			m_start = val;
+		++m_length;
 	}
-	void join_existing_list(T start, T end)
+	void join_existing_list(T start, T end, size_t length)
 	{
 		if (m_end != nullptr)
 			set_next(m_end, start);
@@ -73,11 +88,45 @@ public:
 		set_prev(start, m_end);
 		m_end = end;
 		set_next(end, nullptr);
-		
+		m_length += length;
+	}
+	T pop()
+	{
+		if (!m_start)
+			return nullptr;
+		T temp = m_start;
+		m_start = get_next(m_start);
+		if (!m_start)
+			m_end = m_start;
+		else
+			set_prev(m_start, nullptr);
+		set_next(temp, nullptr);
+		--m_length;
+		return temp;
+	}
+	void remove(T node)
+	{
+		if (!node)
+			return;
+		T prev = get_prev(node);
+		T next = get_next(node);
+		if (!prev)
+			m_start = next;
+		else
+			set_next(prev, next);
+		if (!next)
+			m_end = prev;
+		else
+			set_prev(next, prev);
+	}
+	size_t length()
+	{
+		return m_length;
 	}
 private:
 	T m_start;
 	T m_end;
+	size_t m_length;
 	node_converter m_conv;
 	T get_next(T present)
 	{

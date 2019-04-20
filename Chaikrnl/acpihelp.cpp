@@ -2,10 +2,13 @@
 #include <kstdio.h>
 #include <acpi.h>
 #include <arch/cpu.h>
-#include "spinlock.h"
+#include <arch/paging.h>
+#include <spinlock.h>
 #include <liballoc.h>
 
 #include <chaikrnl.h>
+#include <stdheaders.h>
+#include <pciexpress.h>
 
 static void* RSDP = 0;
 static acpi_system_timer sys_timer = nullptr;
@@ -94,11 +97,18 @@ CHAIKRNL_FUNC ACPI_STATUS AcpiOsPhysicalTableOverride(ACPI_TABLE_HEADER *Existin
 }
 CHAIKRNL_FUNC void *AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
 {
-	return (void*)PhysicalAddress;
+	//Handle unaligned addresses
+	size_t align_off = PhysicalAddress & (PAGESIZE - 1);
+	void* loc = find_free_paging(Length + align_off);
+	if (!paging_map(loc, PhysicalAddress - align_off, Length + align_off, PAGE_ATTRIBUTE_WRITABLE))
+	{
+		return nullptr;
+	}
+	return raw_offset<void*>(loc, align_off);
 }
 CHAIKRNL_FUNC void AcpiOsUnmapMemory(void *where, ACPI_SIZE length)
 {
-	
+	paging_free(where, length, false);
 }
 CHAIKRNL_FUNC ACPI_STATUS AcpiOsGetPhysicalAddress(void *LogicalAddress, ACPI_PHYSICAL_ADDRESS *PhysicalAddress)
 {
@@ -123,20 +133,29 @@ CHAIKRNL_FUNC BOOLEAN AcpiOsWritable(void *Memory, ACPI_SIZE Length)
 }
 CHAIKRNL_FUNC ACPI_THREAD_ID AcpiOsGetThreadId()
 {
-	return 0;
+	return 1;
 }
 CHAIKRNL_FUNC ACPI_STATUS AcpiOsExecute(ACPI_EXECUTE_TYPE Type, ACPI_OSD_EXEC_CALLBACK Function, void *Context)
 {
 	Function(Context);
 	return AE_OK;
 }
+
+static void Stall(uint32_t microseconds)
+{
+	uint64_t current = AcpiOsGetTimer();
+	while ((AcpiOsGetTimer() - current)*10 < microseconds);
+}
+
 CHAIKRNL_FUNC void AcpiOsSleep(UINT64 Milliseconds)
 {
-	//Stall(Milliseconds * 1000);
+	kprintf(u"Sleeping for %d milliseconds\n", Milliseconds);
+	Stall(Milliseconds * 1000);
 }
 CHAIKRNL_FUNC void AcpiOsStall(UINT32 Microseconds)
 {
-	//Stall(Microseconds);
+	kprintf(u"Stalling for %d milliseconds\n", Microseconds);
+	Stall(Microseconds);
 }
 
 CHAIKRNL_FUNC ACPI_STATUS AcpiOsCreateMutex(ACPI_MUTEX *OutHandle)
@@ -190,8 +209,25 @@ CHAIKRNL_FUNC void AcpiOsReleaseLock(ACPI_SPINLOCK Handle, ACPI_CPU_FLAGS Flags)
 	release_spinlock(Handle, Flags);
 }
 
+struct context_converter
+{
+	ACPI_OSD_HANDLER handler;
+	void* ctxt;
+};
+
+static uint8_t interrupt_converter(size_t vector, void* param)
+{
+	kprintf(u"ACPI interrupt handler called\n");
+	context_converter* ctx = (context_converter*)param;
+	return ctx->handler(ctx->ctxt);
+}
+
 CHAIKRNL_FUNC ACPI_STATUS AcpiOsInstallInterruptHandler(UINT32 InterruptLevel, ACPI_OSD_HANDLER Handler, void *Context)
 {
+	context_converter* cont = new context_converter;
+	cont->handler = Handler;
+	cont->ctxt = Context;
+	arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_IRQ, InterruptLevel, &interrupt_converter, cont);
 	return AE_OK;
 }
 CHAIKRNL_FUNC ACPI_STATUS AcpiOsRemoveInterruptHandler(UINT32 InterruptNumber, ACPI_OSD_HANDLER Handler)
@@ -201,12 +237,15 @@ CHAIKRNL_FUNC ACPI_STATUS AcpiOsRemoveInterruptHandler(UINT32 InterruptNumber, A
 
 CHAIKRNL_FUNC void ACPI_INTERNAL_VAR_XFACE AcpiOsPrintf(const char *Format, ...)
 {
-	
+	va_list args;
+	va_start(args, Format);
+	kvprintf_a(Format, args);
+	va_end(args);
 }
 
 CHAIKRNL_FUNC void AcpiOsVprintf(const char *Format, va_list Args)
 {
-
+	kvprintf_a(Format, Args);
 }
 
 CHAIKRNL_FUNC int AcpiOsAcquireGlobalLock(UINT32 *lock)
@@ -324,7 +363,7 @@ AcpiOsWritePort(
 
 CHAIKRNL_FUNC UINT64 AcpiOsGetTimer()
 {
-	return sys_timer();
+	return sys_timer() * 10000;
 }
 
 CHAIKRNL_FUNC void AcpiOsWaitEventsComplete()
@@ -338,7 +377,10 @@ AcpiOsReadPciConfiguration(
 	UINT64                  *Value,
 	UINT32                  Width)
 {
-	return AE_NOT_IMPLEMENTED;
+	bool result = read_pci_config(PciId->Segment, PciId->Bus, PciId->Device, PciId->Function, Reg, Width, Value);
+	if (!result)
+		return AE_NOT_IMPLEMENTED;
+	return AE_OK;
 }
 
 CHAIKRNL_FUNC ACPI_STATUS
@@ -348,7 +390,10 @@ AcpiOsWritePciConfiguration(
 	UINT64                  Value,
 	UINT32                  Width)
 {
-	return AE_NOT_IMPLEMENTED;
+	bool result = write_pci_config(PciId->Segment, PciId->Bus, PciId->Device, PciId->Function, Reg, Width, Value);
+	if (!result)
+		return AE_NOT_IMPLEMENTED;
+	return AE_OK;
 }
 
 }

@@ -34,6 +34,7 @@ typedef struct _KERNEL_BOOT_INFO {
 	MODLOAD_INFO modloader_info;
 	void* loaded_files;
 	PFRAMEBUFFER_INFORMATION fbinfo;
+	void* kterm_status;
 	void(*puts_proc)(const char16_t*);
 	void(*printf_proc)(const char16_t*, ...);
 }KERNEL_BOOT_INFO, *PKERNEL_BOOT_INFO;

@@ -17,11 +17,8 @@ typedef uint32_t COLORREF;
 #define BLUE(col) \
 	((col>>16) & 0xFF)
 
-void InitialiseGraphics(const FRAMEBUFFER_INFORMATION& info);
+void InitialiseGraphics(const FRAMEBUFFER_INFORMATION& info, void* ktstat);
 void gputs_k(const char16_t* str);
-void populate_kterm_info(void*& inf);
-typedef void*(*memcpy_proc)(void*, const void*, size_t);
-void set_memcpy(memcpy_proc proc);
 
 
 
