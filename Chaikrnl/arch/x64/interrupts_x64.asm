@@ -1,0 +1,104 @@
+BITS 64
+
+section .text
+
+%macro SAVE_VOLATILE_REGISTERS 0
+push rax
+push rcx
+push rdx
+push r8
+push r9
+push r10
+push r11
+%endmacro
+
+%macro RESTORE_VOLATILE_REGISTERS 0
+push rax
+push rcx
+push rdx
+push r8
+push r9
+push r10
+push r11
+%endmacro
+
+extern x64_interrupt_dispatcher
+
+;First parameter: error code passed
+;Second parameter: 
+%macro INTERRUPT_HANDLER 2
+global x64_interrupt_handler_%2
+x64_interrupt_handler_%2:
+%if %1 == 0
+push 0			;Dummy error code
+%endif
+SAVE_VOLATILE_REGISTERS
+mov rcx, %2
+call x64_interrupt_dispatcher
+RESTORE_VOLATILE_REGISTERS
+add rsp, 8		;Get rid of error code
+iretq
+%endmacro
+
+INTERRUPT_HANDLER 0, 0
+INTERRUPT_HANDLER 0, 1
+INTERRUPT_HANDLER 0, 2
+INTERRUPT_HANDLER 0, 3
+INTERRUPT_HANDLER 0, 4
+INTERRUPT_HANDLER 0, 5
+INTERRUPT_HANDLER 0, 6
+INTERRUPT_HANDLER 0, 7
+INTERRUPT_HANDLER 1, 8
+INTERRUPT_HANDLER 0, 9
+INTERRUPT_HANDLER 1, 10
+
+;parameter 1: base
+;parameter 2: level
+%macro LIST_INTERRUPT_HANDLERS_0 1
+dq x64_interrupt_handler_%1
+%endmacro
+
+%macro LIST_INTERRUPT_HANDLERS_1 1
+LIST_INTERRUPT_HANDLERS_0 %1
+LIST_INTERRUPT_HANDLERS_0 %1+1
+%endmacro
+
+%macro LIST_INTERRUPT_HANDLERS_2 1
+LIST_INTERRUPT_HANDLERS_1 %1
+LIST_INTERRUPT_HANDLERS_1 %1+2
+%endmacro
+
+%macro LIST_INTERRUPT_HANDLERS_3 1
+LIST_INTERRUPT_HANDLERS_2 %1
+LIST_INTERRUPT_HANDLERS_2 %1+4
+%endmacro
+
+%macro LIST_INTERRUPT_HANDLERS_4 1
+LIST_INTERRUPT_HANDLERS_3 %1
+LIST_INTERRUPT_HANDLERS_3 %1+8
+%endmacro
+
+%macro LIST_INTERRUPT_HANDLERS_5 1
+LIST_INTERRUPT_HANDLERS_4 %1
+LIST_INTERRUPT_HANDLERS_4 %1+16
+%endmacro
+
+%macro LIST_INTERRUPT_HANDLERS_6 1
+LIST_INTERRUPT_HANDLERS_5 %1
+LIST_INTERRUPT_HANDLERS_5 %1+32
+%endmacro
+
+%macro LIST_INTERRUPT_HANDLERS_7 1
+LIST_INTERRUPT_HANDLERS_6 %1
+LIST_INTERRUPT_HANDLERS_6 %1+64
+%endmacro
+
+%macro LIST_INTERRUPT_HANDLERS_8 1
+LIST_INTERRUPT_HANDLERS_7 %1
+LIST_INTERRUPT_HANDLERS_7 %1+128
+%endmacro
+
+section .data
+global default_irq_handlers
+default_irq_handlers:
+LIST_INTERRUPT_HANDLERS_8 0
