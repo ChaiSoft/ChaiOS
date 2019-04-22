@@ -42,6 +42,32 @@ struct kterm_status {
 	size_t* y;
 };
 
+static COLORREF foreground = RGB(255, 187, 0);
+static COLORREF background = RGB(0, 0, 0xAA);
+
+static void(*putpixel)(size_t x, size_t y, COLORREF col);
+
+static void putpixel_slow(size_t x, size_t y, COLORREF col)
+{
+	uint32_t* pixelloc = raw_offset<uint32_t*>(framebuffer, (pixelsPerLine*y + x)*(bpp / 8));
+	size_t pixel = ((RED(col) << low_set_bit(redm))&redm) | ((GREEN(col) << low_set_bit(greenm))&greenm) | ((BLUE(col) << low_set_bit(bluem))&bluem) | (*pixelloc & resvm);
+	*pixelloc = pixel;
+}
+
+static void putpixel_rrRRGGBB(size_t x, size_t y, COLORREF col)
+{
+	uint32_t* pixelloc = raw_offset<uint32_t*>(framebuffer, (pixelsPerLine*y + x)*(bpp / 8));
+	size_t pixel = (RED(col) << 16) | (GREEN(col) << 8) | (BLUE(col)) | (*pixelloc & resvm);
+	*pixelloc = pixel;
+}
+
+static void putpixel_BBGGRRrr(size_t x, size_t y, COLORREF col)
+{
+	uint32_t* pixelloc = raw_offset<uint32_t*>(framebuffer, (pixelsPerLine*y + x)*(bpp / 8));
+	size_t pixel = (RED(col) << 16) | (GREEN(col) << 8) | (BLUE(col)) | (*pixelloc & resvm);
+	*pixelloc = pixel;
+}
+
 void InitialiseGraphics(const FRAMEBUFFER_INFORMATION& info, void* kterm_st)
 {
 	framebuffer = find_free_paging(info.size);
@@ -55,17 +81,21 @@ void InitialiseGraphics(const FRAMEBUFFER_INFORMATION& info, void* kterm_st)
 	kterm_status* stat = (kterm_status*)kterm_st;
 	xpos = *stat->x;
 	ypos = *stat->y;
+	if ((info.redmask == 0xFF0000) && (info.greenmask == 0x00FF00) && (info.bluemask == 0x0000FF) && (info.resvmask == 0xFF000000))
+	{
+		putpixel = &putpixel_rrRRGGBB;
+	}
+	else if ((info.redmask == 0xFF00) && (info.greenmask == 0x00FF0000) && (info.bluemask == 0xFF000000) && (info.resvmask == 0x0000FF))
+	{
+		putpixel = &putpixel_BBGGRRrr;
+	}
+	else
+	{
+		putpixel = &putpixel_slow;
+	}
 }
 
-static COLORREF foreground = RGB(255, 187, 0);
-static COLORREF background = RGB(0, 0, 0xAA);
 
-void putpixel(size_t x, size_t y, COLORREF col)
-{
-	uint32_t* pixelloc = raw_offset<uint32_t*>(framebuffer, (pixelsPerLine*y + x)*(bpp/8));
-	size_t pixel = ((RED(col) << low_set_bit(redm))&redm) | ((GREEN(col) << low_set_bit(greenm))&greenm) | ((BLUE(col) << low_set_bit(bluem))&bluem) | (*pixelloc & resvm);
-	*pixelloc = pixel;
-}
 
 void gputs_k(const char16_t* str)
 {

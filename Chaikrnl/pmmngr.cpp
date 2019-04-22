@@ -555,7 +555,7 @@ static void uefi_startup(void* memmap)
 		regions_allocator[region][dom][col].remove(page);
 	}
 	
-	//early_mode = false;
+	early_mode = false;
 }
 
 void startup_pmmngr(BootType mmaptype, void* memmap)
@@ -600,7 +600,7 @@ paddr_t pmmngr_allocate(size_t pages, uint8_t region, numa_t domain, cache_colou
 				col_balance = 0;
 		}
 		auto region_alloc = regions_allocator[region];
-		auto ideal_alloc = region_alloc[domain][colour];
+		LinkedListAllocator& ideal_alloc = region_alloc[domain][colour];
 		page* val = ideal_alloc.pop();
 		if (!val)
 		{
@@ -610,11 +610,11 @@ paddr_t pmmngr_allocate(size_t pages, uint8_t region, numa_t domain, cache_colou
 				for (cache_colour col = colour + 1; val == nullptr && col < colour + num_colours; ++col)
 				{
 					cache_colour act_col = col >= num_colours ? col - num_colours : col;
-					val = region_alloc[act_dom][col].pop();
+					val = region_alloc[act_dom][act_col].pop();
 				}
 			}
 		}
-		++val->ref_count;
+		++(val->ref_count);
 		return val == nullptr ? 0 : GetPaddr(val);
 	}
 }

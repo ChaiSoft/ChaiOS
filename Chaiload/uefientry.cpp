@@ -210,6 +210,9 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 		}
 	}
 
+	//size_t value = GetIntegerInput(u"Enter scrolling lines configuration: ");
+	//set_scrolllines(value);
+
 	UINT32 AutoMode = IterateGraphicsMode(&match_config_resoultion);
 	EFI_GRAPHICS_OUTPUT_MODE_INFORMATION* info; UINTN SizeOfInfo;
 	if (AutoMode == UINT32_MAX)
@@ -260,6 +263,17 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	map.memmap = (EFI_MEMORY_DESCRIPTOR*)kmalloc(map.MemMapSize);	//Allocate a nice buffer
 
 	SystemTable->BootServices->GetMemoryMap(&map.MemMapSize, map.memmap, &map.MapKey, &map.DescriptorSize, &map.DescriptorVersion);
+	printf(u"EFI Memory Map: Descriptor size %d\n", map.DescriptorSize);
+#if 0
+	//Dump the UEFI memory map to a file for testing
+	EFI_FILE* file = OpenFile(u"efimap.dat", "w");
+	if (!file)
+	{
+		printf(u"Error: could not open %s: %s\r\n", u"efimap.dat", getError(getErrno()));
+	}
+	WriteFile(map.memmap, 1, map.MemMapSize, file);
+	CloseFile(file);
+#endif
 	if (EFI_ERROR(Status = SystemTable->BootServices->ExitBootServices(ImageHandle, map.MapKey)))
 	{
 		printf(u"Failed to exit boot services: %s\r\n", getError(Status));

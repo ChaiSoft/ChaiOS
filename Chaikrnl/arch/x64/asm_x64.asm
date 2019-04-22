@@ -366,6 +366,7 @@ struc CONTEXT
 .r13: resq 1
 .r14: resq 1
 .r15: resq 1
+.rflags: resq 1
 .floats: resy 10+1
 .end:
 endstruc
@@ -382,6 +383,10 @@ mov [rcx + CONTEXT.r12], r12
 mov [rcx + CONTEXT.r13], r13
 mov [rcx + CONTEXT.r14], r14
 mov [rcx + CONTEXT.r15], r15
+;RFLAGS
+pushfq
+pop rax
+mov [rcx + CONTEXT.rflags], rax
 mov rax, [qword x64_avx_level]
 mov rdx, CONTEXT.floats
 add rdx, rcx
@@ -469,14 +474,15 @@ vmovaps ymm14, [rdx+0x160]
 vmovaps ymm15, [rdx+0x180]
 .finish:
 ; Now returning
+mov r9, 1
+cmp r8, 0
+cmove r8, r9
+mov r9, [rcx + CONTEXT.rflags]
 mov rsp, [rcx + CONTEXT.rsp]
 mov rdx, [rcx + CONTEXT.rip]
-cmp r8, 0
-je .ret1
 mov rax, r8
-jmp rdx
-.ret1:
-mov rax, 1
+push r9
+popfq
 jmp rdx
 
 global x64_new_context
@@ -484,6 +490,15 @@ x64_new_context:
 ;RCX is new context, RDX is new stack, R8 is entry point
 mov [rcx + CONTEXT.rsp], rdx
 mov [rcx + CONTEXT.rip], r8
+pushfq
+pop rax
+or rax, 0x200		;Interrupts enabled
+mov [rcx + CONTEXT.rflags], rax
+ret
+
+global x64_hlt
+x64_hlt:
+hlt
 ret
 
 section .data

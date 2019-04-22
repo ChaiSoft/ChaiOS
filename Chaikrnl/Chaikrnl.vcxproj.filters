@@ -63,6 +63,9 @@
     <ClCompile Include="scheduler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="semaphore.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Include\kernelinfo.h">
@@ -111,6 +114,9 @@
       <Filter>arch</Filter>
     </ClInclude>
     <ClInclude Include="scheduler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="semaphore.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

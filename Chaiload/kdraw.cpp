@@ -9,6 +9,13 @@ static uint32_t redm, greenm, bluem, resvm;
 static size_t h_res, v_res;
 static size_t bpp;
 
+static int LINES = 20;
+
+void set_scrolllines(int lines)
+{
+	LINES = lines;
+}
+
 static void* basic_memcpy(void* dst, const void* src, size_t length)
 {
 	for (size_t n = 0; n < length; ++n)
@@ -132,6 +139,12 @@ void gputs_k(const char16_t* str)
 		}
 		if (ypos >= v_res / 16 - 1)
 		{
+			if (LINES > 0)
+			{
+				void* dest = raw_offset<void*>(framebuffer, (16 * (ypos - LINES) * pixelsPerLine)*(bpp / 8));
+				void* src = raw_offset<void*>(framebuffer, (16 * (ypos - (LINES - 1)) * pixelsPerLine)*(bpp / 8));
+				memcpy(dest, src, (((LINES - 1) * 16)*pixelsPerLine)*(bpp / 8));
+			}
 			--ypos;
 			//memcpy(framebuffer, raw_offset<void*>(framebuffer, (16*pixelsPerLine)*(bpp / 8)), ((v_res - 16)*pixelsPerLine)*(bpp / 8));
 			for (size_t n = 0; n < 16; ++n)

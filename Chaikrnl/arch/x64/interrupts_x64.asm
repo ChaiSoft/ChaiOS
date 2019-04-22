@@ -113,6 +113,7 @@ SAVE_VOLATILE_REGISTERS
 ;Per CPU information
 call swap_gs_ifpriv
 call save_fpu_interrupt
+
 ;Now we pass the stack interrupt stack and vector
 mov rcx, %2
 mov rdx, rbp

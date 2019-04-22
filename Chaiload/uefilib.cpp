@@ -354,6 +354,14 @@ UINTN ReadFile(void* buffer, UINTN size, UINTN count, EFI_FILE* file)
 	return length / size;
 }
 
+UINTN WriteFile(void* buffer, UINTN size, UINTN count, EFI_FILE* file)
+{
+	EFI_FILE_PROTOCOL* filep = (EFI_FILE_PROTOCOL*)file;
+	UINTN length = size * count;
+	errno = filep->Write(filep, &length, buffer);
+	return length / size;
+}
+
 EFI_FILE_PROTOCOL* GetRootDirectory()
 {
 	EFI_SIMPLE_FILE_SYSTEM_PROTOCOL* bootfs;
@@ -554,7 +562,7 @@ EFI_STATUS SetGraphicsMode(UINT32 Mode)
 
 EFI_STATUS PrepareExitBootServices()
 {
-	SetWorkingDirectory(nullptr);	//Free the working directory handle
+	//SetWorkingDirectory(nullptr);	//Free the working directory handle
 	//Startup internal graphics
 	setKtermOutputProc(&gputs_k);
 	return EFI_SUCCESS;

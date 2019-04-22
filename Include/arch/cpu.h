@@ -91,6 +91,7 @@ void arch_set_paging_root(size_t root);
 uint32_t arch_current_processor_id();
 uint8_t arch_startup_cpu(uint32_t processor, void* address, volatile size_t* rendezvous, size_t rendezvousval);
 uint8_t arch_is_bsp();
+void arch_halt();
 
 typedef void* context_t;
 context_t context_factory();

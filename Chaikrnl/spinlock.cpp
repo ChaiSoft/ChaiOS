@@ -12,9 +12,19 @@ EXTERN CHAIKRNL_FUNC spinlock_t get_static_spinlock()
 	return (spinlock_t)&s_lock;
 }
 
+static const int num_locks = 16;
+static spinlock early_locks[num_locks];
+static int offset = 0;
+
 EXTERN CHAIKRNL_FUNC spinlock_t create_spinlock()
 {
 	pspinlock lock = new spinlock;
+	if (!lock)
+	{
+		if (offset < num_locks)
+			return &early_locks[offset++];
+		return nullptr;
+	}
 	lock->value = 0;
 	return (spinlock_t)lock;
 }

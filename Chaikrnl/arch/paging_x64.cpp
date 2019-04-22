@@ -2,6 +2,7 @@
 #include <arch/cpu.h>
 #include <kstdio.h>
 #include <string.h>
+#include <spinlock.h>
 
 static void* pml4ptr = 0;
 static size_t recursive_slot = 0;
@@ -18,6 +19,8 @@ typedef size_t PTAB_ENTRY;
 #define PAGING_CHAIOS_NOSWAP 0x200
 #define PAGING_SIZEBIT 0x80
 #define PAGING_NXE 0x8000000000000000
+
+spinlock_t paging_lock;
 
 static void* make_canonical(size_t addr)
 {
@@ -240,6 +243,7 @@ bool check_free(void* vaddr, size_t length)
 
 bool paging_map(void* vaddr, paddr_t paddr, size_t length, size_t attributes)
 {
+	auto st = acquire_spinlock(paging_lock);
 	if (!check_free(vaddr, length))
 		return false;
 	size_t vptr = (size_t)vaddr;
@@ -249,19 +253,26 @@ bool paging_map(void* vaddr, paddr_t paddr, size_t length, size_t attributes)
 	if (paddr != PADDR_ALLOCATE)
 	{
 		if ((paddr & (PAGESIZE - 1)) != pgoffset)
+		{
+			release_spinlock(paging_lock, st);
 			return false;
+		}
 		paddr ^= pgoffset;
 	}
 
 	for (size_t i = 0; i < (length + PAGESIZE - 1) / PAGESIZE; ++i)
 	{
 		if (!paging_map(vaddr, paddr, attributes))
+		{
+			release_spinlock(paging_lock, st);
 			return false;
+		}
 
 		vaddr = raw_offset<void*>(vaddr, PAGESIZE);
 		if (paddr != PADDR_ALLOCATE)
 			paddr = raw_offset<paddr_t>(paddr, PAGESIZE);
 	}
+	release_spinlock(paging_lock, st);
 	return true;
 }
 
@@ -352,6 +363,8 @@ void paging_initialize(void*& info)
 	//Set up PAT
 	uint64_t patvalue = 0x0007040600070406;
 	x64_wrmsr(MSR_IA32_PAT, patvalue);
+
+	paging_lock = create_spinlock();
 }
 
 void paging_boot_free()

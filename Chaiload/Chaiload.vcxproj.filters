@@ -83,10 +83,10 @@
     <ClInclude Include="arch_paging.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="uefilib.h">
-      <Filter>Resource Files</Filter>
-    </ClInclude>
     <ClInclude Include="liballoc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="uefilib.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

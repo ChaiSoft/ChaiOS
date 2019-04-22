@@ -66,15 +66,29 @@ ACPI_STATUS ProcessorWalker (
 	return AE_OK;
 }
 
-static void kernel_thread(void* data)
+static void* safe_early(size_t)
 {
-	kprintf(u"Hello from CPU %d\n", arch_current_processor_id());
+	return nullptr;
+}
+
+bool pci_print(uint16_t segment, uint16_t bus, uint16_t device)
+{
+	uint64_t result;
+	read_pci_config(segment, bus, device, 0, 3, 32, &result);
+	result = (result >> 16) & 0xFF;
+	kprintf(u"Found PCI device at %d:%d:%d. Header type %d", segment, bus, device, result & 0x7F);
+	if ((result & 0x80) != 0)
+		kputs(u", multifunction\n");
+	else
+		kputs(u"\n");
+	return false;
 }
 
 extern bool CallConstructors();
 void _kentry(PKERNEL_BOOT_INFO bootinfo)
 {
 	set_stdio_puts(bootinfo->puts_proc);
+	setLiballocAllocator(&safe_early, nullptr);
 	kputs(u"CHAIOS KERNEL 0.09\n");
 	//Begin hardware initialization
 	arch_cpu_init();
@@ -90,8 +104,8 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 	initialize_pmmngr(bootinfo->pmmngr_info);
 	paging_initialize(bootinfo->paging_info);
 	setLiballocAllocator(&early_page_allocate, &early_free_pages);
-	//InitialiseGraphics(*bootinfo->fbinfo, bootinfo->kterm_status);
-	//set_stdio_puts(&gputs_k);
+	InitialiseGraphics(*bootinfo->fbinfo, bootinfo->kterm_status);
+	set_stdio_puts(&gputs_k);
 	//Copy boot information
 	bootinfo = copyBootInfo(bootinfo);
 	//ACPI Table Manager
@@ -104,15 +118,10 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 	//We're now fully in the higher half and standalone
 	arch_setup_interrupts();
 	startup_multiprocessor();
-	scheduler_init();
 	//Welcome to the thunderdome
 	//startup_acpi();
 	cpu_print_information();
 	kprintf(u"Current CPU ID: %x\n", pcpu_data.cpuid);
-	create_thread(&kernel_thread, nullptr);
-	create_thread(&kernel_thread, nullptr);
-	create_thread(&kernel_thread, nullptr);
-	create_thread(&kernel_thread, nullptr);
 	kputs(u"System timer: ");
 	while (1)
 	{

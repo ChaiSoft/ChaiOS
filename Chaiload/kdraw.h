@@ -22,6 +22,7 @@ void gputs_k(const char16_t* str);
 void populate_kterm_info(void*& inf);
 typedef void*(*memcpy_proc)(void*, const void*, size_t);
 void set_memcpy(memcpy_proc proc);
+void set_scrolllines(int lines);
 
 
 

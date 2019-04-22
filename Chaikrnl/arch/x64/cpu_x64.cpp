@@ -64,6 +64,7 @@ extern "C" size_t x64_context_size;
 extern "C" int x64_save_context(context_t context);
 extern "C" void x64_load_context(context_t context, int value);
 extern "C" void x64_new_context(context_t context, void* stackptr, void* entry);
+extern "C" void x64_hlt();
 
 enum sregs {
 	SREG_CS,
@@ -950,6 +951,11 @@ int save_context(context_t ctxt)
 void jump_context(context_t ctxt, int value)
 {
 	x64_load_context(ctxt, value);
+}
+
+void arch_halt()
+{
+	x64_hlt();
 }
 
 static const size_t PAGES_STACK = 16;

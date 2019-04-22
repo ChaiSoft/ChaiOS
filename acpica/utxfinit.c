@@ -334,6 +334,20 @@ AcpiEnableSubsystem (
         }
     }
 
+	/*
+	 * Use APIC mode
+	*/
+	ACPI_OBJECT_LIST        Params;
+	ACPI_OBJECT             Obj;
+
+	Params.Count = 1;
+	Params.Pointer = &Obj;
+
+	Obj.Type = ACPI_TYPE_INTEGER;
+	Obj.Integer.Value = 1;     // 0 = PIC, 1 = APIC
+
+	AcpiEvaluateObject(NULL, "\\_PIC", &Params, NULL);
+
     /*
      * Install the SCI handler and Global Lock handler. This completes the
      * hardware initialization.

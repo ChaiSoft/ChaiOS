@@ -80,7 +80,6 @@ static void write_apic_register(uint16_t reg, uint64_t value)
 }
 static void apic_eoi()
 {
-	arch_disable_interrupts();
 	write_apic_register(LAPIC_REGISTER_EOI, 0);
 }
 
@@ -124,6 +123,7 @@ static uint8_t apic_timer_interrupt(size_t vector, void* param)
 static uint8_t pit_interrupt(size_t vector, void* param)
 {
 	++pit_ticks;
+	scheduler_timer_tick();
 	return 1;
 }
 
@@ -459,5 +459,6 @@ void x64_init_apic()
 		arch_register_interrupt_subsystem(INTERRUPT_SUBSYSTEM_IRQ, &apic_subsystem);
 		//Enable PIT
 		initialize_pit(1000);
+		scheduler_init(&apic_eoi);
 	}
 }

@@ -248,6 +248,7 @@
     <ClCompile Include="pciexpress.cpp" />
     <ClCompile Include="pmmngr.cpp" />
     <ClCompile Include="scheduler.cpp" />
+    <ClCompile Include="semaphore.cpp" />
     <ClCompile Include="spinlock.cpp" />
     <ClCompile Include="uefihelper.cpp" />
   </ItemGroup>
@@ -267,6 +268,7 @@
     <ClInclude Include="pmmngr.h" />
     <ClInclude Include="redblack.h" />
     <ClInclude Include="scheduler.h" />
+    <ClInclude Include="semaphore.h" />
     <ClInclude Include="uefihelper.h" />
   </ItemGroup>
   <ItemGroup>

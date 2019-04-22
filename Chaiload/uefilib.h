@@ -16,6 +16,7 @@ EFI_FILE* OpenFile(const char16_t* filename, const char* mode);
 UINT64 GetFileSize(EFI_FILE* file);
 EFI_STATUS CloseFile(EFI_FILE* file);
 UINTN ReadFile(void* buffer, UINTN size, UINTN count, EFI_FILE* file);
+UINTN WriteFile(void* buffer, UINTN size, UINTN count, EFI_FILE* file);
 EFI_STATUS getErrno();
 size_t GetIntegerInput(char16_t* prompt);
 EFI_STATUS SetGraphicsMode(UINT32 Mode);

@@ -9,6 +9,8 @@
 #include <chaikrnl.h>
 #include <stdheaders.h>
 #include <pciexpress.h>
+#include <scheduler.h>
+#include <semaphore.h>
 
 static void* RSDP = 0;
 static acpi_system_timer sys_timer = nullptr;
@@ -25,11 +27,6 @@ void set_acpi_timer(acpi_system_timer timer)
 
 void start_acpi_tables()
 {
-	AcpiInitializeTables(0, 0, FALSE);
-}
-
-void startup_acpi()
-{
 	ACPI_STATUS Status;
 	Status = AcpiInitializeSubsystem();
 	if (ACPI_FAILURE(Status))
@@ -37,12 +34,25 @@ void startup_acpi()
 		kprintf(u"Could not initialize ACPI: %d\n", Status);
 		return;
 	}
+	AcpiInitializeTables(0, 0, FALSE);
+}
+
+void startup_acpi()
+{
+	ACPI_STATUS Status;
 	Status = AcpiLoadTables();
 	if (ACPI_FAILURE(Status))
 	{
 		kprintf(u"Could not load tables: %d\n", Status);
 		return;
 	}
+	AcpiInstallInterface("ChaiOS");
+	AcpiInstallInterface("Windows 2015");
+	AcpiInstallInterface("Windows 2016");
+	AcpiInstallInterface("Windows 2017");
+	AcpiInstallInterface("Windows 2017.2");
+	AcpiInstallInterface("Windows 2018");
+	AcpiInstallInterface("Windows 2018.2");
 	Status = AcpiEnableSubsystem(ACPI_FULL_INITIALIZATION);
 	if (ACPI_FAILURE(Status))
 	{
@@ -133,18 +143,26 @@ CHAIKRNL_FUNC BOOLEAN AcpiOsWritable(void *Memory, ACPI_SIZE Length)
 }
 CHAIKRNL_FUNC ACPI_THREAD_ID AcpiOsGetThreadId()
 {
-	return 1;
+	HTHREAD current = pcpu_data.runningthread;
+	return (ACPI_THREAD_ID)current;
 }
 CHAIKRNL_FUNC ACPI_STATUS AcpiOsExecute(ACPI_EXECUTE_TYPE Type, ACPI_OSD_EXEC_CALLBACK Function, void *Context)
 {
-	Function(Context);
+	if (!isscheduler())
+		Function(Context);
+	else
+	{
+		HTHREAD thread = create_thread(Function, Context);
+		if (!thread)
+			return AE_NO_MEMORY;
+	}
 	return AE_OK;
 }
 
 static void Stall(uint32_t microseconds)
 {
 	uint64_t current = AcpiOsGetTimer();
-	while ((AcpiOsGetTimer() - current)*10 < microseconds);
+	while ((AcpiOsGetTimer() - current)/10 < microseconds);
 }
 
 CHAIKRNL_FUNC void AcpiOsSleep(UINT64 Milliseconds)
@@ -160,35 +178,50 @@ CHAIKRNL_FUNC void AcpiOsStall(UINT32 Microseconds)
 
 CHAIKRNL_FUNC ACPI_STATUS AcpiOsCreateMutex(ACPI_MUTEX *OutHandle)
 {
-	return AE_OK;
+	return AcpiOsCreateSemaphore(1, 1, OutHandle);
 }
 CHAIKRNL_FUNC void AcpiOsDeleteMutex(ACPI_MUTEX Handle)
 {
-
+	delete_semaphore(Handle);
 }
 CHAIKRNL_FUNC ACPI_STATUS AcpiOsAcquireMutex(ACPI_MUTEX Handle, UINT16 Timeout)
 {
-	return AE_OK;
+	return AcpiOsWaitSemaphore(Handle, 1, Timeout);
 }
 CHAIKRNL_FUNC void AcpiOsReleaseMutex(ACPI_MUTEX Handle)
 {
-
+	AcpiOsSignalSemaphore(Handle, 1);
 }
 
 CHAIKRNL_FUNC ACPI_STATUS AcpiOsCreateSemaphore(UINT32 MaxUnits, UINT32 InitialUnits, ACPI_SEMAPHORE *OutHandle)
 {
+	*OutHandle = create_semaphore(InitialUnits);
+	if (!*OutHandle)
+		return AE_NO_MEMORY;
 	return AE_OK;
 }
 CHAIKRNL_FUNC ACPI_STATUS AcpiOsDeleteSemaphore(ACPI_SEMAPHORE Handle)
 {
+	delete_semaphore(Handle);
 	return AE_OK;
 }
 CHAIKRNL_FUNC ACPI_STATUS AcpiOsWaitSemaphore(ACPI_SEMAPHORE Handle, UINT32 Units, UINT16 Timeout)
 {
-	return AE_OK;
+	if (!Handle)
+		return AE_BAD_PARAMETER;
+	size_t tout = Timeout;
+	if (Timeout == UINT16_MAX)
+		tout = TIMEOUT_INFINITY;
+	if (wait_semaphore(Handle, Units, tout) == 1)
+		return AE_OK;
+	else
+		return AE_TIME;
 }
 CHAIKRNL_FUNC ACPI_STATUS AcpiOsSignalSemaphore(ACPI_SEMAPHORE Handle, UINT32 Units)
 {
+	if (!Handle)
+		return AE_BAD_PARAMETER;
+	signal_semaphore(Handle, Units);
 	return AE_OK;
 }
 CHAIKRNL_FUNC ACPI_STATUS AcpiOsCreateLock(ACPI_SPINLOCK *OutHandle)

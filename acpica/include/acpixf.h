@@ -675,7 +675,7 @@ AcpiLoadTables (
  * ACPI table manipulation interfaces
  */
 ACPI_EXTERNAL_RETURN_STATUS (
-ACPI_STATUS ACPI_INIT_FUNCTION
+ACPI_API_FUNCTION ACPI_STATUS ACPI_INIT_FUNCTION
 AcpiReallocateRootTable (
     void))
 
