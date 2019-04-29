@@ -78,7 +78,12 @@ static void write_apic_register(uint16_t reg, uint64_t value)
 		*reg_addr = value;
 	}
 }
-static void apic_eoi()
+void apic_eoi()
+{
+	write_apic_register(LAPIC_REGISTER_EOI, 0);
+}
+
+void arch_local_eoi()
 {
 	write_apic_register(LAPIC_REGISTER_EOI, 0);
 }
@@ -190,11 +195,14 @@ static ioapic_desc* find_io_apic(uint32_t vector)
 	return nullptr;
 }
 
+#define APIC_VECTOR_BASE 0x50
+
 static void init_ioapic(void* ioapic, ioapic_desc* desc)
 {
 	uint32_t ver = read_ioapic_register(ioapic, IOAPIC_REG_VER);
 	uint32_t intr_num = (ver >> 16) & 0xFF;
 	desc->max_intr = intr_num + desc->base_intr;
+	arch_reserve_interrupt_range(desc->base_intr + APIC_VECTOR_BASE, desc->max_intr + APIC_VECTOR_BASE);
 	for (size_t n = 0; n <= intr_num; ++n)
 	{
 		//Mask all interrupts
@@ -202,8 +210,6 @@ static void init_ioapic(void* ioapic, ioapic_desc* desc)
 		write_ioapic_register(ioapic, reg, read_ioapic_register(ioapic, reg) | (1<<16));
 	}
 }
-
-#define APIC_VECTOR_BASE 0x50
 
 static void apic_register_irq(size_t vector, void* fn, void* param)
 {
@@ -381,7 +387,8 @@ uint8_t arch_startup_cpu(uint32_t processor, void* address, volatile size_t* ren
 
 static void io_wait()
 {
-
+	volatile size_t counter = 0;
+	for (; counter < 1000; ++counter);
 }
 
 static void disable_pic()
@@ -408,6 +415,7 @@ static void disable_pic()
 	io_wait();
 
 	arch_write_port(PIC2_DATA, 0xFF, 8);
+	io_wait();
 	arch_write_port(PIC2_DATA, 0xFF, 8);
 	//Handle spurious IRQs
 	arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, offset1 + 7, &apic_spurious_interrupt, nullptr);
@@ -418,23 +426,27 @@ void x64_init_apic()
 {
 	//First of all, disable the PIC
 	if (arch_is_bsp())
-		disable_pic();
-	//The PIC is now disabled. Enable the LAPIC
-	uint64_t apic_base = x64_rdmsr(IA32_APIC_BASE_MSR);
-	//Check for x2apic
-	if (x2apic_supported())
 	{
-		x2apic = true;
-		apic_base |= IA32_APIC_BASE_MSR_X2APIC;
+		disable_pic();
+		//The PIC is now disabled. Enable the LAPIC
+		uint64_t apic_base = x64_rdmsr(IA32_APIC_BASE_MSR);
+		//Check for x2apic
+		if (x2apic_supported())
+		{
+			x2apic = true;
+			apic_base |= IA32_APIC_BASE_MSR_X2APIC;
+		}
+		else
+		{
+			paddr_t abase = apic_base & (SIZE_MAX - 0xFFF);
+			apic = find_free_paging(PAGESIZE);
+			paging_map(apic, abase, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING | PAGE_ATTRIBUTE_NO_EXECUTE);
+		}
+		apic_base |= IA32_APIC_BASE_MSR_ENABLE;
+		x64_wrmsr(IA32_APIC_BASE_MSR, apic_base);
 	}
 	else
-	{
-		paddr_t abase = apic_base & (SIZE_MAX - 0xFFF);
-		apic = find_free_paging(PAGESIZE);
-		paging_map(apic, abase, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING | PAGE_ATTRIBUTE_NO_EXECUTE);
-	}
-	apic_base |= IA32_APIC_BASE_MSR_ENABLE;
-	x64_wrmsr(IA32_APIC_BASE_MSR, apic_base);
+		x64_wrmsr(IA32_APIC_BASE_MSR, x64_rdmsr(IA32_APIC_BASE_MSR) | IA32_APIC_BASE_MSR_ENABLE | (x2apic ? IA32_APIC_BASE_MSR_X2APIC : 0));
 	//Write the spurious vector register
 	arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, 0xFF, &apic_spurious_interrupt, nullptr);
 	write_apic_register(LAPIC_REGISTER_SVR, read_apic_register(LAPIC_REGISTER_SVR) | IA32_APIC_SVR_ENABLE | 0xFF);

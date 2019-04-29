@@ -15,6 +15,8 @@ typedef size_t PTAB_ENTRY;
 
 #define PAGING_PRESENT 0x1
 #define PAGING_WRITABLE 0x2
+#define PAGING_USER 0x4
+#define PAGING_WRITETHROUGH 0x8
 #define PAGING_NOCACHE 0x10
 #define PAGING_CHAIOS_NOSWAP 0x200
 #define PAGING_SIZEBIT 0x80
@@ -115,15 +117,6 @@ static get_tab_index get_index_dispatch[] =
 	&getPML4index
 };
 
-static void clear_ptabs(void* addr)
-{
-	PTAB_ENTRY* pt = (PTAB_ENTRY*)addr;
-	for (size_t n = 0; n < PAGESIZE / sizeof(PTAB_ENTRY); ++n)
-	{
-		pt[n] = 0;
-	}
-}
-
 static size_t get_arch_paging_attributes(size_t attributes, bool present = true)
 {
 	size_t result = 0;
@@ -131,8 +124,12 @@ static size_t get_arch_paging_attributes(size_t attributes, bool present = true)
 		result |= PAGING_PRESENT;
 	if (attributes & PAGE_ATTRIBUTE_WRITABLE)
 		result |= PAGING_WRITABLE;
+	if (attributes & PAGE_ATTRIBUTE_USER)
+		result |= PAGING_USER;
 	if (attributes & PAGE_ATTRIBUTE_NO_EXECUTE)
 		result |= PAGING_NXE;
+	if (attributes & PAGE_ATTRIBUTE_WRITE_THROUGH)
+		result |= PAGING_WRITETHROUGH;
 	if (attributes & PAGE_ATTRIBUTE_NO_CACHING)
 		result |= PAGING_NOCACHE;
 	if (attributes & PAGE_ATTRIBUTE_NO_PAGING)
@@ -158,7 +155,7 @@ bool paging_map(void* vaddr, paddr_t paddr, size_t attributes)
 		pml4ent = addr | PAGING_PRESENT | PAGING_WRITABLE;
 		arch_flush_tlb(pdpt);
 		arch_memory_barrier();
-		clear_ptabs(pdpt);
+		memset(pdpt, 0, PAGESIZE);
 	}
 	else if (pml4ent & PAGING_SIZEBIT)
 		return false;
@@ -173,7 +170,7 @@ bool paging_map(void* vaddr, paddr_t paddr, size_t attributes)
 		pdptent = addr | PAGING_PRESENT | PAGING_WRITABLE;
 		arch_flush_tlb(pdir);
 		arch_memory_barrier();
-		clear_ptabs(pdir);
+		memset(pdir, 0, PAGESIZE);
 	}
 	else if (pdptent & PAGING_SIZEBIT)
 		return false;
@@ -188,7 +185,7 @@ bool paging_map(void* vaddr, paddr_t paddr, size_t attributes)
 		pdent = addr | PAGING_PRESENT | PAGING_WRITABLE;
 		arch_flush_tlb(ptab);
 		arch_memory_barrier();
-		clear_ptabs(ptab);
+		memset(ptab, 0, PAGESIZE);
 	}
 	else if (pdent & PAGING_SIZEBIT)
 		return false;
@@ -350,6 +347,12 @@ static paddr_t copy_paging_structures()
 	void* mapping_loc = find_free_paging(PAGESIZE);
 	//DFS
 	return copy_paging_structure(mapping_loc, nullptr, 4);
+}
+
+paddr_t get_physical_address(void* addr)
+{
+	size_t offset = (size_t)addr & (0xFFF);	
+	return get_paddr(getPTAB(addr)[getPTABindex(addr)]) + offset;
 }
 
 #define MSR_IA32_PAT 0x277

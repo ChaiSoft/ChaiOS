@@ -12,6 +12,7 @@
 #include <kdraw.h>
 #include <pciexpress.h>
 #include <scheduler.h>
+#include <usb.h>
 
 #define CHAIOS_KERNEL_VERSION_MAJOR 0
 #define CHAIOS_KERNEL_VERSION_MINOR 9
@@ -120,6 +121,7 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 	startup_multiprocessor();
 	//Welcome to the thunderdome
 	//startup_acpi();
+	setup_usb();
 	cpu_print_information();
 	kprintf(u"Current CPU ID: %x\n", pcpu_data.cpuid);
 	kputs(u"System timer: ");

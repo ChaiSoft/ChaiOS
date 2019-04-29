@@ -195,7 +195,7 @@ CHAIKRNL_FUNC void AcpiOsReleaseMutex(ACPI_MUTEX Handle)
 
 CHAIKRNL_FUNC ACPI_STATUS AcpiOsCreateSemaphore(UINT32 MaxUnits, UINT32 InitialUnits, ACPI_SEMAPHORE *OutHandle)
 {
-	*OutHandle = create_semaphore(InitialUnits);
+	*OutHandle = create_semaphore(InitialUnits, u"AcpiSemaphore");
 	if (!*OutHandle)
 		return AE_NO_MEMORY;
 	return AE_OK;

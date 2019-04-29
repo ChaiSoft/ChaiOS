@@ -2,6 +2,7 @@
 #include <kstdio.h>
 #include <redblack.h>
 #include <arch/paging.h>
+#include <string.h>
 
 extern "C" size_t x64_read_cr0();
 extern "C" size_t x64_read_cr2();
@@ -377,7 +378,6 @@ extern "C" void arch_cpu_init()
 			x64_save_fpu = best_save;
 			x64_restore_fpu = best_restore;
 			xsavearea_size = saveareasz;
-			kprintf(u"Setting FPU functions: %x, %x. Length %d\n", best_save, best_restore, saveareasz);
 		}
 	}
 	//SMEP and SMAP
@@ -762,7 +762,7 @@ struct dispatch_data {
 	void* param;
 	void(*post_event)();
 };
-static dispatch_data dispatch_funcs[256] = { {nullptr, nullptr} };
+static dispatch_data dispatch_funcs[256] = { {nullptr, nullptr, nullptr} };
 
 extern "C" void x64_interrupt_dispatcher(size_t vector, interrupt_stack_frame* stack_frame)
 {
@@ -771,6 +771,7 @@ extern "C" void x64_interrupt_dispatcher(size_t vector, interrupt_stack_frame* s
 		kprintf(u"An unknown interrupt occurred: %x\n", vector);
 		kprintf(u"Error code: %x\n", stack_frame->error);
 		kprintf(u"Return address: %x:%x\n", stack_frame->cs, stack_frame->rip);
+		kprintf(u"CPU %d, thread %x\n", pcpu_data.cpuid, pcpu_data.runningthread);
 		while (1);
 	}
 	dispatch_interrupt_handler handler = reinterpret_cast<dispatch_interrupt_handler>(dispatch_funcs[vector].func);
@@ -789,11 +790,13 @@ extern "C" uint8_t page_fault_handler(size_t vector, void* param)
 	kprintf(u"Error accessing address %x\n", x64_read_cr2());
 	kprintf(u"Error code: %x\n", frame->error);
 	kprintf(u"Return address: %x:%x\n", frame->cs, frame->rip);
+	kprintf(u"CPU %d, thread %x\n", pcpu_data.cpuid, pcpu_data.runningthread);
 	while (1);
 }
 
 void register_native_irq(size_t vector, void* fn, void* param)
 {
+	arch_reserve_interrupt_range(vector, vector);
 	IDTR current_idt;
 	x64_sidt(&current_idt);
 	IDT* idt = reinterpret_cast<IDT*>(current_idt.idtaddr);
@@ -813,9 +816,10 @@ static arch_interrupt_subsystem subsystem_native
 
 void register_dispatch_irq(size_t vector, void* fn, void* param)
 {
+	arch_reserve_interrupt_range(vector, vector);
 	dispatch_funcs[vector].func = fn;
 	dispatch_funcs[vector].param = param;
-	dispatch_funcs[vector].post_event = nullptr;
+	//dispatch_funcs[vector].post_event = nullptr;
 }
 
 void register_dispatch_postevt(size_t vector, void(*evt)())
@@ -873,6 +877,14 @@ void arch_write_per_cpu_data(uint32_t offset, uint8_t width, uint64_t value)
 	}
 }
 
+struct arch_per_cpu_data {
+	per_cpu_data public_data;
+	uint8_t* interruptsavailmap;
+};
+
+static_assert(sizeof(per_cpu_data) <= 0x20, "Please reallocate");
+#define PCPU_DATA_AVAILINTS 0x20
+
 void arch_setup_interrupts()
 {
 	//Create the TSS for this CPU
@@ -886,11 +898,17 @@ void arch_setup_interrupts()
 	*(uint64_t*)&the_gdt[GDT_ENTRY_TSS + 1] = (tss_addr >> 32);
 	x64_ltr(SEGVAL(GDT_ENTRY_TSS, 0));
 	//Create per-cpu structure
-	per_cpu_data* cpu_data = new per_cpu_data;
+	arch_per_cpu_data* cpu_data = new arch_per_cpu_data;
+	cpu_data->public_data.cpu_data = &cpu_data->public_data;
+	//Hidden per CPU interrupt vector map
+	uint8_t* interruptsavailmap = new uint8_t[256 / 8];
+	memset(interruptsavailmap, 1, 256 / 8);
 	//Because we're in kernel mode, GS is active
 	x64_wrmsr(MSR_IA32_GS_BASE, (size_t)cpu_data);
 	x64_wrmsr(MSR_IA32_KERNELGS_BASE, 0);
 	pcpu_data.cpuid = arch_current_processor_id();
+	pcpu_data.runningthread = 0;
+	x64_gs_writeq(PCPU_DATA_AVAILINTS, (size_t)interruptsavailmap);
 	//Setup an IDT. We maintain a seperate IDT for each CPU, so allocation is dynamic
 	IDT* the_idt = new IDT[256];
 	IDTR* idtr = new IDTR;
@@ -912,6 +930,8 @@ void arch_setup_interrupts()
 		arch_register_interrupt_subsystem(INTERRUPT_SUBSYSTEM_NATIVE, &subsystem_native);
 		arch_register_interrupt_subsystem(INTERRUPT_SUBSYSTEM_DISPATCH, &subsystem_dispatch);
 	}
+	//Reserve exceptions
+	arch_reserve_interrupt_range(0, 31);
 	//Now set up the interrupt controller, so we don't die for no apparent reason
 	x64_init_apic();
 	x64_restore_flags(x64_disable_interrupts() | (1<<9));
@@ -934,6 +954,52 @@ CHAIKRNL_FUNC void arch_register_interrupt_handler(uint32_t subsystem, size_t ve
 CHAIKRNL_FUNC void arch_install_interrupt_post_event(uint32_t subsystem, size_t vector, void(*evt)())
 {
 	interrupt_subsystems[subsystem]->post_evt(vector, evt);
+}
+
+CHAIKRNL_FUNC uint32_t arch_allocate_interrupt_vector()
+{
+	auto st = arch_disable_interrupts();		//So we don't get interfered with
+	uint8_t* availints = (uint8_t*)x64_gs_readq(PCPU_DATA_AVAILINTS);
+	uint_fast8_t i = 0;
+	uint32_t ret = -1;
+	for (; availints[i] == 0 && i < (256 / 8); ++i);
+	if (i == 256 / 8)
+		goto end;
+	else
+	{
+		uint8_t current = availints[i];
+		size_t off = 0;
+		for (; off < 8 && (current & (1 << off) != 0); ++off);
+		ret = i * 8 + off;		
+	}
+end:
+	if(ret != -1)
+		arch_reserve_interrupt_range(ret, ret);
+	arch_restore_state(st);
+	return ret;
+}
+CHAIKRNL_FUNC void arch_reserve_interrupt_range(uint32_t start, uint32_t end)
+{
+	auto st = arch_disable_interrupts();		//So we don't get interfered with
+	uint8_t* availints = (uint8_t*)x64_gs_readq(PCPU_DATA_AVAILINTS);
+	size_t i = start / 8;
+	size_t o = start % 8;
+	while (i * 8 + o <= end)
+	{
+		availints[i] &= (UINT8_MAX - (1 << o));
+		++o;
+		i += o / 8;
+		o = o % 8;
+	}
+
+
+	arch_restore_state(st);
+}
+
+paddr_t arch_msi_address(uint64_t* data, size_t vector, uint8_t edgetrigger, uint8_t deassert)
+{
+	*data = (vector & 0xFF) | (edgetrigger == 1 ? 0 : (1 << 15)) | (deassert == 1 ? 0 : (1 << 14));
+	return (0xFEE00000 | (pcpu_data.cpuid << 12));
 }
 
 context_t context_factory()

@@ -56,8 +56,8 @@ static class _cpu_data {
 	static const uint32_t offset_thread = 0x8;
 	static const uint32_t offset_ticks = 0x10;
 	static const uint32_t offset_id = 0x18;
-	static const size_t data_size = sizeof(per_cpu_data);
 public:
+	static const size_t data_size = 0x28;
 	class cpu_id {
 	public:
 		uint32_t operator = (uint32_t i) { arch_write_per_cpu_data(offset_id, 32, i); return i; }
@@ -78,6 +78,7 @@ public:
 		operator uint64_t() const { return arch_read_per_cpu_data(offset_ticks, 64); }
 	}cputicks;
 }pcpu_data;
+uint64_t arch_msi_address(uint64_t* data, size_t vector, uint8_t edgetrigger = 1, uint8_t deassert = 0);
 #endif
 
 CHAIKRNL_FUNC void arch_register_interrupt_subsystem(uint32_t subsystem, arch_interrupt_subsystem* system);
@@ -86,12 +87,16 @@ typedef uint8_t(*dispatch_interrupt_handler)(size_t vector, void* param);
 CHAIKRNL_FUNC void arch_register_interrupt_handler(uint32_t subsystem, size_t vector, void* fn, void* param);
 CHAIKRNL_FUNC void arch_install_interrupt_post_event(uint32_t subsystem, size_t vector, void(*evt)());
 
+CHAIKRNL_FUNC uint32_t arch_allocate_interrupt_vector();
+CHAIKRNL_FUNC void arch_reserve_interrupt_range(uint32_t start, uint32_t end);
+
 void arch_set_paging_root(size_t root);
 
 uint32_t arch_current_processor_id();
 uint8_t arch_startup_cpu(uint32_t processor, void* address, volatile size_t* rendezvous, size_t rendezvousval);
 uint8_t arch_is_bsp();
 void arch_halt();
+void arch_local_eoi();
 
 typedef void* context_t;
 context_t context_factory();

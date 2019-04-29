@@ -117,6 +117,8 @@
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
       <Driver>Driver</Driver>
       <StackReserveSize>0x100000</StackReserveSize>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapExports>true</MapExports>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -153,6 +155,8 @@
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
       <Driver>Driver</Driver>
       <StackReserveSize>0x100000</StackReserveSize>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapExports>true</MapExports>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -189,6 +193,8 @@
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
       <Driver>Driver</Driver>
       <StackReserveSize>0x100000</StackReserveSize>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapExports>true</MapExports>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -226,6 +232,8 @@
       <AdditionalLibraryDirectories>$(OutDir)</AdditionalLibraryDirectories>
       <Driver>Driver</Driver>
       <StackReserveSize>0x100000</StackReserveSize>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapExports>true</MapExports>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -251,6 +259,8 @@
     <ClCompile Include="semaphore.cpp" />
     <ClCompile Include="spinlock.cpp" />
     <ClCompile Include="uefihelper.cpp" />
+    <ClCompile Include="usb.cpp" />
+    <ClCompile Include="xhci.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Include\arch\cpu.h" />
@@ -270,6 +280,7 @@
     <ClInclude Include="scheduler.h" />
     <ClInclude Include="semaphore.h" />
     <ClInclude Include="uefihelper.h" />
+    <ClInclude Include="usb.h" />
   </ItemGroup>
   <ItemGroup>
     <NASM Include="arch\x64\asm_x64.asm">

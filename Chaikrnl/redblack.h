@@ -120,6 +120,55 @@ public:
 		++m_size;
 		return newnode->value;
 	}
+	void remove(const key_type& key)
+	{
+		node** node_ptr = &root;
+		node* noded = *node_ptr;
+		node* parent = nullptr;
+		while (noded)
+		{
+			int compar = Compare::compare(noded->key, key);
+			if (compar == 0)
+			{
+				break;
+			}
+			else if (compar == 1)
+			{
+				node_ptr = &noded->right;
+				parent = noded;
+				noded = noded->right;
+			}
+			else
+			{
+				node_ptr = &noded->left;
+				parent = noded;
+				noded = noded->left;
+			}
+		}
+		if (!noded)
+		{
+			return;
+		}
+		node* left = noded->left;
+		node* right = noded->right;
+		node* newplaced = (left != nullptr ? left : right);
+		delete noded;
+		if (parent)
+			*node_ptr = newplaced;
+		else
+			root = newplaced;
+		if (left && right)
+		{
+			node** rightmost = &newplaced->right;
+			node* rr = *rightmost;
+			while (rr)
+			{
+				rightmost = &rr->right;
+				rr = *rightmost;
+			}
+			*rightmost = right;
+		}
+	}
 
 private:
 	typedef struct _node {
@@ -145,10 +194,10 @@ public:
 			}
 			else
 			{
-				node* parent = nod->parent;
+				node* par = nod->parent;
 				node* cur = nod;
-				while (parent && cur == parent->right) { cur = parent; parent = parent->parent; }
-				nod = parent;
+				while (par && cur == par->right) { cur = par; par = par->parent; }
+				nod = par;
 			}
 			return *this;
 		}
@@ -173,11 +222,11 @@ public:
 			}
 			else
 			{
-				node* parent = nod->parent;
+				node* par = nod->parent;
 				node* cur = nod;
-				while (parent && cur == parent->left) { cur = parent; parent = parent->parent; }
-				if (parent)
-					nod = parent;
+				while (par && cur == par->left) { cur = par; par = par->parent; }
+				if (par)
+					nod = par;
 			}
 			return *this;
 		}
