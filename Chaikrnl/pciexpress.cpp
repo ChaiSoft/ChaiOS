@@ -431,7 +431,7 @@ void pci_bus_scan(pci_scan_callback callback)
 
 #define PCI_msix_vctrl_mask	0x0001
 
-uint32_t pci_allocate_msi(uint16_t segment, uint16_t bus, uint16_t device, uint16_t function, uint32_t numintrs)
+uint32_t pci_allocate_msi(uint16_t segment, uint16_t bus, uint16_t device, uint16_t function, uint32_t numintrs, dispatch_interrupt_handler handler, void* param)
 {
 	//Check device supports MSI
 	void* internalptr = nullptr;
@@ -462,9 +462,15 @@ uint32_t pci_allocate_msi(uint16_t segment, uint16_t bus, uint16_t device, uint1
 		if (msireg == 0)	//No MSI support
 			goto fail;
 		//MSI supported
+		//Disable preemption
+		auto cpust = arch_disable_interrupts();
 		uint32_t vector = arch_allocate_interrupt_vector();
+		uint32_t cpu_num = pcpu_data.cpuid;
 		//Setup EOI
 		arch_install_interrupt_post_event(INTERRUPT_SUBSYSTEM_DISPATCH, vector, &arch_local_eoi);
+		arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, vector, handler, param);
+		//Now we have all per-CPU stuff sorted
+		arch_restore_state(cpust);
 		internalptr = internal_read_pci(segment, bus, device, function, msireg, 32, &capreg, internalptr);
 		if ((capreg & 0xFF) == PCI_CAP_ID_MSIX)
 		{
@@ -486,7 +492,7 @@ uint32_t pci_allocate_msi(uint16_t segment, uint16_t bus, uint16_t device, uint1
 			mappedtable = raw_offset<void*>(mappedtable, offset);
 			kprintf(u"MSI-X table BAR%d (%x), offset %x\n", bar, msibar, table_bir);
 			uint64_t msi_data = 0;
-			paddr_t msi_addr = arch_msi_address(&msi_data, vector);
+			paddr_t msi_addr = arch_msi_address(&msi_data, vector, cpu_num);
 			internalptr = internal_write_pci(segment, bus, device, function, msireg + 1, 32, msi_addr >> 32, internalptr);
 			kprintf(u"MSI-X desired: %x:%x\n", msi_data, msi_addr);
 			volatile uint32_t* msitab = (volatile uint32_t*)mappedtable;
@@ -507,7 +513,7 @@ uint32_t pci_allocate_msi(uint16_t segment, uint16_t bus, uint16_t device, uint1
 			uint32_t requestedvecs = (msgctrl >> 1) & 0x7;
 			//Write message and data
 			uint64_t msi_data = 0;
-			paddr_t msi_addr = arch_msi_address(&msi_data, vector);
+			paddr_t msi_addr = arch_msi_address(&msi_data, vector, cpu_num);
 			internalptr = internal_write_pci(segment, bus, device, function, msireg + 1, 32, msi_addr & UINT32_MAX, internalptr);
 			uint32_t data_offset = 2;
 			if (bits64cap)

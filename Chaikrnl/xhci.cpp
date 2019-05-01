@@ -7,104 +7,7 @@
 #include <string.h>
 #include <scheduler.h>
 #include <semaphore.h>
-
-#define XHCI_CAPREG_CAPLENGTH 0x0
-#define XHCI_CAPREG_HCIVERSION 0x2
-#define XHCI_CAPREG_HCSPARAMS1 0x4
-#define XHCI_CAPREG_HCSPARAMS2 0x8
-#define XHCI_CAPREG_HCSPARAMS3 0xC
-#define XHCI_CAPREG_HCCPARAMS1 0x10
-#define XHCI_CAPREG_DBOFF 0x14
-#define XHCI_CAPREG_RTSOFF 0x18
-#define XHCI_CAPREG_HCCPARAMS2 0x1C
-
-#define XHCI_OPREG_USBCMD 0x0
-#define XHCI_OPREG_USBSTS 0x4
-#define XHCI_OPREG_PAGESIZE 0x8
-#define XHCI_OPREG_DNCTRL 0x14
-#define XHCI_OPREG_CRCR 0x18
-#define XHCI_OPREG_DCBAAP 0x30
-#define XHCI_OPREG_CONFIG 0x38
-
-#define XHCI_OPREG_PORTSCBASE 0x400
-#define XHCI_OPREG_PORTPMSCBASE 0x404
-#define XHCI_OPREG_PORTLIBASE 0x408
-#define XHCI_OPREG_PORTHLPMCBASE 0x40C
-#define XHCI_PORTOFFSET 0x10
-
-#define XHCI_OPREG_PORTSC(x) \
-(XHCI_OPREG_PORTSCBASE + (x-1) * XHCI_PORTOFFSET)
-#define XHCI_OPREG_PORTPMSC(x) \
-(XHCI_OPREG_PORTPMSCBASE + (x-1) * XHCI_PORTOFFSET)
-#define XHCI_OPREG_PORTLI(x) \
-(XHCI_OPREG_PORTLIBASE + (x-1) * XHCI_PORTOFFSET)
-#define XHCI_OPREG_PORTHLPMC(x) \
-(XHCI_OPREG_PORTHLPMCBASE + (x-1) * XHCI_PORTOFFSET)
-
-#define XHCI_PORTSC_SPEED_GET(x) \
-((x >> 10) & 0xF)
-
-#define XHCI_RUNREG_MFINDEX 0x0
-#define XHCI_RUNREG_IMANBASE 0x20
-#define XHCI_RUNREG_IMODBASE 0x24
-#define XHCI_RUNREG_ERSTSZBASE 0x28
-#define XHCI_RUNREG_ERSTBABASE 0x30
-#define XHCI_RUNREG_ERDPBASE 0x38
-#define XHCI_INTERRUPTEROFFSET 0x20
-
-#define XHCI_RUNREG_IMAN(x) \
-(XHCI_RUNREG_IMANBASE + x*XHCI_INTERRUPTEROFFSET)
-#define XHCI_RUNREG_IMOD(x) \
-(XHCI_RUNREG_IMODBASE + x*XHCI_INTERRUPTEROFFSET)
-#define XHCI_RUNREG_ERSTSZ(x) \
-(XHCI_RUNREG_ERSTSZBASE + x*XHCI_INTERRUPTEROFFSET)
-#define XHCI_RUNREG_ERSTBA(x) \
-(XHCI_RUNREG_ERSTBABASE + x*XHCI_INTERRUPTEROFFSET)
-#define XHCI_RUNREG_ERDP(x) \
-(XHCI_RUNREG_ERDPBASE + x*XHCI_INTERRUPTEROFFSET)
-
-#define XHCI_ECAP_LEGSUP 1
-#define XHCI_ECAP_SUPPORT 2
-
-#define XHCI_LEGCTLSTS_DISABLE_SMI	((0x7 << 1) + (0xff << 5) + (0x7 << 17))
-#define XHCI_LEGCTLSTS_EVENTS_SMI	(0x7 << 29)
-
-#define XHCI_TRB_TYPE_NOOP 8
-#define XHCI_TRB_TYPE_ENABLE_SLOT 9
-#define XHCI_TRB_TYPE_ADDRESS_DEVICE 11
-#define XHCI_TRB_TYPE_EVALUATE_CONTEXT 13
-#define XHCI_TRB_TYPE_RESET_ENDPOINT 14
-#define XHCI_TRB_TYPE_TRANSFER_EVENT 32
-#define XHCI_TRB_TYPE_COMMAND_COMPLETE 33
-#define XHCI_TRB_TYPE_PORT_STATUS_CHANGE 34
-#define XHCI_TRB_TYPE_SETUP_STAGE 2
-#define XHCI_TRB_TYPE_DATA_STAGE 3
-#define XHCI_TRB_TYPE_STATUS_STAGE 4
-
-#define XHCI_TRB_TYPE(x) ((uint64_t)x << 42)
-#define XHCI_TRB_SLOTID(x) ((uint64_t)x << 56)
-
-#define XHCI_GET_TRB_TYPE(x) \
-((x >> 42) & 0x3F)
-
-#define XHCI_TRB_ADDRESS_BSR ((uint64_t)1<<41)
-#define XHCI_TRB_ENABLED 0x100000000
-#define XHCI_TRB_ENT 0x200000000
-#define XHCI_TRB_ISP 0x400000000
-#define XHCI_TRB_IOC 0x2000000000
-#define XHCI_TRB_IDT 0x4000000000
-#define XHCI_TRB_TRT(x) ((uint64_t)x << 48)
-#define XHCI_TRB_DIR_IN ((uint64_t)1 << 48)
-
-#define XHCI_DOORBELL_HOST 0x0
-#define XHCI_DOORBELL_HOST_COMMAND 0
-#define XHCI_DOORBELL_ENPOINT0 1
-
-#define XHCI_DOORBELL(slot) \
-(XHCI_DOORBELL_HOST+slot*4)
-
-#define XHCI_COMPLETION_SUCCESS 1
-#define XHCI_COMPLETION_STALL 6
+#include "xhci_registers.h"
 
 class XHCI;
 
@@ -117,11 +20,6 @@ static size_t handle_alloc = 0;
 struct xhci_evtring_info {
 	void* ringbase;
 	void* dequeueptr;
-};
-
-struct xhci_command {
-	uint64_t lowval;
-	uint64_t highval;
 };
 
 static bool xhci_pci_scan(uint16_t segment, uint16_t bus, uint16_t device, uint8_t function)
@@ -174,75 +72,6 @@ static size_t pow2(size_t p)
 	return result;
 }
 
-
-static xhci_command* create_address_command(bool bsr, paddr_t context, uint16_t slot)
-{
-	xhci_command* ret = new xhci_command;
-	uint64_t lowval = 0, highval = 0;
-	lowval = context;
-	highval = XHCI_TRB_ENABLED | XHCI_TRB_TYPE(XHCI_TRB_TYPE_ADDRESS_DEVICE) | XHCI_TRB_SLOTID(slot);
-	highval |= bsr ? XHCI_TRB_ADDRESS_BSR : 0;
-		
-	ret->lowval = lowval;
-	ret->highval = highval;
-	return ret;
-}
-
-static xhci_command* create_resetendpoint_command(uint16_t slot, uint16_t endpoint)
-{
-	xhci_command* ret = new xhci_command;
-	uint64_t lowval = 0, highval = 0;
-	highval = XHCI_TRB_ENABLED | XHCI_TRB_TYPE(XHCI_TRB_TYPE_RESET_ENDPOINT) | XHCI_TRB_SLOTID(slot) | (endpoint << 16);
-
-	ret->lowval = lowval;
-	ret->highval = highval;
-	return ret;
-}
-
-static xhci_command* create_evaluate_command(paddr_t context, uint16_t slot)
-{
-	xhci_command* ret = new xhci_command;
-	uint64_t lowval = 0, highval = 0;
-	lowval = context;
-	highval = XHCI_TRB_ENABLED | XHCI_TRB_TYPE(XHCI_TRB_TYPE_EVALUATE_CONTEXT) | XHCI_TRB_SLOTID(slot);
-
-	ret->lowval = lowval;
-	ret->highval = highval;
-	return ret;
-}
-
-static xhci_command* create_enableslot_command(uint8_t slottype)
-{
-	xhci_command* ret = new xhci_command;
-	ret->lowval = 0;
-	ret->highval = XHCI_TRB_ENABLED | XHCI_TRB_TYPE(XHCI_TRB_TYPE_ENABLE_SLOT) | (slottype << 16);
-	return ret;
-}
-
-static xhci_command* create_setup_stage_trb(uint8_t rType, uint8_t bRequest, uint16_t value, uint16_t wIndex, uint16_t wLength, uint8_t trt)
-{
-	xhci_command* ret = new xhci_command;
-	ret->lowval = rType | (bRequest << 8) | (value << 16) | ((uint64_t)wIndex << 32) | ((uint64_t)wLength << 48);
-	ret->highval = 8 | XHCI_TRB_ENABLED | XHCI_TRB_IDT | XHCI_TRB_TRT(trt) | XHCI_TRB_TYPE(XHCI_TRB_TYPE_SETUP_STAGE);
-	return ret;
-}
-
-static xhci_command* create_data_stage_trb(paddr_t buffer, uint16_t size, bool indirection)
-{
-	xhci_command* ret = new xhci_command;
-	ret->lowval = buffer;
-	ret->highval = XHCI_TRB_ENABLED | XHCI_TRB_ENT | (indirection ? XHCI_TRB_DIR_IN : 0)  | XHCI_TRB_TYPE(XHCI_TRB_TYPE_DATA_STAGE) | size;
-	return ret;
-}
-
-static xhci_command* create_status_stage_trb(bool indirection)
-{
-	xhci_command* ret = new xhci_command;
-	ret->lowval = 0;
-	ret->highval = XHCI_TRB_ENABLED | XHCI_TRB_ENT | (indirection ? XHCI_TRB_DIR_IN : 0) | XHCI_TRB_TYPE(XHCI_TRB_TYPE_STATUS_STAGE) | XHCI_TRB_IOC;
-	return ret;
-}
-
 static size_t get_trb_completion_code(void* trb)
 {
 	if (!trb)
@@ -272,7 +101,10 @@ typedef struct _usb_device_descriptor {
 class XHCI {
 public:
 	XHCI(void* basea)
-		:cmdring(this, XHCI_DOORBELL_HOST, XHCI_DOORBELL_HOST_COMMAND)
+		:cmdring(this, XHCI_DOORBELL_HOST, XHCI_DOORBELL_HOST_COMMAND),
+		Capabilities(baseaddr),
+		Operational(oppbase),
+		Runtime(runbase)
 	{
 		baseaddr = basea;
 	}
@@ -293,9 +125,9 @@ public:
 		//Look up protocols
 		xhci_protocol_speeds();
 		//Get command ring
-		paddr_t crb = cmdring.getBaseAddress();		
-		writeOperationalRegister(XHCI_OPREG_CRCR, (crb & UINT32_MAX) | 1, 32);
-		writeOperationalRegister(XHCI_OPREG_CRCR + 4, crb >> 32, 32);
+		paddr_t crb = cmdring.getBaseAddress();
+		Operational.CRCR.CommandRingPtr = crb;
+		Operational.CRCR.RCS = 1;
 		//Set up event rings and primary interrupter
 		createPrimaryEventRing();
 		//Set up synchronisation
@@ -307,12 +139,13 @@ public:
 
 		//TODO - interrupts go here
 		//Start USB!
-		writeRuntimeRegister(XHCI_RUNREG_IMAN(0), readRuntimeRegister(XHCI_RUNREG_IMAN(0), 32) | (1 << 1), 32);
-		writeOperationalRegister(XHCI_OPREG_USBCMD, 1 | (1 << 2), 32);		//Start USB!
+		Runtime.Interrupter(0).IMAN.InterruptEnable = 1;
+		Operational.USBCMD.RunStop = 1;		//Start USB!
+		Operational.USBCMD.INTE = 1;
 		//Just make sure we don't miss interrupts
-		writeRuntimeRegister(XHCI_RUNREG_IMAN(0), readRuntimeRegister(XHCI_RUNREG_IMAN(0), 32), 32);
-		writeRuntimeRegister(XHCI_RUNREG_IMOD(0), 4000, 32);
-		writeOperationalRegister(XHCI_OPREG_USBSTS, readOperationalRegister(XHCI_OPREG_USBSTS, 32), 32);
+		Runtime.Interrupter(0).IMAN = Runtime.Interrupter(0).IMAN;
+		Runtime.Interrupter(0).IMOD.InterruptInterval = 4000;
+		Operational.USBSTS = Operational.USBSTS;
 		//Work on ports
 		kprintf(u"XHCI controller enabled, %d ports\n", getMaxPorts());
 		for (size_t n = 1; n <= getMaxPorts(); ++n)
@@ -327,22 +160,22 @@ public:
 
 	void halt()
 	{
-		uint32_t usbcmd = readOperationalRegister(XHCI_OPREG_USBCMD, 32);
-		usbcmd &= (SIZE_MAX - 1);
-		writeOperationalRegister(XHCI_OPREG_USBCMD, usbcmd, 32);
-		while ((readOperationalRegister(XHCI_OPREG_USBSTS, 32) & 1) == 0);
+		Operational.USBCMD.RunStop = 0;
+		while (Operational.USBSTS.HcHalted == 0);
 	}
 
 private:
 
+	XhciCapabilityRegisterBlock Capabilities;
+	XhciOperationalRegisterBlock Operational;
+	XhciRuntimeRegisterBlock Runtime;
+
 	void reset()
 	{
-		uint32_t usbcmd = readOperationalRegister(XHCI_OPREG_USBCMD, 32);
-		usbcmd |= (1 << 1);
-		writeOperationalRegister(XHCI_OPREG_USBCMD, usbcmd, 32);
+		Operational.USBCMD.HcReset = 1;
 		//Intel xHCIs have a quirk
 		Stall(1);
-		while ((readOperationalRegister(XHCI_OPREG_USBCMD, 32) & (1 << 1)) != 0);
+		while (Operational.USBCMD.HcReset != 0);
 	}
 
 	uint64_t readCapabilityRegister(size_t reg, size_t width)
@@ -376,76 +209,6 @@ private:
 			break;
 		case 64:
 			*raw_offset<volatile uint64_t*>(baseaddr, reg) = value;
-			break;
-		}
-	}
-
-	uint64_t readOperationalRegister(size_t reg, size_t width)
-	{
-		switch (width)
-		{
-		case 8:
-			return *raw_offset<volatile uint8_t*>(oppbase, reg);
-		case 16:
-			return *raw_offset<volatile uint16_t*>(oppbase, reg);
-		case 32:
-			return *raw_offset<volatile uint32_t*>(oppbase, reg);
-		case 64:
-			return *raw_offset<volatile uint64_t*>(oppbase, reg);
-		}
-		return 0;
-	}
-
-	void writeOperationalRegister(size_t reg, uint64_t value, size_t width)
-	{
-		switch (width)
-		{
-		case 8:
-			*raw_offset<volatile uint8_t*>(oppbase, reg) = value;
-			break;
-		case 16:
-			*raw_offset<volatile uint16_t*>(oppbase, reg) = value;
-			break;
-		case 32:
-			*raw_offset<volatile uint32_t*>(oppbase, reg) = value;
-			break;
-		case 64:
-			*raw_offset<volatile uint64_t*>(oppbase, reg) = value;
-			break;
-		}
-	}
-
-	uint64_t readRuntimeRegister(size_t reg, size_t width)
-	{
-		switch (width)
-		{
-		case 8:
-			return *raw_offset<volatile uint8_t*>(runbase, reg);
-		case 16:
-			return *raw_offset<volatile uint16_t*>(runbase, reg);
-		case 32:
-			return *raw_offset<volatile uint32_t*>(runbase, reg);
-		case 64:
-			return *raw_offset<volatile uint64_t*>(runbase, reg);
-		}
-		return 0;
-	}
-
-	void writeRuntimeRegister(size_t reg, uint64_t value, size_t width)
-	{
-		switch (width)
-		{
-		case 8:
-			*raw_offset<volatile uint8_t*>(runbase, reg) = value;
-			break;
-		case 16:
-			*raw_offset<volatile uint16_t*>(runbase, reg) = value;
-			break;
-		case 32:
-			*raw_offset<volatile uint32_t*>(runbase, reg) = value;
-			break;
-		case 64:
-			*raw_offset<volatile uint64_t*>(runbase, reg) = value;
 			break;
 		}
 	}
@@ -552,16 +315,14 @@ private:
 		XHCI* cinfo = ((xhci_thread_port_startup*)pinf)->cinfo;
 		size_t n = ((xhci_thread_port_startup*)pinf)->port;
 
-		uint32_t portsc = readOperationalRegister(XHCI_OPREG_PORTSC(n), 32);
-		if ((portsc & 1) == 1)
+		XhciPortRegisterBlock portregs = Operational.Port(n);
+		if (portregs.PORTSC.CCS == 1)
 		{
 			//Reset port
-			portsc |= (1 << 4);
-			portsc &= (SIZE_MAX - 1);
-			writeOperationalRegister(XHCI_OPREG_PORTSC(n), portsc, 32);
-			while ((readOperationalRegister(XHCI_OPREG_PORTSC(n), 32) & (1 << 4)) != 0);
+			portregs.PORTSC.PortReset = 1;
+			while (portregs.PORTSC.PortReset != 0);
 			//Port successfully reset
-			uint8_t portspeed = XHCI_PORTSC_SPEED_GET(readOperationalRegister(XHCI_OPREG_PORTSC(n), 32));
+			uint8_t portspeed = portregs.PORTSC.PortSpeed;
 			kprintf(u" Device attatched on port %d, %d Kbps (%s)\n", n, calculatePortSpeed(portspeed) / 1000, ReadablePortSpeed(portSpeed(portspeed)));
 			Stall(100);
 #if 1
@@ -716,6 +477,8 @@ private:
 		spinlock_t command_lock;
 	};
 
+	
+
 	bool update_packet_size_fs(xhci_port_info* port)
 	{
 		uint8_t* buffer = new uint8_t[8];
@@ -770,7 +533,7 @@ private:
 		uint32_t ptr = 0;
 		if (searchstart == 0)
 		{
-			ptr = (readCapabilityRegister(XHCI_CAPREG_HCCPARAMS1, 32) >> 16) * 4;
+			ptr = Capabilities.HCCPARAMS1.EcapPtr * 4;
 		}
 		else
 		{
@@ -813,8 +576,9 @@ private:
 		while (1)
 		{
 			wait_semaphore(event_available, 1, TIMEOUT_INFINITY);
+			kprintf(u"Events available\n");
 			volatile uint64_t* ret = (volatile uint64_t*)primaryevt.dequeueptr;
-			uint64_t erdp = readRuntimeRegister(XHCI_RUNREG_ERDP(0), 64);
+			uint64_t erdp = Runtime.Interrupter(0).ERDP.DequeuePtr;
 			while (ret[1] & XHCI_TRB_ENABLED)
 			{
 				if (get_trb_completion_code((void*)ret) == XHCI_COMPLETION_STALL)
@@ -876,10 +640,8 @@ private:
 				ret += 2;
 				erdp += 0x10;		//next TRB
 				primaryevt.dequeueptr = (void*)ret;
-				erdp |= (1 << 3);
-				writeRuntimeRegister(XHCI_RUNREG_ERDP(0), erdp, 64);
+				Runtime.Interrupter(0).ERDP.update(erdp, false);
 			}
-
 		}
 	}
 
@@ -893,10 +655,10 @@ private:
 
 	void fill_baseaddress()
 	{
-		oppbase = raw_offset<void*>(baseaddr, readCapabilityRegister(XHCI_CAPREG_CAPLENGTH, 8));
-		runbase = raw_offset<void*>(baseaddr, readCapabilityRegister(XHCI_CAPREG_RTSOFF, 32));
+		oppbase = raw_offset<void*>(baseaddr, Capabilities.CAPLENGTH);
+		runbase = raw_offset<void*>(baseaddr, Capabilities.RUNTIMEOFF.RuntimeOffset);
 		//Now find doorbell registers
-		doorbell = raw_offset<void*>(baseaddr, readCapabilityRegister(XHCI_CAPREG_DBOFF, 32));
+		doorbell = raw_offset<void*>(baseaddr, Capabilities.DBOFF.Dboffset);
 	}
 
 	void take_bios_control()
@@ -941,33 +703,28 @@ private:
 		primaryevt.dequeueptr = evtdp;
 		primaryevt.ringbase = evtring;
 		//Set segment table size
-		writeRuntimeRegister(XHCI_RUNREG_ERSTSZ(0), 1, 32);
+		Runtime.Interrupter(0).ERSTSZ.Size = 1;
 		//Set dequeue pointer
-		writeRuntimeRegister(XHCI_RUNREG_ERDP(0), evt, 64);
+		Runtime.Interrupter(0).ERDP.update(evt, false);
 		//Enable event ring
-		writeRuntimeRegister(XHCI_RUNREG_ERSTBA(0), evtseg, 64);
-		writeRuntimeRegister(XHCI_RUNREG_IMAN(0), readRuntimeRegister(XHCI_RUNREG_IMAN(0), 32), 32);
+		Runtime.Interrupter(0).ERSTBA.SegTableBase = evtseg;
+		Runtime.Interrupter(0).IMAN = Runtime.Interrupter(0).IMAN;
 	}
 
 	void createDeviceContextBuffer()
 	{
-		size_t hcsp1 = readCapabilityRegister(XHCI_CAPREG_HCSPARAMS1, 32);
-		size_t max_slots = hcsp1 & 0xFF;
 		paddr_t cont = pmmngr_allocate(1);
 		devctxt = find_free_paging(PAGESIZE);
 		paging_map(devctxt, cont, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING);
 		memset(devctxt, 0, PAGESIZE);
-		writeOperationalRegister(XHCI_OPREG_DCBAAP, cont & UINT32_MAX, 32);
-		writeOperationalRegister(XHCI_OPREG_DCBAAP + 4, cont >> 32, 32);
+		Operational.DCBAAP.DeviceContextPtr = cont;
 		//Give XHCI a scratchpad
-		uint32_t hcsp2 = readOperationalRegister(XHCI_CAPREG_HCSPARAMS2, 32);
-		uint32_t scratchsize = (hcsp2 >> 27) & 0x1F;
-		scratchsize |= ((hcsp2 >> 21) & 0x1F << 5);
+		uint32_t scratchsize = (Capabilities.HCSPARAMS2.MaxScratchHigh << 5) | Capabilities.HCSPARAMS2.MaxScratchLow;
 		if (scratchsize > 512)
 			kprintf(u"Warning: scratchpad too big!\n");
 		paddr_t spad = pmmngr_allocate(1);
 		*reinterpret_cast<volatile uint64_t*>(devctxt) = spad;
-		writeOperationalRegister(XHCI_OPREG_CONFIG, max_slots, 32);
+		Operational.CONFIG.EnabledDeviceSlots = Capabilities.HCSPARAMS1.MaxSlots;
 		void* mappedspa = find_free_paging(PAGESIZE);
 		paging_map(mappedspa, spad, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING);
 		for (size_t n = 0; n < scratchsize && n < 512; ++n)
@@ -1184,10 +941,8 @@ static uint8_t xhci_interrupt(size_t vector, void* info)
 {
 	XHCI* inf = reinterpret_cast<XHCI*>(info);
 	signal_semaphore(inf->event_available, 1);
-	uint32_t status = inf->readOperationalRegister(XHCI_OPREG_USBSTS, 32);
-	uint32_t temp = inf->readRuntimeRegister(XHCI_RUNREG_IMAN(0), 32);
-	inf->writeOperationalRegister(XHCI_OPREG_USBSTS, status, 32);
-	inf->writeRuntimeRegister(XHCI_RUNREG_IMAN(0), temp, 32);
+	inf->Operational.USBSTS.EINT = 1;
+	inf->Runtime.Interrupter(0).IMAN.InterruptPending = 1;
 	return 1;
 }
 
@@ -1208,14 +963,10 @@ static void xhci_pci_baseaddr(pci_address* addr, XHCI*& cinfo)
 		kprintf(u"Mapping failed\n");
 	}
 	cinfo = new XHCI(mapped_controller);
-	uint32_t vector = pci_allocate_msi(addr->segment, addr->bus, addr->device, addr->function, 1);
+	uint32_t vector = pci_allocate_msi(addr->segment, addr->bus, addr->device, addr->function, 1, &xhci_interrupt, cinfo);
 	if (vector == -1)
 	{
 		kprintf(u"Error: no MSI(-X) support\n");
-	}
-	else
-	{
-		arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, vector, &xhci_interrupt, cinfo);
 	}
 }
 

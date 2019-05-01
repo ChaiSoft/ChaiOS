@@ -128,6 +128,9 @@
     <ClInclude Include="usb.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="xhci_registers.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <NASM Include="arch\x64\asm_x64.asm">

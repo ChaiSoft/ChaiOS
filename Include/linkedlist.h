@@ -32,7 +32,8 @@ public:
 	{
 		set_next(val, nullptr);
 		set_prev(val, m_end);
-		set_next(m_end, val);
+		if(m_end)
+			set_next(m_end, val);
 		m_end = val;
 		if (!m_start)
 			m_start = val;
@@ -77,6 +78,9 @@ public:
 			m_end = prev;
 		else
 			set_prev(next, prev);
+		set_next(node, nullptr);
+		set_prev(node, nullptr);
+		--m_length;
 	}
 	size_t length()
 	{

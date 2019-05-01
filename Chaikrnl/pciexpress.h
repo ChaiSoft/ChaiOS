@@ -2,6 +2,7 @@
 #define CHAIOS_PCI_EXPRESS_H
 #include <stdheaders.h>
 #include <arch/paging.h>
+#include <arch/cpu.h>
 
 struct pci_address {
 	uint16_t segment;
@@ -22,7 +23,7 @@ uint8_t pci_get_subclass(uint16_t segment, uint8_t bus, uint8_t device, uint8_t 
 uint32_t pci_get_classcode(uint16_t segment, uint8_t bus, uint8_t device, uint8_t function);
 uint8_t pci_get_header_type(uint16_t segment, uint16_t bus, uint16_t device, uint16_t function);
 
-uint32_t pci_allocate_msi(uint16_t segment, uint16_t bus, uint16_t device, uint16_t function, uint32_t numintrs);
+uint32_t pci_allocate_msi(uint16_t segment, uint16_t bus, uint16_t device, uint16_t function, uint32_t numintrs, dispatch_interrupt_handler handler, void* param);
 
 typedef bool(*pci_scan_callback)(uint16_t segment, uint16_t bus, uint16_t device, uint8_t function);
 void pci_bus_scan(pci_scan_callback callback);

@@ -78,7 +78,7 @@ public:
 		operator uint64_t() const { return arch_read_per_cpu_data(offset_ticks, 64); }
 	}cputicks;
 }pcpu_data;
-uint64_t arch_msi_address(uint64_t* data, size_t vector, uint8_t edgetrigger = 1, uint8_t deassert = 0);
+uint64_t arch_msi_address(uint64_t* data, size_t vector, uint32_t processor, uint8_t edgetrigger = 1, uint8_t deassert = 0);
 #endif
 
 CHAIKRNL_FUNC void arch_register_interrupt_subsystem(uint32_t subsystem, arch_interrupt_subsystem* system);

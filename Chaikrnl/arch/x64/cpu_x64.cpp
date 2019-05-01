@@ -996,10 +996,10 @@ CHAIKRNL_FUNC void arch_reserve_interrupt_range(uint32_t start, uint32_t end)
 	arch_restore_state(st);
 }
 
-paddr_t arch_msi_address(uint64_t* data, size_t vector, uint8_t edgetrigger, uint8_t deassert)
+paddr_t arch_msi_address(uint64_t* data, size_t vector, uint32_t processor, uint8_t edgetrigger, uint8_t deassert)
 {
 	*data = (vector & 0xFF) | (edgetrigger == 1 ? 0 : (1 << 15)) | (deassert == 1 ? 0 : (1 << 14));
-	return (0xFEE00000 | (pcpu_data.cpuid << 12));
+	return (0xFEE00000 | (processor << 12));
 }
 
 context_t context_factory()

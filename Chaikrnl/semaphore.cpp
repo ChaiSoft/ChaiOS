@@ -19,7 +19,7 @@ static linked_list_node<wait_queue_entry*>& get_wait_node(wait_queue_entry* ent)
 struct semaphore {
 	spinlock_t spinlock;
 	size_t value;
-	LinkedList<wait_queue_entry*> wait_queue;
+	LinkedList<wait_queue_entry*>* wait_queue;
 	char16_t* semname;
 };
 
@@ -34,7 +34,7 @@ EXTERN CHAIKRNL_FUNC semaphore_t create_semaphore(size_t count, char16_t* name)
 	sem->semname = name;
 	if (!sem->spinlock)
 		return nullptr;
-	sem->wait_queue.init(&get_wait_node);
+	sem->wait_queue = new LinkedList<wait_queue_entry*>(&get_wait_node);
 	return (semaphore_t)sem;
 }
 EXTERN CHAIKRNL_FUNC void delete_semaphore(semaphore_t lock)
@@ -56,7 +56,7 @@ EXTERN CHAIKRNL_FUNC void signal_semaphore(semaphore_t lock, size_t count)
 	{
 		for (size_t n = 0; n < count; ++n)
 		{
-			wait_queue_entry* ent = sem->wait_queue.pop();
+			wait_queue_entry* ent = sem->wait_queue->pop();
 			if (ent)
 			{
 				//kprintf(u"Thread %x waking\n", ent->waiting);
@@ -81,7 +81,7 @@ static uint8_t should_sleep_sem(spinlock_t lock, void* param)
 	{
 		wait_queue_entry* queueent = new wait_queue_entry;
 		queueent->waiting = pcpu_data.runningthread;
-		sem->sem->wait_queue.insert(queueent);
+		sem->sem->wait_queue->insert(queueent);
 	}
 	return res;
 }
@@ -108,14 +108,14 @@ EXTERN CHAIKRNL_FUNC uint8_t wait_semaphore(semaphore_t lock, size_t count, size
 		st = acquire_spinlock(sem->spinlock);
 	}
 #else
-	bool candec = false;
 	st = acquire_spinlock(sem->spinlock);
+	bool candec = sem->value >= count;
 	while (!candec)
 	{
-		candec = sem->value >= count;
 		release_spinlock(sem->spinlock, st);
 		arch_pause();
 		st = acquire_spinlock(sem->spinlock);
+		candec = sem->value >= count;
 	}
 #endif
 	sem->value -= count;

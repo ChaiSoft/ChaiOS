@@ -281,6 +281,7 @@
     <ClInclude Include="semaphore.h" />
     <ClInclude Include="uefihelper.h" />
     <ClInclude Include="usb.h" />
+    <ClInclude Include="xhci_registers.h" />
   </ItemGroup>
   <ItemGroup>
     <NASM Include="arch\x64\asm_x64.asm">
