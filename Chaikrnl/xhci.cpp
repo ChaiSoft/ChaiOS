@@ -353,7 +353,7 @@ private:
 			devcmds[1] = create_data_stage_trb(get_physical_address((void*)devdesc), 20, true);
 			devcmds[2] = create_status_stage_trb(true);
 			devcmds[3] = nullptr;
-			port_info->cmdring.enqueue(devcmds[0]);
+			//port_info->cmdring.enqueue(devcmds[0]);
 			void* statusevt = port_info->cmdring.enqueue_commands(devcmds);
 			void* resulttrb = waitComplete(statusevt, 1000);
 			if (get_trb_completion_code(resulttrb) != XHCI_COMPLETION_SUCCESS)
@@ -576,7 +576,7 @@ private:
 		while (1)
 		{
 			wait_semaphore(event_available, 1, TIMEOUT_INFINITY);
-			kprintf(u"Events available\n");
+			//kprintf(u"Events available\n");
 			volatile uint64_t* ret = (volatile uint64_t*)primaryevt.dequeueptr;
 			uint64_t erdp = Runtime.Interrupter(0).ERDP.DequeuePtr;
 			while (ret[1] & XHCI_TRB_ENABLED)
