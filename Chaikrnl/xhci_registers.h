@@ -359,6 +359,11 @@ public:
 	{
 
 	}
+	void set(paddr_t crcrbase, uint8_t rcs)
+	{
+		XhciRegister& reg = *this;
+		reg = ((uint64_t)crcrbase & (UINT64_MAX - 0x3F)) | rcs;
+	}
 	RegisterField<uint8_t, 0, 0> RCS;
 	RegisterField<uint8_t, 1, 1> CS;
 	RegisterField<uint8_t, 2, 2> CA;
@@ -398,6 +403,7 @@ public:
 		:XhciRegister(baseaddr, XHCI_OPREG_PORTSC(port)),
 		CCS(*this),
 		PED(*this),
+
 		OCA(*this),
 		PortReset(*this),
 		PLS(*this),
@@ -447,7 +453,8 @@ public:
 		USBSTS(baseaddr),
 		CRCR(baseaddr),
 		DCBAAP(baseaddr),
-		CONFIG(baseaddr)
+		CONFIG(baseaddr),
+		PGSIZE(baseaddr)
 	{
 
 	}
@@ -457,6 +464,7 @@ public:
 	XhciCRCR CRCR;
 	XhciDCBAAP DCBAAP;
 	XhciConfig CONFIG;
+	XhciPagesize PGSIZE;
 	XhciPortRegisterBlock Port(uint32_t portNum)
 	{
 		return XhciPortRegisterBlock(m_baseaddr, portNum);

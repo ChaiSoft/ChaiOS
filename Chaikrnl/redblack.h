@@ -2,6 +2,7 @@
 #define CHAIOS_REDBLACK_H
 
 #include <stdheaders.h>
+#include <rbtree.h>
 /*
 template <class T> class iterator {
 public:
@@ -57,273 +58,111 @@ public:
 	typedef V mapped_type;
 	RedBlackTree()
 	{
-		m_size = 0;
-		root = nullptr;
+		internal_tree = create_rbtree(&compare_thunk, &get_key, sizeof(value_type));
 	}
 	~RedBlackTree()
 	{
-		node* next = root;
-		while (next)
-		{
-			if (next->left)
-				next = next->left;
-			else if (next->right)
-				next = next->right;
-			else
-			{
-				node* temp = next;
-				next = next->parent;
-				if (next->left == temp)
-					next->left = nullptr;
-				else if(next->right == temp)
-					next->right = nullptr;
-				delete temp;
-			}
-		}
+		destroy_rbtree(internal_tree);
 	}
 
-	size_t size() { return m_size; }
-	bool empty() { return m_size == 0; }
+	size_t size() { return rbtree_size(internal_tree); }
+	bool empty() { return size() == 0; }
 
 	mapped_type& operator[](const key_type& key) {
-		node** node_ptr = &root;
-		node* noded = *node_ptr;
-		node* parent = nullptr;
-		while (noded)
+		iterator_t it = rbtree_find(internal_tree, (key_t)key);
+		if (it == rbtree_end(internal_tree))
 		{
-			int compar = Compare::compare(noded->key, key);
-			if (compar == 0)
-			{
-				return noded->value;
-			}
-			else if (compar == 1)
-			{
-				node_ptr = &noded->right;
-				parent = noded;
-				noded = noded->right;
-			}
-			else
-			{
-				node_ptr = &noded->left;
-				parent = noded;
-				noded = noded->left;
-			}
+			value_type val;
+			val.first = key;
+			it = rbtree_insert(internal_tree, (nodedata_t*)&val);
+			return ((value_type*)rbtree_iterator_value(internal_tree, it))->second;
 		}
-		//Not in the tree, create a new node
-		node* newnode = new node;
-		newnode->key = key;
-		newnode->parent = parent;
-		newnode->left = nullptr;
-		newnode->right = nullptr;
-		newnode->colour = 0;
-		*node_ptr = newnode;
-		++m_size;
-		return newnode->value;
 	}
 	void remove(const key_type& key)
 	{
-		node** node_ptr = &root;
-		node* noded = *node_ptr;
-		node* parent = nullptr;
-		while (noded)
-		{
-			int compar = Compare::compare(noded->key, key);
-			if (compar == 0)
-			{
-				break;
-			}
-			else if (compar == 1)
-			{
-				node_ptr = &noded->right;
-				parent = noded;
-				noded = noded->right;
-			}
-			else
-			{
-				node_ptr = &noded->left;
-				parent = noded;
-				noded = noded->left;
-			}
-		}
-		if (!noded)
-		{
-			return;
-		}
-		node* left = noded->left;
-		node* right = noded->right;
-		node* newplaced = (left != nullptr ? left : right);
-		delete noded;
-		if (parent)
-			*node_ptr = newplaced;
-		else
-			root = newplaced;
-		if (left && right)
-		{
-			node** rightmost = &newplaced->right;
-			node* rr = *rightmost;
-			while (rr)
-			{
-				rightmost = &rr->right;
-				rr = *rightmost;
-			}
-			*rightmost = right;
-		}
+		rbtree_delete(internal_tree, rbtree_find(internal_tree, (key_t)key));
 	}
 
 private:
-	typedef struct _node {
-		K key;
-		V value;
-		struct _node* parent;
-		struct _node* left;
-		struct _node* right;
-		unsigned int colour;
-	}node;
+
+	static int compare_thunk(key_t lhs, key_t rhs)
+	{
+		return Compare::compare((key_type)lhs, (key_type)rhs);
+	}
+
+	static key_t get_key(nodedata_t* data)
+	{
+		value_type* val = (value_type*)data;
+		return (key_t)val->first;
+	}
 
 public:
 	typedef class RedBlackIterator {
 	public:
 		RedBlackIterator& operator ++()
 		{
-			if (!nod)
-				return *this;
-			if (nod->right)
-			{
-				nod = nod->right;
-				while (nod->left) { nod = nod->left; }
-			}
-			else
-			{
-				node* par = nod->parent;
-				node* cur = nod;
-				while (par && cur == par->right) { cur = par; par = par->parent; }
-				nod = par;
-			}
+			rbtree_iterator_increment(m_parent, &m_iterator);
 			return *this;
 		}
 		RedBlackIterator& operator --()
 		{
-			if (!nod)
-			{
-				nod = parent->root;
-				node* cur = nod;
-				while (nod)
-				{
-					cur = nod;
-					nod = cur->right;
-				}
-				nod = cur;
-				return *this;
-			}
-			if (nod->left)
-			{
-				nod = nod->left;
-				while (nod->right) { nod = nod->right; }
-			}
-			else
-			{
-				node* par = nod->parent;
-				node* cur = nod;
-				while (par && cur == par->left) { cur = par; par = par->parent; }
-				if (par)
-					nod = par;
-			}
+			rbtree_iterator_decrement(m_parent, &m_iterator);
 			return *this;
 		}
 		value_type operator *() {
-			if (nod)
-			{
-				value_type ret;
-				ret.first = nod->key;
-				ret.second = nod->value;
-				return ret;
-			}
+			value_type val;
+			val.first = (key_type)rbtree_iterator_key(m_parent, m_iterator);
+			val.second = (mapped_type)*rbtree_iterator_value(m_parent, m_iterator);
 		}
 		pair_proxy<K, V> operator ->() {
-			if (nod)
+			if (m_iterator)
 			{
 				value_type ret;
-				ret.first = nod->key;
-				ret.second = nod->value;
+				ret.first = (key_type)rbtree_iterator_key(m_parent, m_iterator);
+				ret.second = (mapped_type)*rbtree_iterator_value(m_parent, m_iterator);
 				return pair_proxy<K, V>(ret);
 			}
 		}
 		bool operator ==(const RedBlackIterator& rhs) {
-			return rhs.nod == nod;
+			return rhs.m_iterator == m_iterator;
 		}
 		bool operator !=(const RedBlackIterator& rhs) {
-			return rhs.nod != nod;
+			return rhs.m_iterator != m_iterator;
 		}
 	private:
-		RedBlackIterator(node* tnod, RedBlackTree<K, V, Compare>* par)
+		RedBlackIterator(iterator_t internalit, rbtree_t parent)
 		{
-			nod = tnod;
-			parent = par;
+			m_iterator = internalit;
+			m_parent = parent;
 		}
-		node* nod;
-		RedBlackTree<K, V, Compare>* parent;
+		iterator_t m_iterator;
+		rbtree_t m_parent;
 		friend class RedBlackTree<K, V, Compare>;
 	}iterator;
 
 	iterator begin() {
-		node* curnode = nullptr;
-		node* next = root;
-		while (next)
-		{
-			curnode = next;
-			next = curnode->left;
-		}
-		return iterator(curnode, this);
+		return iterator(rbtree_begin(internal_tree), internal_tree);
 	}
 
 	iterator end() {
-		return iterator(nullptr, this);
+		return iterator(rbtree_end(internal_tree), internal_tree);
 	}
 
 	iterator near(const key_type& key)
 	{
-		node* curnode = nullptr;
-		node* next = root;
-		while (next)
-		{
-			curnode = next;
-			int compar = Compare::compare(curnode->key, key);
-			if (compar == 0)
-				break;
-			else if (compar == 1)
-				next = curnode->right;
-			else
-				next = curnode->left;
-		}
-		iterator result = iterator(curnode, this);
-		return result;
+		return iterator(rbtree_near(internal_tree, (key_t)key), internal_tree);
 	}
 
 	iterator find(const key_type& k)
 	{
-		node* curnode = nullptr;
-		node* next = root;
-		while (next)
-		{
-			curnode = next;
-			int compar = Compare::compare(curnode->key, k);
-			if (compar == 0)
-				break;
-			else if (compar == 1)
-				next = curnode->right;
-			else
-				next = curnode->left;
-		}
-		if (!next)
-			return end();
-		return iterator(curnode, this);
+		return iterator(rbtree_find(internal_tree, (key_t)k), internal_tree);
 	}
 
 private:
-	node* root = nullptr;
-	size_t m_size = 0;
+	rbtree_t internal_tree;
 };
 
+#if 0
 template <class K, class V, class off_t, class Compare = less<K>> class InplaceRedBlackTree {
 public:
 	typedef void* node_t;
@@ -558,5 +397,6 @@ private:
 	V root = nullptr;
 	size_t m_size = 0;
 };
+#endif
 
 #endif

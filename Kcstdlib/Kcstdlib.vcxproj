@@ -229,6 +229,7 @@
     <ClCompile Include="kcstdlib.cpp" />
     <ClCompile Include="liballoc.c" />
     <ClCompile Include="printf.cpp" />
+    <ClCompile Include="rbtree.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Include\liballoc.h" />
@@ -237,6 +238,7 @@
     <ClInclude Include="..\Include\vaargs.h" />
     <ClInclude Include="kcstdlib.h" />
     <ClInclude Include="kstdio.h" />
+    <ClInclude Include="rbtree.h" />
     <ClInclude Include="string.h" />
   </ItemGroup>
   <ItemGroup>

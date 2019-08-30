@@ -98,6 +98,65 @@ typedef struct _usb_device_descriptor {
 }usb_device_descriptor;
 #pragma pack(pop)
 
+#pragma pack(push, 1)
+typedef struct _slot_context {
+	uint32_t routeString:20;
+	uint32_t speed:4;
+	uint32_t rsvdz:1;
+	uint32_t MTT:1;
+	uint32_t Hub:1;
+	uint32_t ContextEntries:5;
+	uint16_t maxExitLatency;
+	uint8_t rootHubPort;
+	uint8_t numberPorts;
+	uint8_t TThubSlotId;
+	uint8_t TTportNumber;
+	uint16_t TT:2;
+	uint16_t Rsvdz:4;
+	uint16_t InterrupterTarget:10;
+	uint32_t UsbDeviceAddress : 8;
+	uint32_t Rsvd : 19;
+	uint32_t SlotState : 5;
+	uint32_t RsvdO[4];
+}slot_context;
+static_assert(sizeof(slot_context) == 0x20, "Size error");
+
+typedef struct _endpoint_context {
+	uint8_t EPState : 3;
+	uint8_t Rsvdz : 5;
+	uint8_t Mult : 2;
+	uint8_t MaxPStreams : 5;
+	uint8_t LSA : 1;
+	uint8_t Interval;
+	uint8_t MaxESITPayloadHi;
+	uint8_t RsvdZ : 1;
+	uint8_t Cerr : 2;
+	uint8_t EPType : 3;
+	uint8_t RsvDZ : 1;
+	uint8_t HID : 1;
+	uint8_t MaxBurstSize;
+	uint16_t MaxPacketSize;
+	uint64_t TRDequeuePtr;		//DCS is low bit, 16 aligned
+	uint16_t AvgTRBLength;
+	uint16_t MaxESITPayloadLow;
+	uint32_t RsvdO[3];
+}endpoint_context;
+static_assert(sizeof(endpoint_context) == 0x20, "Size error");
+
+typedef struct _input_context {
+	uint32_t DropContext;
+	uint32_t AddContext;
+	uint32_t Reserved[5];
+	uint8_t ConfigurationValue;
+	uint8_t InterfaceNumber;
+	uint8_t AlternateSetting;
+	uint8_t Resv2;
+	slot_context SlotContext;
+	endpoint_context EndpointContexts[31];
+}input_context;
+static_assert(sizeof(input_context) == 0x420, "Size error");
+#pragma pack(pop)
+
 class XHCI {
 public:
 	XHCI(void* basea)
@@ -112,6 +171,9 @@ public:
 	{
 		kprintf_a("Initalizing XHCI controller %x\n", handle);
 		fill_baseaddress();
+		//Check page size
+		if ((Operational.PGSIZE.PageSize & 1) == 0)
+			kprintf(u"Warning: controller does not support 4KB pages: %x\n", Operational.PGSIZE.PageSize);
 		//Request control of host controller, if supported
 		take_bios_control();
 		//Stop host controller first
@@ -126,8 +188,7 @@ public:
 		xhci_protocol_speeds();
 		//Get command ring
 		paddr_t crb = cmdring.getBaseAddress();
-		Operational.CRCR.CommandRingPtr = crb;
-		Operational.CRCR.RCS = 1;
+		Operational.CRCR.set(crb, 1);
 		//Set up event rings and primary interrupter
 		createPrimaryEventRing();
 		//Set up synchronisation
@@ -353,7 +414,7 @@ private:
 			devcmds[1] = create_data_stage_trb(get_physical_address((void*)devdesc), 20, true);
 			devcmds[2] = create_status_stage_trb(true);
 			devcmds[3] = nullptr;
-			port_info->cmdring.enqueue(devcmds[0]);
+			//port_info->cmdring.enqueue(devcmds[0]);
 			void* statusevt = port_info->cmdring.enqueue_commands(devcmds);
 			void* resulttrb = waitComplete(statusevt, 1000);
 			if (get_trb_completion_code(resulttrb) != XHCI_COMPLETION_SUCCESS)
@@ -407,6 +468,7 @@ private:
 		}
 		void* enqueue(xhci_command* command)
 		{
+			//kprintf(u"Enqueuing command at %x\n", m_enqueue);
 			auto st = acquire_spinlock(ring_lock);
 			//Write command
 			auto st2 = acquire_spinlock(m_parent->tree_lock);
@@ -501,15 +563,15 @@ private:
 			//Create input context
 			//Allocate input context
 			paddr_t incontext = pmmngr_allocate(1);
-			void* mapincontxt = find_free_paging(PAGESIZE);
+			input_context* mapincontxt = (input_context*)find_free_paging(PAGESIZE);
 			paging_map(mapincontxt, incontext, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING);
 			memset(mapincontxt, 0, PAGESIZE);
 			//Set input control context
-			volatile uint32_t* aflags = raw_offset<volatile uint32_t*>(mapincontxt, 4);
-			*aflags = 2;
+			mapincontxt->AddContext = 2;
 			//Copy existing data structures
 			memcpy(raw_offset<void*>(mapincontxt, 0x20), port->device_context, 0x20 * 2);
-			*raw_offset<uint16_t*>(mapincontxt, 0x40 + 0x6) = devdes->bMaxPacketSize0;
+			mapincontxt->EndpointContexts[0].MaxPacketSize = devdes->bMaxPacketSize0;
+			mapincontxt->EndpointContexts[0].MaxESITPayloadLow = mapincontxt->EndpointContexts[0].MaxPacketSize * (mapincontxt->EndpointContexts[0].MaxBurstSize + 1);
 			//Notify xHCI
 			void* lastcmd = cmdring.enqueue(create_evaluate_command(incontext, port->slotid));
 			res = waitComplete(lastcmd, 1000);
@@ -573,12 +635,12 @@ private:
 
 	void eventThread()
 	{
+		uint64_t erdp = Runtime.Interrupter(0).ERDP.DequeuePtr;
 		while (1)
 		{
 			wait_semaphore(event_available, 1, TIMEOUT_INFINITY);
-			kprintf(u"Events available\n");
+			//kprintf(u"Events available\n");
 			volatile uint64_t* ret = (volatile uint64_t*)primaryevt.dequeueptr;
-			uint64_t erdp = Runtime.Interrupter(0).ERDP.DequeuePtr;
 			while (ret[1] & XHCI_TRB_ENABLED)
 			{
 				if (get_trb_completion_code((void*)ret) == XHCI_COMPLETION_STALL)
@@ -599,7 +661,7 @@ private:
 						waiting_handle = it->second;
 						PendingCommands.remove(cmd_trb);
 					}
-					//kprintf(u"Event for TRB %x\n", waiting_handle);
+					//kprintf(u"Event for %x (TRB %x)\n", waiting_handle, cmd_trb);
 					if (waiting_handle)
 					{
 						CompletedCommands[waiting_handle] = (void*)ret;
@@ -640,7 +702,9 @@ private:
 				ret += 2;
 				erdp += 0x10;		//next TRB
 				primaryevt.dequeueptr = (void*)ret;
+#if 1
 				Runtime.Interrupter(0).ERDP.update(erdp, false);
+#endif
 			}
 		}
 	}
@@ -706,6 +770,7 @@ private:
 		Runtime.Interrupter(0).ERSTSZ.Size = 1;
 		//Set dequeue pointer
 		Runtime.Interrupter(0).ERDP.update(evt, false);
+		//kprintf(u"ERDP: %x\n", (size_t)Runtime.Interrupter(0).ERDP);
 		//Enable event ring
 		Runtime.Interrupter(0).ERSTBA.SegTableBase = evtseg;
 		Runtime.Interrupter(0).IMAN = Runtime.Interrupter(0).IMAN;
@@ -875,23 +940,25 @@ private:
 	{
 		//Allocate input context
 		paddr_t incontext = pmmngr_allocate(1);
-		void* mapincontxt = find_free_paging(PAGESIZE);
-		paging_map(mapincontxt, incontext, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING);
-		memset(mapincontxt, 0, PAGESIZE);
+		volatile input_context* mapincontxt = (input_context*)find_free_paging(PAGESIZE);
+		paging_map((void*)mapincontxt, incontext, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING);
+		memset((void*)mapincontxt, 0, PAGESIZE);
 		//Set input control context
-		volatile uint32_t* aflags = raw_offset<volatile uint32_t*>(mapincontxt, 4);
-		*aflags = 3;
+		mapincontxt->AddContext = 3;
 		//Setup slot context
-		*raw_offset<volatile uint32_t*>(mapincontxt, 0x20) = (1 << 27) | (portspeed << 20);
-		*raw_offset<volatile uint32_t*>(mapincontxt, 0x20 + 4) = (pinfo->portindex << 16); //Root hub port number	
+		mapincontxt->SlotContext.rootHubPort = pinfo->portindex;
+		mapincontxt->SlotContext.routeString = 0;
+		mapincontxt->SlotContext.ContextEntries = 1;
+		mapincontxt->SlotContext.speed = portspeed;
 		//Initialise endpoint 0 context
 		//Control endpoint, CErr = 3
-		*raw_offset<volatile uint32_t*>(mapincontxt, 0x40 + 4) = (4 << 3) | (max_packet_size(portspeed) << 16) | (3 << 1);
-		paddr_t dtrb = pinfo->cmdring.getBaseAddress();
-		*raw_offset<volatile uint32_t*>(mapincontxt, 0x40 + 8) = (dtrb & UINT32_MAX) | 1;
-		*raw_offset<volatile uint32_t*>(mapincontxt, 0x40 + 12) = dtrb >> 32;
-		*raw_offset<volatile uint32_t*>(mapincontxt, 0x40 + 0x10) = PAGESIZE / 0x10;
-
+		mapincontxt->EndpointContexts[0].MaxPacketSize = max_packet_size(portSpeed(portspeed));
+		mapincontxt->EndpointContexts[0].EPType = 4;		//Control
+		mapincontxt->EndpointContexts[0].TRDequeuePtr = pinfo->cmdring.getBaseAddress() | 1;
+		mapincontxt->EndpointContexts[0].Cerr = 3;
+		mapincontxt->EndpointContexts[0].AvgTRBLength = 8;
+		mapincontxt->EndpointContexts[0].MaxBurstSize = 0;
+		mapincontxt->EndpointContexts[0].MaxESITPayloadLow = mapincontxt->EndpointContexts[0].MaxPacketSize * (mapincontxt->EndpointContexts[0].MaxBurstSize + 1);
 		//Allocate device context
 		paddr_t dctxt = pmmngr_allocate(1);
 		void* mapdctxt = find_free_paging(PAGESIZE);

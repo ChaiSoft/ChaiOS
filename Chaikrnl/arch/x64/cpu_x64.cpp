@@ -403,7 +403,7 @@ extern "C" void arch_cpu_init()
 	efer |= 1;				//SCE
 	x64_wrmsr(IA32_EFER, efer);
 	//Performance stuff
-	x64_performance_features();
+	//x64_performance_features();
 	if (!arch_is_bsp())
 	{
 		//Copy the GDT
@@ -887,6 +887,7 @@ static_assert(sizeof(per_cpu_data) <= 0x20, "Please reallocate");
 
 void arch_setup_interrupts()
 {
+	auto status = arch_disable_interrupts();
 	//Create the TSS for this CPU
 	TSS* cpu_tss = new TSS;
 	cpu_tss->iomapbase = sizeof(TSS);
@@ -934,7 +935,7 @@ void arch_setup_interrupts()
 	arch_reserve_interrupt_range(0, 31);
 	//Now set up the interrupt controller, so we don't die for no apparent reason
 	x64_init_apic();
-	x64_restore_flags(x64_disable_interrupts() | (1<<9));
+	x64_restore_flags(status | (1<<9));
 	if (arch_is_bsp())
 	{
 		arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, 0xE, &page_fault_handler, nullptr);

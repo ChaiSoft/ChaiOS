@@ -33,6 +33,9 @@
     <ClCompile Include="basic_string.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="rbtree.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="kcstdlib.h">
@@ -54,6 +57,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\Include\linkedlist.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rbtree.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

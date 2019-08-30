@@ -250,7 +250,7 @@ struct context_converter
 
 static uint8_t interrupt_converter(size_t vector, void* param)
 {
-	kprintf(u"ACPI interrupt handler called\n");
+	//kprintf(u"ACPI interrupt handler called\n");
 	context_converter* ctx = (context_converter*)param;
 	return ctx->handler(ctx->ctxt);
 }
@@ -272,13 +272,13 @@ CHAIKRNL_FUNC void ACPI_INTERNAL_VAR_XFACE AcpiOsPrintf(const char *Format, ...)
 {
 	va_list args;
 	va_start(args, Format);
-	kvprintf_a(Format, args);
+	//kvprintf_a(Format, args);
 	va_end(args);
 }
 
 CHAIKRNL_FUNC void AcpiOsVprintf(const char *Format, va_list Args)
 {
-	kvprintf_a(Format, Args);
+	//kvprintf_a(Format, Args);
 }
 
 CHAIKRNL_FUNC int AcpiOsAcquireGlobalLock(UINT32 *lock)

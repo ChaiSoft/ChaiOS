@@ -543,7 +543,6 @@ static void uefi_startup(void* memmap)
 	EfiIterateMemoryMap(map, &FillPageDatabase, nullptr);
 	kprintf(u"\n");
 	//Now handle the early allocated stack
-
 	while (allocated_stack_ptr != allocated_stack)
 	{
 		paddr_t alloc_page = *--allocated_stack_ptr;
@@ -554,8 +553,7 @@ static void uefi_startup(void* memmap)
 		cache_colour col = GetCacheColour(alloc_page);
 		regions_allocator[region][dom][col].remove(page);
 	}
-	
-	early_mode = false;
+	//early_mode = false;
 }
 
 void startup_pmmngr(BootType mmaptype, void* memmap)
