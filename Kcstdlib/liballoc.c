@@ -9,6 +9,8 @@
 #define ALIGN_TYPE		char ///unsigned char[16] /// unsigned short
 #define ALIGN_INFO		sizeof(ALIGN_TYPE)*16	///< Alignment information is stored right before the pointer. This is the number of bytes of information stored there.
 
+#define DIV_ROUND_UP(x, y) \
+((x + y - 1) / y)
 
 #define USE_CASE1
 #define USE_CASE2
@@ -21,26 +23,26 @@
 #define ALIGN( ptr )													\
 		if ( ALIGNMENT > 1 )											\
 		{																\
-			uintptr_t diff;												\
+			uintptr_t align_diff;												\
 			ptr = (void*)((uintptr_t)ptr + ALIGN_INFO);					\
-			diff = (uintptr_t)ptr & (ALIGNMENT-1);						\
-			if ( diff != 0 )											\
+			align_diff = (uintptr_t)ptr & (ALIGNMENT-1);						\
+			if ( align_diff != 0 )											\
 			{															\
-				diff = ALIGNMENT - diff;								\
-				ptr = (void*)((uintptr_t)ptr + diff);					\
+				align_diff = ALIGNMENT - align_diff;								\
+				ptr = (void*)((uintptr_t)ptr + align_diff);					\
 			}															\
 			*((ALIGN_TYPE*)((uintptr_t)ptr - ALIGN_INFO)) = 			\
-				diff + ALIGN_INFO;										\
+				align_diff + ALIGN_INFO;										\
 		}															
 
 
 #define UNALIGN( ptr )													\
 		if ( ALIGNMENT > 1 )											\
 		{																\
-			uintptr_t diff = *((ALIGN_TYPE*)((uintptr_t)ptr - ALIGN_INFO));	\
-			if ( diff < (ALIGNMENT + ALIGN_INFO) )						\
+			uintptr_t unalign_diff = *((ALIGN_TYPE*)((uintptr_t)ptr - ALIGN_INFO));	\
+			if ( unalign_diff < (ALIGNMENT + ALIGN_INFO) )						\
 			{															\
-				ptr = (void*)((uintptr_t)ptr - diff);					\
+				ptr = (void*)((uintptr_t)ptr - unalign_diff);					\
 			}															\
 		}
 				
@@ -49,11 +51,20 @@
 #define LIBALLOC_MAGIC	0xc001c0de
 #define LIBALLOC_DEAD	0xdeaddead
 
-#if defined DEBUG || defined INFO
-#include <stdio.h>
-#include <stdlib.h>
+//#define DEBUG
 
-#define FLUSH()		fflush( stdout )
+#if defined DEBUG || defined INFO
+typedef wchar_t char16_t;
+#include <kstdio.h>
+
+//#define FLUSH()		fflush( stdout )
+#define FLUSH()
+
+#define __builtin_return_address(x) \
+(x==0?_ReturnAddress():0)
+
+#define printf(...) \
+kprintf_a(__VA_ARGS__)
 
 #endif
 
@@ -64,9 +75,9 @@ struct liballoc_major
 {
 	struct liballoc_major *prev;		///< Linked list information.
 	struct liballoc_major *next;		///< Linked list information.
-	unsigned int pages;					///< The number of pages in the block.
-	unsigned int size;					///< The number of pages in the block.
-	unsigned int usage;					///< The number of bytes used in the block.
+	size_t pages;					///< The number of pages in the block.
+	size_t size;					///< The number of pages in the block.
+	size_t usage;					///< The number of bytes used in the block.
 	struct liballoc_minor *first;		///< A pointer to the first allocated memory in the block.	
 };
 
@@ -81,8 +92,8 @@ struct	liballoc_minor
 	struct liballoc_minor *next;		///< Linked list information.
 	struct liballoc_major *block;		///< The owning block. A pointer to the major structure.
 	unsigned int magic;					///< A magic number to idenfity correctness.
-	unsigned int size; 					///< The size of the memory allocated. Could be 1 byte or more.
-	unsigned int req_size;				///< The size of memory requested.
+	size_t size; 					///< The size of the memory allocated. Could be 1 byte or more.
+	size_t req_size;				///< The size of memory requested.
 };
 
 
@@ -109,7 +120,7 @@ static void *liballoc_memset(void* s, int c, size_t n)
 {
 	unsigned int i;
 	for ( i = 0; i < n ; i++)
-		((char*)s)[i] = c;
+		((char*)s)[i] = (char)c;
 	
 	return s;
 }
@@ -140,7 +151,7 @@ static void* liballoc_memcpy(void* s1, const void* s2, size_t n)
  
 
 #if defined DEBUG || defined INFO
-static void liballoc_dump()
+extern void liballoc_dump()
 {
 #ifdef DEBUG
 	struct liballoc_major *maj = l_memRoot;
@@ -241,6 +252,8 @@ static struct liballoc_major *allocate_new_page( unsigned int size )
 
 void *PREFIX(malloc)(size_t req_size)
 {
+	//DEBUG
+	return liballoc_alloc(DIV_ROUND_UP(req_size, l_pageSize));
 	int startedBet = 0;
 	unsigned long long bestSize = 0;
 	void *p = NULL;
@@ -248,7 +261,7 @@ void *PREFIX(malloc)(size_t req_size)
 	struct liballoc_major *maj;
 	struct liballoc_minor *min;
 	struct liballoc_minor *new_min;
-	unsigned long size = req_size;
+	size_t size = req_size;
 
 	// For alignment, we adjust size so there's enough space to align.
 	if ( ALIGNMENT > 1 )
@@ -594,6 +607,8 @@ void *PREFIX(malloc)(size_t req_size)
 
 void PREFIX(free)(void *ptr)
 {
+	//DEBUG
+	return liballoc_free(ptr, l_pageSize);
 	struct liballoc_minor *min;
 	struct liballoc_major *maj;
 
@@ -752,6 +767,12 @@ void*   PREFIX(realloc)(void *p, size_t size)
 
 	// In the case of a NULL pointer, return a simple malloc.
 	if ( p == NULL ) return PREFIX(malloc)( size );
+
+	//TODO: fix DEBUG
+	ptr = PREFIX(malloc)(size);
+	liballoc_memcpy(ptr, p, size);
+	PREFIX(free)(p);
+	return ptr;
 
 	// Unalign the pointer if required.
 	ptr = p;

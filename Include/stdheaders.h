@@ -5,7 +5,11 @@
 #include <stdint.h>
 #include <vaargs.h>
 
+#ifdef __cplusplus
 #define EXTERN extern "C"
+#else
+#define EXTERN
+#endif
 
 #ifdef __cplusplus
 extern "C++" {

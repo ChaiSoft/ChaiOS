@@ -555,7 +555,7 @@ static void uefi_startup(void* memmap)
 		regions_allocator[region][dom][col].remove(page);
 	}
 	
-	early_mode = false;
+	//early_mode = false;
 }
 
 void startup_pmmngr(BootType mmaptype, void* memmap)

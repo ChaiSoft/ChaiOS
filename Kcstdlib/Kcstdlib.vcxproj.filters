@@ -21,9 +21,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="liballoc.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="kcstdlib.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -31,6 +28,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="basic_string.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="dlmalloc.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="liballoc.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

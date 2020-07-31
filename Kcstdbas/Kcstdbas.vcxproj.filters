@@ -20,8 +20,8 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="crt.asm">
+    <NASM Include="crt.asm">
       <Filter>Source Files</Filter>
-    </None>
+    </NASM>
   </ItemGroup>
 </Project>

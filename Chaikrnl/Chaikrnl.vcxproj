@@ -97,6 +97,7 @@
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <AssemblerOutput>AssemblyAndSourceCode</AssemblerOutput>
       <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\acpica\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Kcstdlib;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Chaikrnl;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OmitFramePointers>false</OmitFramePointers>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -172,6 +173,7 @@
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <AssemblerOutput>AssemblyAndSourceCode</AssemblerOutput>
       <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\acpica\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Kcstdlib;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Chaikrnl;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OmitFramePointers>false</OmitFramePointers>
     </ClCompile>
     <Link>
       <AdditionalDependencies>Kcstdbas.lib;Kcstdlib.lib;Acpica.lib</AdditionalDependencies>
@@ -265,6 +267,7 @@
   <ItemGroup>
     <ClInclude Include="..\Include\arch\cpu.h" />
     <ClInclude Include="..\Include\chaikrnl.h" />
+    <ClInclude Include="..\Include\endian.h" />
     <ClInclude Include="..\Include\kernelinfo.h" />
     <ClInclude Include="..\Include\kgraphics.h" />
     <ClInclude Include="..\Include\spinlock.h" />
@@ -281,6 +284,7 @@
     <ClInclude Include="semaphore.h" />
     <ClInclude Include="uefihelper.h" />
     <ClInclude Include="usb.h" />
+    <ClInclude Include="usb_private.h" />
     <ClInclude Include="xhci_registers.h" />
   </ItemGroup>
   <ItemGroup>

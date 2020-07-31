@@ -11,4 +11,6 @@ EXTERN KCSTDLIB_FUNC void kprintf(const char16_t* format, ...);
 EXTERN KCSTDLIB_FUNC void kprintf_a(const char* format, ...);
 EXTERN KCSTDLIB_FUNC void kvprintf_a(const char* format, va_list args);
 
+EXTERN KCSTDLIB_FUNC void enable_screen_locking();
+
 #endif

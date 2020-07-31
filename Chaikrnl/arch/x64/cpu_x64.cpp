@@ -3,6 +3,7 @@
 #include <redblack.h>
 #include <arch/paging.h>
 #include <string.h>
+#include <scheduler.h>
 
 extern "C" size_t x64_read_cr0();
 extern "C" size_t x64_read_cr2();
@@ -49,6 +50,8 @@ extern "C" int x64_locked_cas(volatile size_t* loc, size_t oldv, size_t newv);
 
 extern "C" cpu_status_t x64_disable_interrupts();
 extern "C" void x64_restore_flags(cpu_status_t);
+extern "C" void x64_set_breakpoint(void* addr, size_t length, size_t type);
+extern "C" void x64_enable_breakpoint(size_t enabled);
 extern "C" void x64_pause();
 extern "C" void x64_invlpg(void*);
 extern "C" void x64_mfence();
@@ -61,11 +64,23 @@ extern "C" void x64_gs_writeb(size_t offset, uint8_t val);
 extern "C" void x64_gs_writew(size_t offset, uint16_t val);
 extern "C" void x64_gs_writed(size_t offset, uint32_t val);
 extern "C" void x64_gs_writeq(size_t offset, uint64_t val);
+extern "C" uint8_t x64_fs_readb(size_t offset);
+extern "C" uint16_t x64_fs_readw(size_t offset);
+extern "C" uint32_t x64_fs_readd(size_t offset);
+extern "C" uint64_t x64_fs_readq(size_t offset);
+extern "C" void x64_fs_writeb(size_t offset, uint8_t val);
+extern "C" void x64_fs_writew(size_t offset, uint16_t val);
+extern "C" void x64_fs_writed(size_t offset, uint32_t val);
+extern "C" void x64_fs_writeq(size_t offset, uint64_t val);
 extern "C" size_t x64_context_size;
 extern "C" int x64_save_context(context_t context);
 extern "C" void x64_load_context(context_t context, int value);
 extern "C" void x64_new_context(context_t context, void* stackptr, void* entry);
 extern "C" void x64_hlt();
+
+extern "C" uint16_t x64_bswapw(uint16_t);
+extern "C" uint32_t x64_bswapd(uint32_t);
+extern "C" uint64_t x64_bswapq(uint64_t);
 
 enum sregs {
 	SREG_CS,
@@ -309,6 +324,10 @@ extern "C" void arch_cpu_init()
 	cr0 |= (1 << 1) | (1<< 5);
 	cr0 &= (SIZE_MAX - (1 << 2) - (1 << 3) - (1<<30) - (1<<29));		//1<<30 turns off cache disable
 	cr0 |= (1 << 16);		//Can't write read-only pages in ring 0
+#if 0
+	//DEBUG: DISABLE CACHE
+	cr0 |= (1 << 30);
+#endif
 	x64_write_cr0(cr0);
 	//GDT
 	x64_sgdt(&old_gdtr);	//Save old GDT
@@ -372,6 +391,8 @@ extern "C" void arch_cpu_init()
 			x64_write_xcr0(xcr0);
 			xmask = xcr0;
 		}
+		//Debugging extensions
+		cr4 |= (1 << 3);
 		x64_write_cr4(cr4);
 		if (arch_is_bsp())
 		{
@@ -460,6 +481,22 @@ cpu_status_t arch_disable_interrupts()
 void arch_restore_state(cpu_status_t val)
 {
 	x64_restore_flags(val);
+}
+cpu_status_t arch_enable_interrupts()
+{
+	auto val = arch_disable_interrupts();
+	arch_restore_state(val | 0x200);
+	return val;
+}
+
+void arch_set_breakpoint(void* addr, size_t length, size_t type)
+{
+	x64_set_breakpoint(addr, length, type);
+}
+
+void arch_enable_breakpoint(size_t enabled)
+{
+	x64_enable_breakpoint(enabled);
 }
 
 void arch_pause()
@@ -736,7 +773,12 @@ struct TSS {
 	uint16_t resv4;
 	uint16_t iomapbase;
 };
+struct stack_frame {
+	stack_frame* baseptr;
+	size_t rip;
+};
 struct interrupt_stack_frame {
+	stack_frame* baseptr;
 	size_t error;
 	size_t rip;
 	size_t cs;
@@ -762,25 +804,48 @@ struct dispatch_data {
 	void* param;
 	void(*post_event)();
 };
-static dispatch_data dispatch_funcs[256] = { {nullptr, nullptr, nullptr} };
+typedef RedBlackTree<uint32_t, dispatch_data*> dispatch_tree;
+typedef dispatch_tree* cpu_dispatch;
+static cpu_dispatch dispatch_funcs[256] = { nullptr };
 
-extern "C" void x64_interrupt_dispatcher(size_t vector, interrupt_stack_frame* stack_frame)
+extern "C" void x64_interrupt_dispatcher(size_t vector, interrupt_stack_frame* istack_frame)
 {
-	if (!dispatch_funcs[vector].func)
+	uint32_t previrql = pcpu_data.irql;
+	pcpu_data.irql = IRQL_INTERRUPT;
+	auto treeptr = dispatch_funcs[vector];
+	bool valid = (treeptr != nullptr);
+	if (valid)
+	{
+		valid = (treeptr->find(pcpu_data.cpuid) != treeptr->end());
+	}
+	if (!valid)
 	{
 		kprintf(u"An unknown interrupt occurred: %x\n", vector);
-		kprintf(u"Error code: %x\n", stack_frame->error);
-		kprintf(u"Return address: %x:%x\n", stack_frame->cs, stack_frame->rip);
+		kprintf(u"Stack frame: %x\n", istack_frame);
+		kprintf(u"Error code: %x\n", istack_frame->error);
+		kprintf(u"Return address: %x:%x\n", istack_frame->cs, istack_frame->rip);
 		kprintf(u"CPU %d, thread %x\n", pcpu_data.cpuid, pcpu_data.runningthread);
+		kprintf(u" Base Pointer: %x\n", istack_frame->baseptr);
+#if 0
+		stack_frame* prevframe = istack_frame->baseptr;
+		kprintf(u"Stack trace:\n");
+		for (int i = 0; i < 5 && ((size_t)prevframe > 0xFFFF000000000000); ++i)
+		{
+			kprintf(u" Return Address: %x\n", prevframe->rip);
+			prevframe = prevframe->baseptr;
+		}
+#endif
 		while (1);
 	}
-	dispatch_interrupt_handler handler = reinterpret_cast<dispatch_interrupt_handler>(dispatch_funcs[vector].func);
-	void* param = dispatch_funcs[vector].param;
+	dispatch_data* dispdata = (*treeptr)[pcpu_data.cpuid];
+	dispatch_interrupt_handler handler = reinterpret_cast<dispatch_interrupt_handler>(dispdata->func);
+	void* param = dispdata->param;
 	if (!param)
-		param = stack_frame;
+		param = istack_frame;
 	handler(vector, param);
-	if (dispatch_funcs[vector].post_event)
-		dispatch_funcs[vector].post_event();
+	if (dispdata->post_event)
+		dispdata->post_event();
+	pcpu_data.irql = previrql;
 }
 
 extern "C" uint8_t page_fault_handler(size_t vector, void* param)
@@ -794,7 +859,7 @@ extern "C" uint8_t page_fault_handler(size_t vector, void* param)
 	while (1);
 }
 
-void register_native_irq(size_t vector, void* fn, void* param)
+void register_native_irq(size_t vector, uint32_t processor, void* fn, void* param)
 {
 	arch_reserve_interrupt_range(vector, vector);
 	IDTR current_idt;
@@ -803,7 +868,7 @@ void register_native_irq(size_t vector, void* fn, void* param)
 	register_irq(&idt[vector], fn);
 }
 
-void register_native_postevt(size_t vector, void(*evt)())
+void register_native_postevt(size_t vector, uint32_t processor, void(*evt)())
 {
 	//Unsupported
 }
@@ -814,17 +879,40 @@ static arch_interrupt_subsystem subsystem_native
 	&register_native_postevt
 };
 
-void register_dispatch_irq(size_t vector, void* fn, void* param)
+void register_dispatch_irq(size_t vector, uint32_t processor, void* fn, void* param)
 {
-	arch_reserve_interrupt_range(vector, vector);
-	dispatch_funcs[vector].func = fn;
-	dispatch_funcs[vector].param = param;
-	//dispatch_funcs[vector].post_event = nullptr;
+	uint32_t cpuid = pcpu_data.cpuid;
+	if (processor != cpuid && processor != INTERRUPT_CURRENTCPU)
+	{
+		//Tell the AP to reserve the interrupt range
+		//kprintf(u"Failed to register interrupt %x, CPU %d, running %d\n", vector, processor, cpuid);
+	}
+	else
+	{
+		arch_reserve_interrupt_range(vector, vector);
+	}
+	dispatch_tree*& disptree = dispatch_funcs[vector];
+	if (!disptree)
+		disptree = new dispatch_tree;
+	dispatch_data* disp;
+	if (disptree->find(cpuid) == disptree->end())
+		disp = (*disptree)[cpuid] = new dispatch_data;
+	else
+		disp = (*disptree)[cpuid];
+	disp->func = fn;
+	disp->param = param;
+	disp->post_event = nullptr;
 }
 
-void register_dispatch_postevt(size_t vector, void(*evt)())
+void register_dispatch_postevt(size_t vector, uint32_t processor, void(*evt)())
 {
-	dispatch_funcs[vector].post_event = evt;
+	uint32_t cpuid = pcpu_data.cpuid;
+	if (processor != cpuid && processor != INTERRUPT_CURRENTCPU)
+		return;
+	dispatch_tree*& disptree = dispatch_funcs[vector];
+	if (!disptree)
+		disptree = new dispatch_tree;
+	(*disptree)[cpuid]->post_event = evt;
 }
 
 static arch_interrupt_subsystem subsystem_dispatch
@@ -852,13 +940,13 @@ uint64_t arch_read_per_cpu_data(uint32_t offset, uint8_t width)
 	switch (width)
 	{
 	case 8:
-		return x64_gs_readb(offset);
+		return x64_fs_readb(offset);
 	case 16:
-		return x64_gs_readw(offset);
+		return x64_fs_readw(offset);
 	case 32:
-		return x64_gs_readd(offset);
+		return x64_fs_readd(offset);
 	case 64:
-		return x64_gs_readq(offset);
+		return x64_fs_readq(offset);
 	}
 	return 0;
 }
@@ -867,13 +955,92 @@ void arch_write_per_cpu_data(uint32_t offset, uint8_t width, uint64_t value)
 	switch (width)
 	{
 	case 8:
-		return x64_gs_writeb(offset, value);
+		return x64_fs_writeb(offset, value);
 	case 16:
-		return x64_gs_writew(offset, value);
+		return x64_fs_writew(offset, value);
 	case 32:
-		return x64_gs_writed(offset, value);
+		return x64_fs_writed(offset, value);
 	case 64:
-		return x64_gs_writeq(offset, value);
+		return x64_fs_writeq(offset, value);
+	}
+}
+
+void arch_write_tls_base(void* tls, uint8_t user)
+{
+	if(user != 0)
+		x64_wrmsr(MSR_IA32_KERNELGS_BASE, (size_t)tls);
+	else
+		x64_wrmsr(MSR_IA32_GS_BASE, (size_t)tls);
+}
+
+uint64_t arch_read_tls(uint32_t offset, uint8_t user, uint8_t width)
+{
+	if (user != 0)
+	{
+		void* tls = (void*)x64_rdmsr(MSR_IA32_KERNELGS_BASE);
+		switch (width)
+		{
+		case 8:
+			return *raw_offset<uint8_t*>(tls, offset);
+		case 16:
+			return *raw_offset<uint16_t*>(tls, offset);
+		case 32:
+			return *raw_offset<uint32_t*>(tls, offset);
+		case 64:
+			return *raw_offset<uint64_t*>(tls, offset);
+		}
+		return 0;
+	}
+	else
+	{
+		switch (width)
+		{
+		case 8:
+			return x64_gs_readb(offset);
+		case 16:
+			return x64_gs_readw(offset);
+		case 32:
+			return x64_gs_readd(offset);
+		case 64:
+			return x64_gs_readq(offset);
+		}
+		return 0;
+	}
+}
+void arch_write_tls(uint32_t offset, uint8_t user, uint64_t value, uint8_t width)
+{
+	if (user != 0)
+	{
+		void* tls = (void*)x64_rdmsr(MSR_IA32_KERNELGS_BASE);
+		switch (width)
+		{
+		case 8:
+			*raw_offset<uint8_t*>(tls, offset) = value;
+			return;
+		case 16:
+			*raw_offset<uint16_t*>(tls, offset) = value;
+			return;
+		case 32:
+			*raw_offset<uint32_t*>(tls, offset) = value;
+			return;
+		case 64:
+			*raw_offset<uint64_t*>(tls, offset) = value;
+			return;
+		}
+	}
+	else
+	{
+		switch (width)
+		{
+		case 8:
+			return x64_gs_writeb(offset, value);
+		case 16:
+			return x64_gs_writew(offset, value);
+		case 32:
+			return x64_gs_writed(offset, value);
+		case 64:
+			return x64_gs_writeq(offset, value);
+		}
 	}
 }
 
@@ -882,11 +1049,16 @@ struct arch_per_cpu_data {
 	uint8_t* interruptsavailmap;
 };
 
-static_assert(sizeof(per_cpu_data) <= 0x20, "Please reallocate");
-#define PCPU_DATA_AVAILINTS 0x20
+struct arch_tls_data {
+	arch_tls_data* selfptr;
+};
+
+static_assert(sizeof(per_cpu_data) <= 0x30, "Please reallocate");
+#define PCPU_DATA_AVAILINTS 0x30
 
 void arch_setup_interrupts()
 {
+	arch_disable_interrupts();
 	//Create the TSS for this CPU
 	TSS* cpu_tss = new TSS;
 	cpu_tss->iomapbase = sizeof(TSS);
@@ -902,13 +1074,14 @@ void arch_setup_interrupts()
 	cpu_data->public_data.cpu_data = &cpu_data->public_data;
 	//Hidden per CPU interrupt vector map
 	uint8_t* interruptsavailmap = new uint8_t[256 / 8];
-	memset(interruptsavailmap, 1, 256 / 8);
+	memset(interruptsavailmap, 0xFF, 256 / 8);
 	//Because we're in kernel mode, GS is active
-	x64_wrmsr(MSR_IA32_GS_BASE, (size_t)cpu_data);
+	x64_wrmsr(MSR_IA32_FS_BASE, (size_t)cpu_data);
 	x64_wrmsr(MSR_IA32_KERNELGS_BASE, 0);
 	pcpu_data.cpuid = arch_current_processor_id();
 	pcpu_data.runningthread = 0;
-	x64_gs_writeq(PCPU_DATA_AVAILINTS, (size_t)interruptsavailmap);
+	arch_write_per_cpu_data(PCPU_DATA_AVAILINTS, 64, (size_t)interruptsavailmap);
+	pcpu_data.irql = IRQL_KERNEL;
 	//Setup an IDT. We maintain a seperate IDT for each CPU, so allocation is dynamic
 	IDT* the_idt = new IDT[256];
 	IDTR* idtr = new IDTR;
@@ -935,10 +1108,7 @@ void arch_setup_interrupts()
 	//Now set up the interrupt controller, so we don't die for no apparent reason
 	x64_init_apic();
 	x64_restore_flags(x64_disable_interrupts() | (1<<9));
-	if (arch_is_bsp())
-	{
-		arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, 0xE, &page_fault_handler, nullptr);
-	}
+	arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, 0xE, INTERRUPT_CURRENTCPU, &page_fault_handler, nullptr);
 }
 
 CHAIKRNL_FUNC void arch_register_interrupt_subsystem(uint32_t subsystem, arch_interrupt_subsystem* system)
@@ -946,20 +1116,20 @@ CHAIKRNL_FUNC void arch_register_interrupt_subsystem(uint32_t subsystem, arch_in
 	interrupt_subsystems[subsystem] = system;
 }
 
-CHAIKRNL_FUNC void arch_register_interrupt_handler(uint32_t subsystem, size_t vector, void* fn, void* param)
+CHAIKRNL_FUNC void arch_register_interrupt_handler(uint32_t subsystem, size_t vector, uint32_t processor, void* fn, void* param)
 {
-	interrupt_subsystems[subsystem]->register_irq(vector, fn, param);
+	interrupt_subsystems[subsystem]->register_irq(vector, processor, fn, param);
 }
 
-CHAIKRNL_FUNC void arch_install_interrupt_post_event(uint32_t subsystem, size_t vector, void(*evt)())
+CHAIKRNL_FUNC void arch_install_interrupt_post_event(uint32_t subsystem, size_t vector, uint32_t processor, void(*evt)())
 {
-	interrupt_subsystems[subsystem]->post_evt(vector, evt);
+	interrupt_subsystems[subsystem]->post_evt(vector, processor, evt);
 }
 
 CHAIKRNL_FUNC uint32_t arch_allocate_interrupt_vector()
 {
 	auto st = arch_disable_interrupts();		//So we don't get interfered with
-	uint8_t* availints = (uint8_t*)x64_gs_readq(PCPU_DATA_AVAILINTS);
+	uint8_t* availints = (uint8_t*)arch_read_per_cpu_data(PCPU_DATA_AVAILINTS, 64);
 	uint_fast8_t i = 0;
 	uint32_t ret = -1;
 	for (; availints[i] == 0 && i < (256 / 8); ++i);
@@ -981,7 +1151,7 @@ end:
 CHAIKRNL_FUNC void arch_reserve_interrupt_range(uint32_t start, uint32_t end)
 {
 	auto st = arch_disable_interrupts();		//So we don't get interfered with
-	uint8_t* availints = (uint8_t*)x64_gs_readq(PCPU_DATA_AVAILINTS);
+	uint8_t* availints = (uint8_t*)arch_read_per_cpu_data(PCPU_DATA_AVAILINTS, 64);
 	size_t i = start / 8;
 	size_t o = start % 8;
 	while (i * 8 + o <= end)
@@ -1022,6 +1192,19 @@ void jump_context(context_t ctxt, int value)
 void arch_halt()
 {
 	x64_hlt();
+}
+
+CHAIKRNL_FUNC uint16_t arch_swap_endian16(uint16_t v)
+{
+	return x64_bswapw(v);
+}
+CHAIKRNL_FUNC uint32_t arch_swap_endian32(uint32_t v)
+{
+	return x64_bswapd(v);
+}
+CHAIKRNL_FUNC uint64_t arch_swap_endian64(uint64_t v)
+{
+	return x64_bswapq(v);
 }
 
 static const size_t PAGES_STACK = 16;

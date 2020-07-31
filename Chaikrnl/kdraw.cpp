@@ -2,6 +2,7 @@
 
 #include "asciifont.h"
 #include <arch/paging.h>
+#include <string.h>
 
 static void* framebuffer = nullptr;
 static size_t framebuffer_sz = 0;
@@ -145,8 +146,25 @@ void gputs_k(const char16_t* str)
 				++ypos;
 			}
 		}
-		if (ypos+1 > v_res / 16)
+		if (ypos + 1 > v_res / 16)
+		{
+#if 0
+			for (int line = 16; line < v_res; ++line)
+			{
+				void* oldline = raw_offset<void*>(framebuffer, (pixelsPerLine*line)*(bpp / 8));
+				void* newline = raw_offset<void*>(framebuffer, (pixelsPerLine*(line - 16))*(bpp / 8));
+				memcpy(newline, oldline, pixelsPerLine*(bpp / 8));
+			}
+			--ypos;
+			for (int y = ypos*16; y < ypos*16 + 16; ++y)
+			{
+				for(int x = 0; x < pixelsPerLine; ++x)
+					putpixel(x, y, background);
+			}
+#else
 			ypos = 0;
+#endif
+		}
 		++str;
 	}
 }

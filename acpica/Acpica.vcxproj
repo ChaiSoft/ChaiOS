@@ -160,6 +160,7 @@
       <IntrinsicFunctions>false</IntrinsicFunctions>
       <BasicRuntimeChecks />
       <RuntimeLibrary />
+      <OmitFramePointers>false</OmitFramePointers>
     </ClCompile>
     <Lib>
       <SubSystem>EFI Application</SubSystem>
@@ -191,6 +192,7 @@
       <PreprocessorDefinitions>CHAIOS;ACPICA_DLL;X64</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <IntrinsicFunctions>false</IntrinsicFunctions>
+      <OmitFramePointers>false</OmitFramePointers>
     </ClCompile>
     <Lib>
       <SubSystem>EFI Application</SubSystem>

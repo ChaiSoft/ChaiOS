@@ -466,9 +466,10 @@ uint32_t pci_allocate_msi(uint16_t segment, uint16_t bus, uint16_t device, uint1
 		auto cpust = arch_disable_interrupts();
 		uint32_t vector = arch_allocate_interrupt_vector();
 		uint32_t cpu_num = pcpu_data.cpuid;
+		kprintf(u"USB Interrupt Vector: %x (p%d)\n", vector, cpu_num);
 		//Setup EOI
-		arch_install_interrupt_post_event(INTERRUPT_SUBSYSTEM_DISPATCH, vector, &arch_local_eoi);
-		arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, vector, handler, param);
+		arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, vector, cpu_num, handler, param);
+		arch_install_interrupt_post_event(INTERRUPT_SUBSYSTEM_DISPATCH, vector, cpu_num, &arch_local_eoi);
 		//Now we have all per-CPU stuff sorted
 		arch_restore_state(cpust);
 		internalptr = internal_read_pci(segment, bus, device, function, msireg, 32, &capreg, internalptr);

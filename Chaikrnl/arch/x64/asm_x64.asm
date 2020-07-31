@@ -312,6 +312,49 @@ x64_cacheflush:
 wbinvd
 ret
 
+global x64_fs_readb
+x64_fs_readb:
+xor rax, rax
+mov al, [fs:rcx]
+ret
+
+global x64_fs_readw
+x64_fs_readw:
+xor rax, rax
+mov ax, [fs:rcx]
+ret
+
+global x64_fs_readd
+x64_fs_readd:
+xor rax, rax
+mov eax, [fs:rcx]
+ret
+
+global x64_fs_readq
+x64_fs_readq:
+mov rax, [fs:rcx]
+ret
+
+global x64_fs_writeb
+x64_fs_writeb:
+mov [fs:rcx], dl
+ret
+
+global x64_fs_writew
+x64_fs_writew:
+mov [fs:rcx], dx
+ret
+
+global x64_fs_writed
+x64_fs_writed:
+mov [fs:rcx], edx
+ret
+
+global x64_fs_writeq
+x64_fs_writeq:
+mov [fs:rcx], rdx
+ret
+
 global x64_gs_readb
 x64_gs_readb:
 xor rax, rax
@@ -353,6 +396,24 @@ ret
 global x64_gs_writeq
 x64_gs_writeq:
 mov [gs:rcx], rdx
+ret
+
+global x64_bswapw
+x64_bswapw:
+xchg cl, ch
+movzx eax, cx
+ret
+
+global x64_bswapd
+x64_bswapd:
+bswap ecx
+mov eax, ecx
+ret
+
+global x64_bswapq
+x64_bswapq:
+bswap rcx
+mov rax, rcx
 ret
 
 struc CONTEXT
@@ -499,6 +560,31 @@ ret
 global x64_hlt
 x64_hlt:
 hlt
+ret
+
+global x64_set_breakpoint
+x64_set_breakpoint:
+mov dr0, rcx
+dec rdx
+xor rax, rax
+mov al, 0b10	;Global breakpoint enable
+shl rdx, 18
+shl r8, 16
+or rdx, r8
+and rdx, 0xF0000
+or rax, rdx
+mov dr7, rax
+ret
+
+global x64_enable_breakpoint
+x64_enable_breakpoint:
+mov rax, dr7
+mov rdx, 0b10
+or rdx, rax
+and al, 0b11111101
+cmp rcx, 1
+cmove rax, rdx
+mov dr7, rax
 ret
 
 section .data

@@ -8,6 +8,8 @@
 #include <scheduler.h>
 #include <semaphore.h>
 #include "xhci_registers.h"
+#include <liballoc.h>
+#include "usb_private.h"
 
 class XHCI;
 
@@ -98,6 +100,13 @@ typedef struct _usb_device_descriptor {
 }usb_device_descriptor;
 #pragma pack(pop)
 
+static auto get_debug_flags()
+{
+	auto flags = arch_disable_interrupts();
+	arch_restore_state(flags);
+	return flags;
+}
+
 class XHCI {
 public:
 	XHCI(void* basea)
@@ -107,10 +116,18 @@ public:
 		Runtime(runbase)
 	{
 		baseaddr = basea;
+		event_available = 0;
+		tree_lock = 0;
+		port_tree_lock = 0;
+		interrupt_msi = false;
 	}
 	void init(size_t handle)
 	{
 		kprintf_a("Initalizing XHCI controller %x\n", handle);
+		if (Capabilities.HCCPARAMS1.AC64 == 0)
+		{
+			kprintf(u"XHCI: Warning - not a 64 bit controller!\n");
+		}
 		fill_baseaddress();
 		//Request control of host controller, if supported
 		take_bios_control();
@@ -124,10 +141,15 @@ public:
 		//XHCI knows that we're loaded, and has device slots available
 		//Look up protocols
 		xhci_protocol_speeds();
+
+		Operational.USBSTS = Operational.USBSTS;
 		//Get command ring
 		paddr_t crb = cmdring.getBaseAddress();
+		writeOperationalRegister(XHCI_OPREG_CRCR, crb | 1, 64);
+#if 0
 		Operational.CRCR.CommandRingPtr = crb;
 		Operational.CRCR.RCS = 1;
+#endif
 		//Set up event rings and primary interrupter
 		createPrimaryEventRing();
 		//Set up synchronisation
@@ -135,17 +157,21 @@ public:
 		port_tree_lock = create_spinlock();
 		event_available = create_semaphore(0, u"USB-XHCI Interrupt Semaphore");
 		//Start driver threads
-		evtthread = create_thread(&xhci_event_thread, this);
+		evtthread = create_thread(&xhci_event_thread, this, THREAD_PRIORITY_NORMAL, DRIVER_EVENT);
 
 		//TODO - interrupts go here
 		//Start USB!
-		Runtime.Interrupter(0).IMAN.InterruptEnable = 1;
-		Operational.USBCMD.RunStop = 1;		//Start USB!
-		Operational.USBCMD.INTE = 1;
-		//Just make sure we don't miss interrupts
 		Runtime.Interrupter(0).IMAN = Runtime.Interrupter(0).IMAN;
-		Runtime.Interrupter(0).IMOD.InterruptInterval = 4000;
-		Operational.USBSTS = Operational.USBSTS;
+		Runtime.Interrupter(0).IMOD.InterruptInterval = 0x3F8;
+		Runtime.Interrupter(0).IMOD.InterruptCounter = 0;
+		Runtime.Interrupter(0).IMOD.write();
+		Operational.USBCMD.INTE = 1;
+		Operational.USBCMD.HSEE = 1;
+		Runtime.Interrupter(0).IMAN.InterruptEnable = 1;
+
+		Operational.USBCMD.RunStop = 1;		//Start USB!
+		while (Operational.USBSTS.HcHalted != 0);
+		//Just make sure we don't miss interrupts
 		//Work on ports
 		kprintf(u"XHCI controller enabled, %d ports\n", getMaxPorts());
 		for (size_t n = 1; n <= getMaxPorts(); ++n)
@@ -164,6 +190,11 @@ public:
 		while (Operational.USBSTS.HcHalted == 0);
 	}
 
+	void set_msi_mode(bool isMSI)
+	{
+		interrupt_msi = isMSI;
+	}
+
 private:
 
 	XhciCapabilityRegisterBlock Capabilities;
@@ -176,6 +207,32 @@ private:
 		//Intel xHCIs have a quirk
 		Stall(1);
 		while (Operational.USBCMD.HcReset != 0);
+	}
+
+	void port_reset(size_t portindex)
+	{
+		static const uint32_t xHC_PortUSB_CHANGE_BITS = ((1 << 17) | (1 << 18) | (1 << 20) | (1 << 21) | (1 << 22));
+		XhciPortRegisterBlock portregs = Operational.Port(portindex);
+
+		//Clear change bits
+		uint32_t HCPortStatusOff = XHCI_OPREG_PORTSC(portindex);
+		writeOperationalRegister(HCPortStatusOff, xHC_PortUSB_CHANGE_BITS | (1 << 9), 32);
+
+		if (portregs.PORTSC.CCS == 1)
+		{
+			if (portregs.PORTSC.PED == 0)
+			{
+				kprintf(u"Resetting Port %d\n", portindex);
+				//Reset port
+				portregs.PORTSC.PortReset = 1;
+				while (portregs.PORTSC.PortReset != 0);
+
+				if (((uint32_t)portregs.PORTSC) & (1 << 1))
+				{
+					writeOperationalRegister(HCPortStatusOff, xHC_PortUSB_CHANGE_BITS | (1 << 9), 32);
+				}
+			}
+		}
 	}
 
 	uint64_t readCapabilityRegister(size_t reg, size_t width)
@@ -209,6 +266,41 @@ private:
 			break;
 		case 64:
 			*raw_offset<volatile uint64_t*>(baseaddr, reg) = value;
+			break;
+		}
+	}
+
+	uint64_t readOperationalRegister(size_t reg, size_t width)
+	{
+		switch (width)
+		{
+		case 8:
+			return *raw_offset<volatile uint8_t*>(oppbase, reg);
+		case 16:
+			return *raw_offset<volatile uint16_t*>(oppbase, reg);
+		case 32:
+			return *raw_offset<volatile uint32_t*>(oppbase, reg);
+		case 64:
+			return *raw_offset<volatile uint64_t*>(oppbase, reg);
+		}
+		return 0;
+	}
+
+	void writeOperationalRegister(size_t reg, uint64_t value, size_t width)
+	{
+		switch (width)
+		{
+		case 8:
+			*raw_offset<volatile uint8_t*>(oppbase, reg) = value;
+			break;
+		case 16:
+			*raw_offset<volatile uint16_t*>(oppbase, reg) = value;
+			break;
+		case 32:
+			*raw_offset<volatile uint32_t*>(oppbase, reg) = value;
+			break;
+		case 64:
+			*raw_offset<volatile uint64_t*>(oppbase, reg) = value;
 			break;
 		}
 	}
@@ -265,7 +357,7 @@ private:
 				uint16_t revision = supreg >> 16;
 				uint32_t psic = readCapabilityRegister(supportp + 8, 32) >> 28;
 				uint32_t slott = readCapabilityRegister(supportp + 0xC, 32) & 0x1F;
-				kprintf_a("%s%x.%02x, %d descriptors, slot type %d\n", u.usb_str, revision >> 8, revision & 0xFF, psic, slott);
+				//kprintf_a("%s%x.%02x, %d descriptors, slot type %d\n", u.usb_str, revision >> 8, revision & 0xFF, psic, slott);
 				for (size_t i = 0; i < psic; ++i)
 				{
 					uint32_t data = readCapabilityRegister(supportp + 0x10 + i * 4, 32);
@@ -293,7 +385,7 @@ private:
 					relstruct->fullduplex = (data >> 8) & 1;
 					relstruct->spd_exponent = (data >> 4) & 3;
 					relstruct->spd_mantissa = (data >> 16);
-					kprintf_a(" Protocol %d, speed %d*10^%d\n", psiv, relstruct->spd_mantissa, relstruct->spd_exponent);
+					//kprintf_a(" Protocol %d, speed %d*10^%d\n", psiv, relstruct->spd_mantissa, relstruct->spd_exponent);
 				}
 			}
 		} while (supportp != 0);
@@ -318,18 +410,16 @@ private:
 		XhciPortRegisterBlock portregs = Operational.Port(n);
 		if (portregs.PORTSC.CCS == 1)
 		{
-			//Reset port
-			portregs.PORTSC.PortReset = 1;
-			while (portregs.PORTSC.PortReset != 0);
+			port_reset(n);
 			//Port successfully reset
 			uint8_t portspeed = portregs.PORTSC.PortSpeed;
 			kprintf(u" Device attatched on port %d, %d Kbps (%s)\n", n, calculatePortSpeed(portspeed) / 1000, ReadablePortSpeed(portSpeed(portspeed)));
 			Stall(100);
-#if 1
 			//Enable slot command
 			void* last_command = nullptr;
 			last_command = cmdring.enqueue(create_enableslot_command(protocol_speeds[portspeed].slottype));
 			//Now get a command completion event from the event ring
+			//liballoc_dump();
 			uint64_t* curevt = (uint64_t*)waitComplete(last_command, 1000);
 			if (get_trb_completion_code(curevt) != XHCI_COMPLETION_SUCCESS)
 			{
@@ -346,16 +436,18 @@ private:
 			port_info->slotid = slotid;
 			if (!createSlotContext(portspeed, port_info))
 				return;
+#if 1
 			//Now we get device descriptor
 			xhci_command** devcmds = new xhci_command*[4];
-			devcmds[0] = create_setup_stage_trb(0x80, 6, 0x100, 0, 20, 3);
+			devcmds[0] = create_setup_stage_trb(USB_BM_REQUEST_INPUT | USB_BM_REQUEST_STANDARD | USB_BM_REQUEST_DEVICE,
+				USB_BREQUEST_GET_DESCRIPTOR, USB_DESCRIPTOR_WVALUE(USB_DESCRIPTOR_DEVICE, 0), 0, 18, 3);
 			volatile usb_device_descriptor* devdesc = (usb_device_descriptor*)new uint8_t[64];
-			devcmds[1] = create_data_stage_trb(get_physical_address((void*)devdesc), 20, true);
+			devcmds[1] = create_data_stage_trb(get_physical_address((void*)devdesc), 18, true);
 			devcmds[2] = create_status_stage_trb(true);
 			devcmds[3] = nullptr;
 			//port_info->cmdring.enqueue(devcmds[0]);
 			void* statusevt = port_info->cmdring.enqueue_commands(devcmds);
-			void* resulttrb = waitComplete(statusevt, 1000);
+			void* resulttrb = waitComplete(statusevt, 10000);
 			if (get_trb_completion_code(resulttrb) != XHCI_COMPLETION_SUCCESS)
 			{
 				kprintf(u"Error getting device descriptor (code %d)\n", get_trb_completion_code(resulttrb));
@@ -364,7 +456,8 @@ private:
 			if (devdesc->iManufacturer != 0)
 			{
 				//Get device string
-				devcmds[0] = create_setup_stage_trb(0x80, 6, 0x300 | devdesc->iManufacturer, 0, 256, 3);
+				devcmds[0] = create_setup_stage_trb(USB_BM_REQUEST_INPUT | USB_BM_REQUEST_STANDARD | USB_BM_REQUEST_DEVICE, 
+					USB_BREQUEST_GET_DESCRIPTOR, USB_DESCRIPTOR_WVALUE(USB_DESCRIPTOR_STRING, devdesc->iManufacturer), 0, 256, 3);
 				volatile wchar_t* devstr = new wchar_t[256];
 				devcmds[1] = create_data_stage_trb(get_physical_address((void*)devstr), 256, true);
 				devcmds[2] = create_status_stage_trb(true);
@@ -376,7 +469,8 @@ private:
 			if (devdesc->iProduct != 0)
 			{
 				//Get device string
-				devcmds[0] = create_setup_stage_trb(0x80, 6, 0x300 | devdesc->iProduct, 0, 256, 3);
+				devcmds[0] = create_setup_stage_trb(USB_BM_REQUEST_INPUT | USB_BM_REQUEST_STANDARD | USB_BM_REQUEST_DEVICE,
+					USB_BREQUEST_GET_DESCRIPTOR, USB_DESCRIPTOR_WVALUE(USB_DESCRIPTOR_STRING, devdesc->iProduct), 0, 256, 3);
 				volatile wchar_t* devstr = new wchar_t[256];
 				devcmds[1] = create_data_stage_trb(get_physical_address((void*)devstr), 256, true);
 				devcmds[2] = create_status_stage_trb(true);
@@ -385,7 +479,7 @@ private:
 				resulttrb = waitComplete(statusevt, 1000);
 				kprintf(u"   %s\n", ++devstr);
 			}
-			else
+			
 			{
 				kprintf_a("   Device %x:%x class %x:%x:%x USB version %x\n", devdesc->idVendor, devdesc->idProduct, devdesc->bDeviceClass, devdesc->bDeviceSublass, devdesc->bDeviceProtocol, devdesc->bcdUSB);
 			}
@@ -404,15 +498,16 @@ private:
 			m_mapped_enqueue = find_free_paging(PAGESIZE);
 			paging_map(m_mapped_enqueue, m_enqueue, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING);
 			memset(m_mapped_enqueue, 0, PAGESIZE);
+			slotbit = XHCI_TRB_ENABLED;
 		}
 		void* enqueue(xhci_command* command)
 		{
-			auto st = acquire_spinlock(ring_lock);
-			//Write command
-			auto st2 = acquire_spinlock(m_parent->tree_lock);
+			auto st = acquire_spinlock(m_parent->tree_lock);
 			m_parent->PendingCommands[m_enqueue] = command;
-			release_spinlock(m_parent->tree_lock, st2);
-			m_mapped_enqueue = xhci_write_crb(m_mapped_enqueue, command->lowval, command->highval, m_enqueue);
+			release_spinlock(m_parent->tree_lock, st);
+			st = acquire_spinlock(ring_lock);
+			//Write command
+			m_mapped_enqueue = place_trb(m_mapped_enqueue, command->lowval, command->highval, m_enqueue);
 			m_parent->ringDoorbell(m_slot, m_endpoint);
 			release_spinlock(ring_lock, st);
 			delete command;
@@ -427,7 +522,7 @@ private:
 			while (commands[n])
 			{
 				paddr_t lastcmd = m_enqueue;
-				m_mapped_enqueue = xhci_write_crb(m_mapped_enqueue, commands[n]->lowval, commands[n]->highval, m_enqueue);
+				m_mapped_enqueue = place_trb(m_mapped_enqueue, commands[n]->lowval, commands[n]->highval, m_enqueue);
 				auto st2 = acquire_spinlock(m_parent->tree_lock);
 				m_parent->PendingCommands[lastcmd] = commands;
 				release_spinlock(m_parent->tree_lock, st2);
@@ -446,12 +541,25 @@ private:
 
 		static void* xhci_write_crb(void* crbc, uint64_t low, uint64_t high, paddr_t& penq)
 		{
+			//kprintf(u"Writing TRB to %x(%x) <- %x:%x\n", crbc, penq, high, low);
 			*raw_offset<volatile uint64_t*>(crbc, 8) = high;
+			arch_memory_barrier();
 			*raw_offset<volatile uint64_t*>(crbc, 0) = low;
 			penq += 0x10;
 			return raw_offset<void*>(crbc, 16);
 		}
 	private:
+		void* place_trb(void* crbc, uint64_t low, uint64_t high, paddr_t& penq)
+		{
+			void* ret = xhci_write_crb(crbc, low, high | slotbit, penq);
+			if (penq == m_ringbase + PAGESIZE)
+			{
+				penq = m_ringbase;
+				slotbit = (slotbit == 0) ? XHCI_TRB_ENABLED : 0;
+				ret = raw_offset<void*>(ret, -PAGESIZE);
+			}
+			return ret;
+		}
 		XHCI* const m_parent;
 		spinlock_t ring_lock;
 		paddr_t m_enqueue;
@@ -459,6 +567,7 @@ private:
 		void* m_mapped_enqueue;
 		size_t m_slot;
 		size_t m_endpoint;
+		uint64_t slotbit;
 	};
 
 	class xhci_port_info {
@@ -524,7 +633,10 @@ private:
 
 	void ringDoorbell(size_t slot, size_t endpoint)
 	{
+		arch_memory_barrier();
 		*raw_offset<volatile uint32_t*>(doorbell, XHCI_DOORBELL(slot)) = endpoint;
+		//Flush PCI writes
+		volatile uint32_t st = *raw_offset<volatile uint32_t*>(doorbell, XHCI_DOORBELL(slot));
 	}
 	
 
@@ -577,17 +689,19 @@ private:
 		{
 			wait_semaphore(event_available, 1, TIMEOUT_INFINITY);
 			//kprintf(u"Events available\n");
+
 			volatile uint64_t* ret = (volatile uint64_t*)primaryevt.dequeueptr;
 			uint64_t erdp = Runtime.Interrupter(0).ERDP.DequeuePtr;
 			while (ret[1] & XHCI_TRB_ENABLED)
 			{
+#if 1
 				if (get_trb_completion_code((void*)ret) == XHCI_COMPLETION_STALL)
 				{
 					//STALL, reset endpoint
 					size_t slotid = ret[1] >> 56;
 					cmdring.enqueue(create_resetendpoint_command(slotid, 1));
 				}
-				//kprintf(u"Event fired: type %d\n", XHCI_GET_TRB_TYPE(ret[1]));
+				//kprintf(u"Event fired: type %d, value %x:%x\n", XHCI_GET_TRB_TYPE(ret[1]), ret[1], ret[0]);
 				if (XHCI_GET_TRB_TYPE(ret[1]) == XHCI_TRB_TYPE_COMMAND_COMPLETE || XHCI_GET_TRB_TYPE(ret[1]) == XHCI_TRB_TYPE_TRANSFER_EVENT)
 				{
 					paddr_t cmd_trb = ret[0];
@@ -606,20 +720,24 @@ private:
 						if (WaitingCommands.find(waiting_handle) != WaitingCommands.end())
 						{
 							semaphore_t waiter = WaitingCommands[waiting_handle];
+							release_spinlock(tree_lock, st);
 							signal_semaphore(waiter, 1);
 						}
 						else
 						{
+							release_spinlock(tree_lock, st);
 						}
 					}
-					release_spinlock(tree_lock, st);
-#if 0
+					else
+						release_spinlock(tree_lock, st);
+#if 1
 					if (XHCI_GET_TRB_TYPE(ret[1]) == XHCI_TRB_TYPE_TRANSFER_EVENT)
 					{
-						kprintf(u"Event for rethandle %x (TRB %x)\n", waiting_handle, cmd_trb);
+						//kprintf(u"Event for rethandle %x (TRB %x)\n", waiting_handle, cmd_trb);
 					}
 #endif
 				}
+
 #if 0
 				else if (XHCI_GET_TRB_TYPE(ret[1]) == XHCI_TRB_TYPE_PORT_STATUS_CHANGE)
 				{
@@ -637,11 +755,14 @@ private:
 					release_spinlock(port_tree_lock, st);
 				}
 #endif
+#endif
+
 				ret += 2;
 				erdp += 0x10;		//next TRB
-				primaryevt.dequeueptr = (void*)ret;
-				Runtime.Interrupter(0).ERDP.update(erdp, false);
 			}
+			write_semaphore(event_available, 0);
+			primaryevt.dequeueptr = (void*)ret;
+			Runtime.Interrupter(0).ERDP.update(erdp, false);
 		}
 	}
 
@@ -676,6 +797,7 @@ private:
 					break;
 			}
 			kprintf(u"Taken control of XHCI from firmware\n");
+			writeCapabilityRegister(legacy, legreg & ~(1 << 24), 32);
 		}
 		//Disable SMIs
 		uint32_t legctlsts = readCapabilityRegister(legacy + 4, 32);
@@ -717,7 +839,8 @@ private:
 		devctxt = find_free_paging(PAGESIZE);
 		paging_map(devctxt, cont, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING);
 		memset(devctxt, 0, PAGESIZE);
-		Operational.DCBAAP.DeviceContextPtr = cont;
+		writeOperationalRegister(XHCI_OPREG_DCBAAP, cont, 64);
+		//Operational.DCBAAP.DeviceContextPtr = cont;
 		//Give XHCI a scratchpad
 		uint32_t scratchsize = (Capabilities.HCSPARAMS2.MaxScratchHigh << 5) | Capabilities.HCSPARAMS2.MaxScratchLow;
 		if (scratchsize > 512)
@@ -833,20 +956,33 @@ private:
 		auto it = CompletedCommands.find(commandtrb);
 		if (it != CompletedCommands.end())
 		{
+			auto result = it->second;
 			release_spinlock(tree_lock, st);
-			return it->second;
+			return result;
 		}
 		WaitingCommands[commandtrb] = waiter;
 		release_spinlock(tree_lock, st);
-		//kprintf(u"Waiting for TRB %x\n", commandtrb);
-		if (wait_semaphore(waiter, 1, timeout) == 0)
-			return nullptr;
+		//kprintf(u"Waiting for TRB %x, flags %x\n", commandtrb, get_debug_flags());
+		if (wait_semaphore(waiter, 1, 50) == 0)
+		{
+			//An interrupt might not have been generated, poll TRB
+			signal_semaphore(event_available, 1);
+			auto time = (timeout - 50) < 0 ? 0 : (timeout - 50);
+			if (wait_semaphore(waiter, 1, time) == 0)
+			{
+				st = acquire_spinlock(tree_lock);
+				WaitingCommands.remove(commandtrb);
+				release_spinlock(tree_lock, st);
+				delete_semaphore(waiter);
+				return nullptr;
+			}
+		}
 		st = acquire_spinlock(tree_lock);
 		void* result = CompletedCommands[commandtrb];
 		CompletedCommands.remove(commandtrb);
-		delete_semaphore(waiter);
 		WaitingCommands.remove(commandtrb);
 		release_spinlock(tree_lock, st);
+		delete_semaphore(waiter);
 		return result;
 	}
 
@@ -900,13 +1036,14 @@ private:
 		//Write to device context array slot
 		*raw_offset<volatile uint64_t*>(devctxt, pinfo->slotid * 8) = dctxt;
 		//Issue address device command
-		void* last_command = cmdring.enqueue(create_address_command(true, incontext, pinfo->slotid));
+		void* last_command = cmdring.enqueue(create_address_command(false, incontext, pinfo->slotid));
 		uint64_t* curevt = (uint64_t*)waitComplete(last_command, 1000);
 		if (get_trb_completion_code(curevt) != XHCI_COMPLETION_SUCCESS)
 		{
 			kprintf(u"Error addressing device\n");
 			return false;
 		}
+		Stall(100);
 		pinfo->device_context = mapdctxt;
 
 		//If the device is full speed, we need to work out the correct packet size
@@ -917,6 +1054,7 @@ private:
 				return false;
 		}
 
+#if 0
 		last_command = cmdring.enqueue(create_address_command(false, incontext, pinfo->slotid));
 		curevt = (uint64_t*)waitComplete(last_command, 1000);
 		if (get_trb_completion_code(curevt) != XHCI_COMPLETION_SUCCESS)
@@ -924,6 +1062,7 @@ private:
 			kprintf(u"Error addressing device\n");
 			return false;
 		}
+#endif
 		return true;
 	}
 private:
@@ -935,13 +1074,18 @@ private:
 	CommandRing cmdring;
 	xhci_evtring_info primaryevt;
 	HTHREAD evtthread;
+	bool interrupt_msi;
 };
 
 static uint8_t xhci_interrupt(size_t vector, void* info)
 {
 	XHCI* inf = reinterpret_cast<XHCI*>(info);
-	signal_semaphore(inf->event_available, 1);
-	inf->Operational.USBSTS.EINT = 1;
+	if (inf->event_available)
+	{
+		signal_semaphore(inf->event_available, 1);
+	}
+	if(!inf->interrupt_msi)
+		inf->Operational.USBSTS.EINT = 1;
 	inf->Runtime.Interrupter(0).IMAN.InterruptPending = 1;
 	return 1;
 }
@@ -956,6 +1100,8 @@ static void xhci_pci_baseaddr(pci_address* addr, XHCI*& cinfo)
 	commstat |= (1 << 10);	//Mask pinned interrupts
 	commstat |= 0x6;		//Memory space and bus mastering
 	write_pci_config(addr->segment, addr->bus, addr->device, addr->function, 1, 32, commstat);
+	//Write FLADJ incase BIOS didn't
+	write_pci_config(addr->segment, addr->bus, addr->device, addr->function, 0x61, 8, 0x20);
 	baseaddr = read_pci_bar(addr->segment, addr->bus, addr->device, addr->function, 0, &barsize);
 	void* mapped_controller = find_free_paging(barsize);
 	if (!paging_map(mapped_controller, baseaddr, barsize, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING))
@@ -968,16 +1114,21 @@ static void xhci_pci_baseaddr(pci_address* addr, XHCI*& cinfo)
 	{
 		kprintf(u"Error: no MSI(-X) support\n");
 	}
+	else
+	{
+		cinfo->set_msi_mode(true);
+	}
 }
 
 void xhci_init()
 {
+	handle_alloc = 0;
 	pci_bus_scan(&xhci_pci_scan);
 	//Now init controllers
 	for (auto it = pcicontrollers.begin(); it != pcicontrollers.end(); ++it)
 	{
 		XHCI* controller = nullptr;
 		xhci_pci_baseaddr(it->second, controller);
-		controller->init(++handle_alloc);
+		controller->init(it->first);
 	}
 }

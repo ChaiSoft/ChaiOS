@@ -131,6 +131,12 @@
     <ClInclude Include="xhci_registers.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="usb_private.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\endian.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <NASM Include="arch\x64\asm_x64.asm">

@@ -327,12 +327,22 @@ char16_t*  sztoa(size_t value, char16_t * str, int base)
 
 #include <spinlock.h>
 spinlock_t screenlock = nullptr;
+bool need_lock = false;
+
+EXTERN KCSTDLIB_FUNC void enable_screen_locking()
+{
+	need_lock = true;
+}
 
 EXTERN KCSTDLIB_FUNC void kprintf(const char16_t* format, ...)
 {
-	if (!screenlock)
-		screenlock = create_spinlock();
-	auto st = acquire_spinlock(screenlock);
+	cpu_status_t st;
+	if (need_lock)
+	{
+		if (!screenlock)
+			screenlock = create_spinlock();
+		st = acquire_spinlock(screenlock);
+	}
 	va_list args;
 	va_start(args, format);
 	while (*format != '\0') {
@@ -400,7 +410,8 @@ EXTERN KCSTDLIB_FUNC void kprintf(const char16_t* format, ...)
 		}
 		++format;
 	}
-	release_spinlock(screenlock, st);
+	if(need_lock)
+		release_spinlock(screenlock, st);
 }
 
 EXTERN KCSTDLIB_FUNC void kvprintf(const char* format, va_list args)
@@ -506,10 +517,13 @@ static int putc_ascii(int c)
 
 EXTERN KCSTDLIB_FUNC void kvprintf_a(const char* format, va_list args)
 {
-	auto st = acquire_spinlock(screenlock);
+	cpu_status_t st;
+	if(need_lock)
+		st = acquire_spinlock(screenlock);
 	//kvprintf(format, args);
 	esp_vprintf(&putc_ascii, format, args);
-	release_spinlock(screenlock, st);
+	if(need_lock)
+		release_spinlock(screenlock, st);
 }
 
 EXTERN KCSTDLIB_FUNC void kprintf_a(const char* format, ...)

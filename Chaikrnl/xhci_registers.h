@@ -104,16 +104,51 @@
 
 template <class regt> class XhciRegister {
 public:
-	XhciRegister(void*& baseaddr, uint32_t registern)
-		:m_baseaddr(baseaddr), m_register(registern)
+	XhciRegister(void*& baseaddr, uint32_t registern, bool usebuffer = false)
+		:m_baseaddr(baseaddr), m_register(registern), use_buffer(usebuffer)
 	{
-
+		m_buffered = false;
 	}
 
 	operator regt() {
-		return *raw_offset<volatile regt*>(m_baseaddr, m_register);
+		regt val;
+		if (use_buffer)
+		{
+			if (!m_buffered)
+			{
+				val = *raw_offset<volatile regt*>(m_baseaddr, m_register);
+				m_buffer = val;
+				m_buffered = true;
+			}
+			else
+				val = m_buffer;
+		}
+		else
+			val = *raw_offset<volatile regt*>(m_baseaddr, m_register);
+		return val;
 	}
-	regt operator = (regt i) { *raw_offset<volatile regt*>(m_baseaddr, m_register) = i; return i; }
+	regt operator = (regt i) 
+	{ 
+		if (!use_buffer)
+		{
+			*raw_offset<volatile regt*>(m_baseaddr, m_register) = i;
+			return i;
+		}
+		else
+		{
+			m_buffer = i;
+			return i;
+		}
+	}
+
+	void write()
+	{
+		if (use_buffer)
+		{
+			*raw_offset<volatile regt*>(m_baseaddr, m_register) = m_buffer;
+			m_buffered = false;
+		}
+	}
 
 	regt operator = (XhciRegister rhs)
 	{
@@ -165,6 +200,9 @@ public:
 private:
 	void*& m_baseaddr;
 	const uint32_t m_register;
+	regt m_buffer;
+	const bool use_buffer;
+	bool m_buffered;
 };
 
 class XhciCaplength : public XhciRegister<uint8_t> {
@@ -218,11 +256,13 @@ class XhciHccparams1 : public XhciRegister<uint32_t> {
 public:
 	XhciHccparams1(void*& baseaddr)
 		:XhciRegister(baseaddr, XHCI_CAPREG_HCCPARAMS1),
+		AC64(*this),
 		EcapPtr(*this)
 	{
 
 	}
 	//TODO: Other fields
+	RegisterField<uint8_t, 0, 0> AC64;
 	RegisterField<uint16_t, 16, 31> EcapPtr;
 };
 
@@ -488,7 +528,7 @@ public:
 class XhciInterrupterImod : public XhciRegister<uint32_t> {
 public:
 	XhciInterrupterImod(void*& baseaddr, uint32_t interrupter)
-		:XhciRegister(baseaddr, XHCI_RUNREG_IMOD(interrupter)),
+		:XhciRegister(baseaddr, XHCI_RUNREG_IMOD(interrupter), true),
 		InterruptInterval(*this),
 		InterruptCounter(*this)
 	{
@@ -606,7 +646,7 @@ static xhci_command* create_evaluate_command(paddr_t context, uint16_t slot)
 	xhci_command* ret = new xhci_command;
 	uint64_t lowval = 0, highval = 0;
 	lowval = context;
-	highval = XHCI_TRB_ENABLED | XHCI_TRB_TYPE(XHCI_TRB_TYPE_EVALUATE_CONTEXT) | XHCI_TRB_SLOTID(slot);
+	highval = XHCI_TRB_TYPE(XHCI_TRB_TYPE_EVALUATE_CONTEXT) | XHCI_TRB_SLOTID(slot);
 
 	ret->lowval = lowval;
 	ret->highval = highval;
@@ -617,7 +657,7 @@ static xhci_command* create_enableslot_command(uint8_t slottype)
 {
 	xhci_command* ret = new xhci_command;
 	ret->lowval = 0;
-	ret->highval = XHCI_TRB_ENABLED | XHCI_TRB_TYPE(XHCI_TRB_TYPE_ENABLE_SLOT) | (slottype << 16);
+	ret->highval = XHCI_TRB_TYPE(XHCI_TRB_TYPE_ENABLE_SLOT) | (slottype << 16);
 	return ret;
 }
 
@@ -625,7 +665,7 @@ static xhci_command* create_setup_stage_trb(uint8_t rType, uint8_t bRequest, uin
 {
 	xhci_command* ret = new xhci_command;
 	ret->lowval = rType | (bRequest << 8) | (value << 16) | ((uint64_t)wIndex << 32) | ((uint64_t)wLength << 48);
-	ret->highval = 8 | XHCI_TRB_ENABLED | XHCI_TRB_IDT | XHCI_TRB_TRT(trt) | XHCI_TRB_TYPE(XHCI_TRB_TYPE_SETUP_STAGE);
+	ret->highval = 8 | XHCI_TRB_IDT | XHCI_TRB_TRT(trt) | XHCI_TRB_TYPE(XHCI_TRB_TYPE_SETUP_STAGE);
 	return ret;
 }
 
@@ -633,7 +673,7 @@ static xhci_command* create_data_stage_trb(paddr_t buffer, uint16_t size, bool i
 {
 	xhci_command* ret = new xhci_command;
 	ret->lowval = buffer;
-	ret->highval = XHCI_TRB_ENABLED | XHCI_TRB_ENT | (indirection ? XHCI_TRB_DIR_IN : 0) | XHCI_TRB_TYPE(XHCI_TRB_TYPE_DATA_STAGE) | size;
+	ret->highval = XHCI_TRB_ENT | (indirection ? XHCI_TRB_DIR_IN : 0) | XHCI_TRB_TYPE(XHCI_TRB_TYPE_DATA_STAGE) | size;
 	return ret;
 }
 
@@ -641,7 +681,7 @@ static xhci_command* create_status_stage_trb(bool indirection)
 {
 	xhci_command* ret = new xhci_command;
 	ret->lowval = 0;
-	ret->highval = XHCI_TRB_ENABLED | XHCI_TRB_ENT | (indirection ? XHCI_TRB_DIR_IN : 0) | XHCI_TRB_TYPE(XHCI_TRB_TYPE_STATUS_STAGE) | XHCI_TRB_IOC;
+	ret->highval = XHCI_TRB_ENT | (indirection ? XHCI_TRB_DIR_IN : 0) | XHCI_TRB_TYPE(XHCI_TRB_TYPE_STATUS_STAGE) | XHCI_TRB_IOC;
 	return ret;
 }
 

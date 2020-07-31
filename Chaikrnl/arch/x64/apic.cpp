@@ -80,12 +80,14 @@ static void write_apic_register(uint16_t reg, uint64_t value)
 }
 void apic_eoi()
 {
-	write_apic_register(LAPIC_REGISTER_EOI, 0);
+	if(pcpu_data.irql >= IRQL_INTERRUPT)
+		write_apic_register(LAPIC_REGISTER_EOI, 0);
 }
 
 void arch_local_eoi()
 {
-	write_apic_register(LAPIC_REGISTER_EOI, 0);
+	if (pcpu_data.irql >= IRQL_INTERRUPT)
+		write_apic_register(LAPIC_REGISTER_EOI, 0);
 }
 
 bool x2apic_supported()
@@ -120,8 +122,6 @@ uint64_t arch_get_system_timer()
 static uint8_t apic_timer_interrupt(size_t vector, void* param)
 {
 	pcpu_data.cputicks = pcpu_data.cputicks + 1;
-	scheduler_schedule(pcpu_data.cputicks);
-	apic_eoi();
 	return 1;
 }
 
@@ -129,6 +129,7 @@ static uint8_t pit_interrupt(size_t vector, void* param)
 {
 	++pit_ticks;
 	scheduler_timer_tick();
+	scheduler_schedule(pcpu_data.cputicks);
 	return 1;
 }
 
@@ -211,7 +212,7 @@ static void init_ioapic(void* ioapic, ioapic_desc* desc)
 	}
 }
 
-static void apic_register_irq(size_t vector, void* fn, void* param)
+static void apic_register_irq(size_t vector, uint32_t processor, void* fn, void* param)
 {
 	//Convert IRQ number
 	if (interrupt_overrides.find(vector) != interrupt_overrides.end())
@@ -221,15 +222,21 @@ static void apic_register_irq(size_t vector, void* fn, void* param)
 	if (!ioapic)
 		return;
 	uint32_t target_cpu = arch_current_processor_id();
+	if (processor == INTERRUPT_CURRENTCPU)
+	{
+		processor = target_cpu;
+	}
+	else if (target_cpu != processor)
+		return;		//TODO: IPI?
 	uint32_t reg = IOAPIC_REG_RED_TBL_BASE + (vector - ioapic->base_intr) * 2;
 	write_ioapic_register(ioapic->mapped, reg + 1, target_cpu << 24);
 	//Install handler
-	arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, vector + APIC_VECTOR_BASE, fn, param);
-	arch_install_interrupt_post_event(INTERRUPT_SUBSYSTEM_DISPATCH, vector + APIC_VECTOR_BASE, &apic_eoi);
+	arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, vector + APIC_VECTOR_BASE, target_cpu, fn, param);
+	arch_install_interrupt_post_event(INTERRUPT_SUBSYSTEM_DISPATCH, vector + APIC_VECTOR_BASE, target_cpu, &apic_eoi);
 	//Enable the interrupt
 	write_ioapic_register(ioapic->mapped, reg, vector + APIC_VECTOR_BASE);
 }
-void apic_register_postevt(size_t vector, void(*evt)())
+void apic_register_postevt(size_t vector, uint32_t processor, void(*evt)())
 {
 	//Unsupported
 }
@@ -302,7 +309,7 @@ static void EnableIOAPICsACPI()
 
 static void initialize_pit(uint32_t frequency)
 {
-	arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_IRQ, 0, &pit_interrupt, nullptr);
+	arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_IRQ, 0, INTERRUPT_CURRENTCPU, &pit_interrupt, nullptr);
 	uint32_t reload_value = 0;
 	if (frequency >= 1193181)
 	{
@@ -418,8 +425,8 @@ static void disable_pic()
 	io_wait();
 	arch_write_port(PIC2_DATA, 0xFF, 8);
 	//Handle spurious IRQs
-	arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, offset1 + 7, &apic_spurious_interrupt, nullptr);
-	arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, offset2 + 7, &apic_spurious_interrupt, nullptr);
+	arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, offset1 + 7, INTERRUPT_CURRENTCPU, &apic_spurious_interrupt, nullptr);
+	arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, offset2 + 7, INTERRUPT_CURRENTCPU, &apic_spurious_interrupt, nullptr);
 }
 
 void x64_init_apic()
@@ -448,7 +455,7 @@ void x64_init_apic()
 	else
 		x64_wrmsr(IA32_APIC_BASE_MSR, x64_rdmsr(IA32_APIC_BASE_MSR) | IA32_APIC_BASE_MSR_ENABLE | (x2apic ? IA32_APIC_BASE_MSR_X2APIC : 0));
 	//Write the spurious vector register
-	arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, 0xFF, &apic_spurious_interrupt, nullptr);
+	arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, 0xFF, INTERRUPT_CURRENTCPU, &apic_spurious_interrupt, nullptr);
 	write_apic_register(LAPIC_REGISTER_SVR, read_apic_register(LAPIC_REGISTER_SVR) | IA32_APIC_SVR_ENABLE | 0xFF);
 	//The APIC is now enabled
 	//Mask all local interrupts
@@ -459,13 +466,15 @@ void x64_init_apic()
 	//Enable LAPIC timer
 	write_apic_register(LAPIC_REGISTER_TMRDIV, 0b1010);		//Divide by 128
 	size_t timer_vector = 0x40;
-	arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, timer_vector, &apic_timer_interrupt, nullptr);
+	arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, timer_vector, INTERRUPT_CURRENTCPU, &apic_timer_interrupt, nullptr);
+	arch_install_interrupt_post_event(INTERRUPT_SUBSYSTEM_DISPATCH, timer_vector, INTERRUPT_CURRENTCPU, &apic_eoi);
 	size_t tmrreg = (0b01 << 17) | timer_vector;
 	write_apic_register(LAPIC_REGISTER_LVT_TIMER, tmrreg);
 	write_apic_register(LAPIC_REGISTER_TMRINITCNT, 0x1000);
-	set_acpi_timer(&arch_get_system_timer);
+	//
 	if (arch_is_bsp())
 	{
+		set_acpi_timer(&arch_get_system_timer);
 		//Enable IOAPICs
 		EnableIOAPICsACPI();
 		arch_register_interrupt_subsystem(INTERRUPT_SUBSYSTEM_IRQ, &apic_subsystem);

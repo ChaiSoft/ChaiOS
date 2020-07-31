@@ -143,7 +143,7 @@ CHAIKRNL_FUNC BOOLEAN AcpiOsWritable(void *Memory, ACPI_SIZE Length)
 }
 CHAIKRNL_FUNC ACPI_THREAD_ID AcpiOsGetThreadId()
 {
-	HTHREAD current = pcpu_data.runningthread;
+	HTHREAD current = current_thread();
 	return (ACPI_THREAD_ID)current;
 }
 CHAIKRNL_FUNC ACPI_STATUS AcpiOsExecute(ACPI_EXECUTE_TYPE Type, ACPI_OSD_EXEC_CALLBACK Function, void *Context)
@@ -152,7 +152,7 @@ CHAIKRNL_FUNC ACPI_STATUS AcpiOsExecute(ACPI_EXECUTE_TYPE Type, ACPI_OSD_EXEC_CA
 		Function(Context);
 	else
 	{
-		HTHREAD thread = create_thread(Function, Context);
+		HTHREAD thread = create_thread(Function, Context, KERNEL_TASK);
 		if (!thread)
 			return AE_NO_MEMORY;
 	}
@@ -260,7 +260,7 @@ CHAIKRNL_FUNC ACPI_STATUS AcpiOsInstallInterruptHandler(UINT32 InterruptLevel, A
 	context_converter* cont = new context_converter;
 	cont->handler = Handler;
 	cont->ctxt = Context;
-	arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_IRQ, InterruptLevel, &interrupt_converter, cont);
+	arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_IRQ, InterruptLevel, INTERRUPT_CURRENTCPU, &interrupt_converter, cont);
 	return AE_OK;
 }
 CHAIKRNL_FUNC ACPI_STATUS AcpiOsRemoveInterruptHandler(UINT32 InterruptNumber, ACPI_OSD_HANDLER Handler)
@@ -272,13 +272,13 @@ CHAIKRNL_FUNC void ACPI_INTERNAL_VAR_XFACE AcpiOsPrintf(const char *Format, ...)
 {
 	va_list args;
 	va_start(args, Format);
-	kvprintf_a(Format, args);
+	//kvprintf_a(Format, args);
 	va_end(args);
 }
 
 CHAIKRNL_FUNC void AcpiOsVprintf(const char *Format, va_list Args)
 {
-	kvprintf_a(Format, Args);
+	//kvprintf_a(Format, Args);
 }
 
 CHAIKRNL_FUNC int AcpiOsAcquireGlobalLock(UINT32 *lock)

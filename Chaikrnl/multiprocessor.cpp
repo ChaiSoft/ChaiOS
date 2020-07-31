@@ -207,6 +207,7 @@ extern "C" size_t x64_read_cr3();
 
 void startup_multiprocessor()
 {
+	//enable_screen_locking();
 	//Count CPUs
 	ACPI_TABLE_MADT* madt = nullptr;
 	if (!ACPI_SUCCESS(AcpiGetTable(ACPI_SIG_MADT, 0, (ACPI_TABLE_HEADER**)&madt)))

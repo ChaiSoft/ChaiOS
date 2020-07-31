@@ -13,11 +13,13 @@
 #include <pciexpress.h>
 #include <scheduler.h>
 #include <usb.h>
+#include <endian.h>
 
 #define CHAIOS_KERNEL_VERSION_MAJOR 0
 #define CHAIOS_KERNEL_VERSION_MINOR 9
 
 void* heapaddr = (void*)0xFFFFD40000000000;
+size_t heap_usage = 0;
 static void* early_page_allocate(size_t numPages)
 {
 	if (!paging_map(heapaddr, PADDR_ALLOCATE, numPages*PAGESIZE, PAGE_ATTRIBUTE_WRITABLE))
@@ -28,6 +30,7 @@ static void* early_page_allocate(size_t numPages)
 	}
 	void* ret = heapaddr;
 	heapaddr = raw_offset<void*>(heapaddr, numPages*PAGESIZE);
+	heap_usage += PAGESIZE * numPages;
 	return ret;
 }
 
@@ -95,6 +98,7 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 	arch_cpu_init();
 	kputs(u"CPU startup completed\n");
 	CallConstructors();
+	heap_usage = 0;
 	//Now we need the ACPI tables for information on NUMA
 	if (bootinfo->boottype == CHAIOS_BOOT_TYPE_UEFI)
 	{
@@ -102,17 +106,23 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 		pull_system_table_data(bootinfo->efi_system_table);
 	}
 	//Now provide basic memory services
+	kputs(u"PMMNGR init: ");
 	initialize_pmmngr(bootinfo->pmmngr_info);
+	kputs(u"complete\nPaging init: ");
 	paging_initialize(bootinfo->paging_info);
+	kputs(u"complete\nGraphics init: ");
 	setLiballocAllocator(&early_page_allocate, &early_free_pages);
 	InitialiseGraphics(*bootinfo->fbinfo, bootinfo->kterm_status);
 	set_stdio_puts(&gputs_k);
+	kputs(u"complete\nACPI init: ");
 	//Copy boot information
 	bootinfo = copyBootInfo(bootinfo);
 	//ACPI Table Manager
 	start_acpi_tables();
+	kputs(u"complete\Pmmngr startup: ");
 	//Now start up the PMMNGR properly
 	startup_pmmngr(bootinfo->boottype, bootinfo->memory_map);
+	kputs(u"complete\n");
 	initialize_pci_express();
 	//Set up the VMMNGR
 	//paging_boot_free();
@@ -122,7 +132,22 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 	//Welcome to the thunderdome
 	//startup_acpi();
 	setup_usb();
+
+	uint64_be big_endian = CPU_TO_BE64(0xCAFEBABEDEADBEEF);
+	kprintf(u"Big Endian value: %x, as little endian: %x\n", big_endian.v, BE_TO_CPU64(big_endian));
+#if 0
+	tls_slot_t x = AllocateKernelTls();
+	kprintf(u"Allocated Kernel TLS: slot %d\n", x);
+	tls_slot_t y = AllocateKernelTls();
+	kprintf(u"Allocated Kernel TLS: slot %d\n", y);
+	y = AllocateKernelTls();
+	kprintf(u"Allocated Kernel TLS: slot %d\n", y);
+	FreeKernelTls(x);
+	y = AllocateKernelTls();
+	kprintf(u"Freed slot %d, Allocated Kernel TLS: slot %d\n", x, y);
 	cpu_print_information();
+#endif
+	kprintf(u"Heap Usage: %d KiB\n", heap_usage / (1024));
 	kprintf(u"Current CPU ID: %x\n", pcpu_data.cpuid);
 	kputs(u"System timer: ");
 	while (1)

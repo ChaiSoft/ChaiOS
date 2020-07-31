@@ -104,7 +104,7 @@ jmp r8
 global x64_interrupt_handler_%2
 x64_interrupt_handler_%2:
 %if %1 == 0
-push 0			;Dummy error code
+push 0xDEADBEEF			;Dummy error code
 %endif
 ;Stack frame
 push rbp
@@ -117,7 +117,7 @@ call save_fpu_interrupt
 ;Now we pass the stack interrupt stack and vector
 mov rcx, %2
 mov rdx, rbp
-add rdx, 8
+;add rdx, 8
 
 sub rsp, 32
 call x64_interrupt_dispatcher
