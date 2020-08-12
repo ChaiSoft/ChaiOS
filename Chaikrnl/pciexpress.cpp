@@ -229,11 +229,18 @@ void initialize_pci_express()
 		return;
 }
 
-static uint16_t getVendorID(uint16_t segment, uint16_t bus, uint16_t device, uint16_t function)
+uint16_t pci_get_vendor_id(uint16_t segment, uint16_t bus, uint16_t device, uint16_t function)
 {
 	uint64_t result;
 	read_pci_config(segment, bus, device, function, PCI_REG_ID, 32, &result);
 	return result & 0xFFFF;
+}
+
+uint16_t pci_get_device_id(uint16_t segment, uint16_t bus, uint16_t device, uint16_t function)
+{
+	uint64_t result;
+	read_pci_config(segment, bus, device, function, PCI_REG_ID, 32, &result);
+	return (result >> 16) & 0xFFFF;
 }
 
 uint8_t pci_get_header_type(uint16_t segment, uint16_t bus, uint16_t device, uint16_t function)
@@ -326,7 +333,9 @@ paddr_t read_pci_bar(uint16_t segment, uint16_t bus, uint16_t device, uint16_t f
 			internalptr = internal_write_pci(segment, bus, device, function, BAR + 1 + PCI_REG_BAR0, 32, highbits, internalptr);
 			szbits |= (szhighbits << 32);
 		}
-		szbits &= (SIZE_MAX - 0xF);
+		else
+			szbits |= ((uint64_t)UINT32_MAX << 32);
+		szbits &= (UINT64_MAX - 0xF);
 		szbits = ~szbits;
 		++szbits;
 		*BARSIZE = szbits;
@@ -342,7 +351,7 @@ static bool checkFunction(uint16_t segment, uint16_t bus, uint16_t device, uint1
 static bool checkDevice(uint16_t segment, uint16_t bus, uint16_t device, pci_scan_callback callback) {
 	uint8_t function = 0;
 
-	uint16_t vendorID = getVendorID(segment, bus, device, function);
+	uint16_t vendorID = pci_get_vendor_id(segment, bus, device, function);
 	if (vendorID == 0xFFFF) return false;        // Device doesn't exist
 	if (checkFunction(segment, bus, device, function, callback))
 		return true;
@@ -350,7 +359,7 @@ static bool checkDevice(uint16_t segment, uint16_t bus, uint16_t device, pci_sca
 	if ((headerType & 0x80) != 0) {
 		/* It is a multi-function device, so check remaining functions */
 		for (function = 1; function < 8; function++) {
-			if (getVendorID(segment, bus, device, function) != 0xFFFF) {
+			if (pci_get_vendor_id(segment, bus, device, function) != 0xFFFF) {
 				if (checkFunction(segment, bus, device, function, callback))
 					return true;
 			}
@@ -403,7 +412,7 @@ bool checkAllBuses(uint16_t segment, uint16_t startbus, uint16_t endbus, pci_sca
 	else {
 		/* Multiple PCI host controllers */
 		for (function = 0; function < 8; function++) {
-			if (getVendorID(segment, startbus, 0, function) != 0xFFFF) break;
+			if (pci_get_vendor_id(segment, startbus, 0, function) != 0xFFFF) break;
 			bus = function;
 			if (checkBus(segment, bus, callback))
 				return true;
@@ -450,12 +459,12 @@ uint32_t pci_allocate_msi(uint16_t segment, uint16_t bus, uint16_t device, uint1
 			if ((capreg & 0xFF) == PCI_CAP_ID_MSIX)
 			{
 				msireg = capptr;
-				//break;
+				break;
 			}
 			else if ((capreg & 0xFF) == PCI_CAP_ID_MSI)
 			{
 				msireg = capptr;
-				break;
+				//break;
 			}
 			capptr = ((capreg >> 8) & 0xFF) / 4;
 		}
@@ -476,33 +485,35 @@ uint32_t pci_allocate_msi(uint16_t segment, uint16_t bus, uint16_t device, uint1
 		if ((capreg & 0xFF) == PCI_CAP_ID_MSIX)
 		{
 			kprintf(u"Using MSI-X\n");
-			//Enable MSI-X
-			internalptr = internal_write_pci(segment, bus, device, function, msireg, 32, capreg | (1 << 31), internalptr);
 			//Find the correct BAR and read upper address
 			uint64_t table_bir, upper_address;
 			internalptr = internal_read_pci(segment, bus, device, function, msireg + 1, 32, &upper_address, internalptr);
 			internalptr = internal_read_pci(segment, bus, device, function, msireg + 2, 32, &table_bir, internalptr);
 			uint32_t bar = table_bir & 0x7;
-			paddr_t msibar = read_pci_bar(segment, bus, device, function, bar);
+			size_t barsize = 0;
+			paddr_t msibar = read_pci_bar(segment, bus, device, function, bar, &barsize);
 			size_t offset = table_bir & (UINT32_MAX - 0x7);
 			size_t pageoffset = table_bir & (UINT32_MAX - 0xFFF);
 			size_t inoffset = table_bir & 0xFF8;
-			size_t tablesize = capreg & 0x7FF + 1;
-			void* mappedtable = find_free_paging(tablesize + offset);
-			paging_map(mappedtable, msibar, tablesize + offset, PAGE_ATTRIBUTE_NO_CACHING | PAGE_ATTRIBUTE_WRITABLE);
+			size_t tablecount = (capreg & 0x7FF + 1);
+			size_t tablesize = tablecount * 8;		//sizeof(table_entry) == 8
+			void* mappedtable = find_free_paging(barsize);
+			paging_map(mappedtable, msibar, barsize, PAGE_ATTRIBUTE_NO_CACHING | PAGE_ATTRIBUTE_WRITABLE);
 			mappedtable = raw_offset<void*>(mappedtable, offset);
-			kprintf(u"MSI-X table BAR%d (%x), offset %x\n", bar, msibar, table_bir);
+			//kprintf(u"MSI-X table BAR%d (%x), offset %x\n", bar, msibar, table_bir);
 			uint64_t msi_data = 0;
 			paddr_t msi_addr = arch_msi_address(&msi_data, vector, cpu_num);
 			internalptr = internal_write_pci(segment, bus, device, function, msireg + 1, 32, msi_addr >> 32, internalptr);
-			kprintf(u"MSI-X desired: %x:%x\n", msi_data, msi_addr);
+			//kprintf(u"MSI-X desired: %x:%x\n", msi_data, msi_addr);
 			volatile uint32_t* msitab = (volatile uint32_t*)mappedtable;
 			msitab[3] |= PCI_msix_vctrl_mask;
 			msitab[0] = msi_addr & UINT32_MAX;
 			msitab[1] = msi_addr >> 32;
 			msitab[2] = msi_data;
 			msitab[3] &= ~PCI_msix_vctrl_mask;
-			kprintf(u"MSI-X data mapped %x: %x:%x\n", msitab, msitab[1], msitab[0]);
+			//kprintf(u"MSI-X data mapped %x: %x:%x\n", msitab, msitab[1], msitab[0]);
+			//Enable MSI-X
+			internalptr = internal_write_pci(segment, bus, device, function, msireg, 32, capreg | (1 << 31), internalptr);
 		}
 		else
 		{

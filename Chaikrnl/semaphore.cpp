@@ -104,6 +104,12 @@ CHAIKRNL_FUNC void write_semaphore(semaphore_t lock, size_t count)
 	release_spinlock(sem->spinlock, st);
 }
 
+CHAIKRNL_FUNC size_t peek_semaphore(semaphore_t lock)
+{
+	semaphore* sem = (semaphore*)lock;
+	return sem->value;
+}
+
 EXTERN CHAIKRNL_FUNC uint8_t wait_semaphore(semaphore_t lock, size_t count, size_t timeout)
 {
 	semaphore* sem = (semaphore*)lock;

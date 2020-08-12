@@ -36,13 +36,6 @@ search_loop:
 	return &str[i];
 }
 
-enum ChaiosBootType {
-	CHAIOS_BOOT_CONFIGURATION,
-	CHAIOS_KERNEL,
-	CHAIOS_DLL,
-	CHAIOS_CONFIGURATION
-};
-
 typedef struct _chaios_boot_files {
 	const ChaiosBootType bootType;
 	const char16_t* fileName;
@@ -60,7 +53,7 @@ static CHAIOS_BOOT_FILES _config = {
 };
 
 static CHAIOS_BOOT_FILES _kernel = {
-	CHAIOS_KERNEL,
+	CHAIOS_BOOT_KERNEL,
 	u"chaikrnl.exe",
 	nullptr,
 	0,
@@ -68,7 +61,7 @@ static CHAIOS_BOOT_FILES _kernel = {
 };
 
 static CHAIOS_BOOT_FILES _acpica = {
-	CHAIOS_KERNEL,
+	CHAIOS_DLL,
 	u"acpica.dll",
 	nullptr,
 	0,
@@ -82,6 +75,8 @@ static CHAIOS_BOOT_FILES bootfiles = {
 	0,
 	&_acpica
 };
+
+static CHAIOS_BOOT_FILES* last_bootfile = &_config;
 
 static CHAIOS_BOOT_FILES* iterateBootFiles(CHAIOS_BOOT_FILES* last)
 {
@@ -135,6 +130,24 @@ static int bootini_handler(void* user, const char* section, const char* name, co
 		{
 			graphics_height = atoi_basic(value);
 		}
+	}
+	else if (strcmp_basic(section, "drivers") == 0)
+	{
+		puts(u"Loading driver\n");
+		CHAIOS_BOOT_FILES archetype = { CHAIOS_BOOT_DRIVER };
+		PCHAIOS_BOOT_FILES newentry = new CHAIOS_BOOT_FILES(archetype);
+		size_t vallength = 0;
+		for (; value[vallength]; ++vallength);
+		char16_t* buffer = new char16_t[vallength + 1];
+		for (int i = 0; i < vallength; ++i)
+			buffer[i] = value[i];
+		buffer[vallength] = 0;
+		newentry->fileName = buffer;
+		newentry->fileSize = 0;
+		newentry->loadLocation = nullptr;
+		newentry->next = nullptr;
+		last_bootfile->next = newentry;
+		last_bootfile = newentry;
 	}
 	return 1;
 }
@@ -190,12 +203,17 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 		if (!file)
 		{
 			printf(u"Error: could not open %s: %s\r\n", bootfile->fileName, getError(getErrno()));
+			continue;
 		}
 		UINT64 fileSize = GetFileSize(file);
 		VOID* bootfilebuf = kmalloc(fileSize+1);
 		UINTN read = ReadFile(bootfilebuf, 1, fileSize, file);
 		if (read < fileSize)
+		{
+			CloseFile(file);
 			printf(u"Read %d bytes, failed\r\n", read);
+			continue;
+		}
 		else
 			printf(u"Successfully read %d bytes\r\n", read);
 		//Boot file is now loaded into memory
@@ -209,7 +227,6 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 			ini_parse_string((const char*)bootfilebuf, &bootini_handler, nullptr);
 		}
 	}
-
 	//size_t value = GetIntegerInput(u"Enter scrolling lines configuration: ");
 	//set_scrolllines(value);
 
@@ -298,17 +315,21 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 		printf(u"Boot file: %s @ %x, length %d, type %d\n", bootfile->fileName, bootfile->loadLocation, bootfile->fileSize, bootfile->bootType);
 		if (!bootfile->loadLocation)
 			continue;
-		if (bootfile->bootType == CHAIOS_DLL)
+		if (bootfile->bootType == CHAIOS_DLL || bootfile->bootType == CHAIOS_BOOT_DRIVER)
 		{
-			KLOAD_HANDLE dll = LoadImage(bootfile->loadLocation, bootfile->fileName);
-			if (GetProcAddress(dll, "memcpy"))
+			KLOAD_HANDLE dll = LoadImage(bootfile->loadLocation, bootfile->fileName, bootfile->bootType);
+			if (bootfile->bootType == CHAIOS_DLL && GetProcAddress(dll, "memcpy"))
 			{
 				set_memcpy((memcpy_proc)GetProcAddress(dll, "memcpy"));
 			}
+			if (bootfile->bootType == CHAIOS_BOOT_DRIVER)
+			{
+				printf(u"Boot Driver: %s\n", bootfile->fileName);
+			}
 		}
-		else if (bootfile->bootType == CHAIOS_KERNEL)
+		else if (bootfile->bootType == CHAIOS_BOOT_KERNEL)
 		{
-			kernel = LoadImage(bootfile->loadLocation, bootfile->fileName);
+			kernel = LoadImage(bootfile->loadLocation, bootfile->fileName, bootfile->bootType);
 			kentry = GetEntryPoint(kernel);
 		}
 	}

@@ -4,6 +4,7 @@
 #include <stdheaders.h>
 #include <kernelinfo.h>
 #include <pmmngr.h>
+#include <chaikrnl.h>
 
 typedef void* vaddr_t;
 
@@ -16,11 +17,11 @@ typedef void* vaddr_t;
 
 #define PADDR_ALLOCATE UINT64_MAX
 
-bool paging_map(void* vaddr, paddr_t paddr, size_t length, size_t attributes);
-void paging_free(void* vaddr, size_t length, bool free_physical = true);
-bool check_free(void* vaddr, size_t length);
-void set_paging_attributes(void* vaddr, size_t length, size_t attrset, size_t attrclear);
-paddr_t get_physical_address(void* addr);
+CHAIKRNL_FUNC bool paging_map(void* vaddr, paddr_t paddr, size_t length, size_t attributes);
+CHAIKRNL_FUNC void paging_free(void* vaddr, size_t length, bool free_physical = true);
+CHAIKRNL_FUNC bool check_free(void* vaddr, size_t length);
+CHAIKRNL_FUNC void set_paging_attributes(void* vaddr, size_t length, size_t attrset, size_t attrclear);
+CHAIKRNL_FUNC paddr_t get_physical_address(void* addr);
 void fill_arch_paging_info(void*& info);
 void paging_initialize(void*& info);
 void paging_boot_free();

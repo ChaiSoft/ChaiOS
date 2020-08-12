@@ -14,12 +14,12 @@ size_t arch_read_port(size_t port, uint8_t width);
 void arch_write_port(size_t port, size_t value, uint8_t width);
 
 #ifdef __cplusplus
-bool arch_cas(volatile size_t* loc, size_t oldv, size_t newv);
+CHAIKRNL_FUNC bool arch_cas(volatile size_t* loc, size_t oldv, size_t newv);
 #else
-int arch_cas(volatile size_t* loc, size_t oldv, size_t newv);
+CHAIKRNL_FUNC int arch_cas(volatile size_t* loc, size_t oldv, size_t newv);
 #endif
 
-void arch_pause();		//Hyperthreading hint
+CHAIKRNL_FUNC void arch_pause();		//Hyperthreading hint
 
 typedef size_t cpu_status_t;
 
@@ -30,8 +30,8 @@ void arch_restore_state(cpu_status_t val);
 #define BREAKPOINT_CODE 0
 #define BREAKPOINT_WRITE 1
 #define BREAKPOINT_READ_WRITE 3
-void arch_set_breakpoint(void* addr, size_t length, size_t type);
-void arch_enable_breakpoint(size_t enabled);
+CHAIKRNL_FUNC void arch_set_breakpoint(void* addr, size_t length, size_t type);
+CHAIKRNL_FUNC void arch_enable_breakpoint(size_t enabled);
 
 void arch_setup_interrupts();
 
@@ -135,6 +135,8 @@ void arch_destroy_kernel_stack(kstack_t stack);
 void* arch_init_stackptr(kstack_t stack);
 void arch_new_thread(context_t ctxt, kstack_t stack, void* entrypt);
 
+void arch_go_usermode(void* userstack, void (*ufunc)(void*), size_t bitness);
+
 void arch_flush_tlb(void*);
 CHAIKRNL_FUNC void arch_flush_cache();
 void arch_memory_barrier();
@@ -162,7 +164,7 @@ size_t iterate_cpu_caches(cpu_cache_callback callback);
 #endif
 
 void cpu_print_information();
-uint64_t arch_get_system_timer();
+CHAIKRNL_FUNC uint64_t arch_get_system_timer();
 
 #ifdef __cplusplus
 }

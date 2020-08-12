@@ -1,6 +1,7 @@
 #ifndef CHAIOS_PMMNGR_H
 #define CHAIOS_PMMNGR_H
 #include <kernelinfo.h>
+#include <chaikrnl.h>
 
 #define PAGESIZE 4096
 
@@ -29,6 +30,6 @@ typedef uint32_t cache_colour;
 typedef uint64_t paddr_t;
 void initialize_pmmngr(PMMNGR_INFO& info);
 void startup_pmmngr(BootType mmaptype, void* memmap);
-paddr_t pmmngr_allocate(size_t pages, uint8_t region = ARCH_PHY_REGION_NORMAL, numa_t numa_domain = NUMA_STRIPE, cache_colour colour = CACHE_COLOUR_NONE);
-void pmmngr_free(paddr_t addr, size_t length);
+CHAIKRNL_FUNC paddr_t pmmngr_allocate(size_t pages, uint8_t region = ARCH_PHY_REGION_NORMAL, numa_t numa_domain = NUMA_STRIPE, cache_colour colour = CACHE_COLOUR_NONE);
+CHAIKRNL_FUNC void pmmngr_free(paddr_t addr, size_t length);
 #endif

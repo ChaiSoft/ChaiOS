@@ -126,8 +126,8 @@ add rsp, 32
 call restore_fpu_interrupt
 call swap_gs_ifpriv
 
-RESTORE_VOLATILE_REGISTERS
 
+RESTORE_VOLATILE_REGISTERS
 pop rbp
 add rsp, 8		;Get rid of error code
 iretq

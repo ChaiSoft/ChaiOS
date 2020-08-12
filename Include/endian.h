@@ -6,7 +6,7 @@
 #include <arch/cpu.h>
 
 #if defined(X64) || defined(X86)
-#define LITTLE_ENDIAN
+#define LITTLE_ENDIAN 1234
 #else
 #error "Unknown Architecture Endianess"
 #endif

@@ -128,8 +128,8 @@ static uint8_t apic_timer_interrupt(size_t vector, void* param)
 static uint8_t pit_interrupt(size_t vector, void* param)
 {
 	++pit_ticks;
+	scheduler_schedule(pit_ticks);
 	scheduler_timer_tick();
-	scheduler_schedule(pcpu_data.cputicks);
 	return 1;
 }
 
@@ -470,7 +470,7 @@ void x64_init_apic()
 	arch_install_interrupt_post_event(INTERRUPT_SUBSYSTEM_DISPATCH, timer_vector, INTERRUPT_CURRENTCPU, &apic_eoi);
 	size_t tmrreg = (0b01 << 17) | timer_vector;
 	write_apic_register(LAPIC_REGISTER_LVT_TIMER, tmrreg);
-	write_apic_register(LAPIC_REGISTER_TMRINITCNT, 0x1000);
+	write_apic_register(LAPIC_REGISTER_TMRINITCNT, 0x10);
 	//
 	if (arch_is_bsp())
 	{

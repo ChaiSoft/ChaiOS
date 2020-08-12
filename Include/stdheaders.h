@@ -30,4 +30,7 @@ extern "C++" {
 #define RAW_OFFSET(type, x, offset) (type)((size_t)x + offset)
 #endif
 
+#define DIV_ROUND_UP(x, y) \
+((x + y - 1) / y)
+
 #endif

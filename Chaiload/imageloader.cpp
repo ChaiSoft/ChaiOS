@@ -235,12 +235,6 @@ static void zero_mem(void* dst, size_t length)
 		*dstp++ = 0;
 }
 
-typedef struct _image_descriptor {
-	void* location;
-	const char* filename;
-	_image_descriptor* next;
-}IMAGE_DESCRIPTOR, *PIMAGE_DESCRIPTOR;
-
 static PIMAGE_DESCRIPTOR loaded_images = nullptr;
 
 static PIMAGE_DESCRIPTOR iterate_images(PIMAGE_DESCRIPTOR last)
@@ -251,7 +245,7 @@ static PIMAGE_DESCRIPTOR iterate_images(PIMAGE_DESCRIPTOR last)
 		return last->next;
 }
 
-static void register_image(void* imaddr, const char* filename)
+static void register_image(void* imaddr, const char* filename, void(*entry)(void*), ChaiosBootType type)
 {
 	PIMAGE_DESCRIPTOR* imgs = &loaded_images;
 	while (*imgs)
@@ -259,6 +253,8 @@ static void register_image(void* imaddr, const char* filename)
 	PIMAGE_DESCRIPTOR cur = *imgs = new IMAGE_DESCRIPTOR;
 	cur->filename = filename;
 	cur->location = imaddr;
+	cur->imageType = type;
+	cur->EntryPoint = entry;
 	cur->next = nullptr;
 }
 
@@ -426,7 +422,7 @@ size_t GetStackSize(KLOAD_HANDLE image)
 	return ntHeaders->OptionalHeader.SizeOfStackReserve;
 }
 
-KLOAD_HANDLE LoadImage(void* filebuf, const char16_t* filename)
+KLOAD_HANDLE LoadImage(void* filebuf, const char16_t* filename, ChaiosBootType imageType)
 {
 	PIMAGE_DOS_HEADER dosHeader = (PIMAGE_DOS_HEADER)filebuf;
 	PIMAGE_NT_HEADERS ntHeaders = raw_offset<PIMAGE_NT_HEADERS>(dosHeader, dosHeader->e_lfanew);
@@ -477,7 +473,17 @@ KLOAD_HANDLE LoadImage(void* filebuf, const char16_t* filename)
 	}
 	//Sections are now loaded into memory. Register the image and invoke the dynamic linker
 	link_image(ImBase);
-	register_image(ImBase, GetDllName(ImBase));
+	const char* dllname = GetDllName(ImBase);
+	if (!dllname)
+	{
+		char* buffer = new char[256];
+		int i = 0;
+		for (; filename[i] && i < 255; ++i)
+			buffer[i] = filename[i];
+		buffer[i] = 0;
+		dllname = buffer;
+	}
+	register_image(ImBase, dllname, (void(*)(void*))GetEntryPoint(ImBase), imageType);
 
 	return ImBase;
 }

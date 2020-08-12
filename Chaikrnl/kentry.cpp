@@ -14,6 +14,8 @@
 #include <scheduler.h>
 #include <usb.h>
 #include <endian.h>
+#include <lwip/netifapi.h>
+#include <lwip/api.h>
 
 #define CHAIOS_KERNEL_VERSION_MAJOR 0
 #define CHAIOS_KERNEL_VERSION_MINOR 9
@@ -22,16 +24,35 @@ void* heapaddr = (void*)0xFFFFD40000000000;
 size_t heap_usage = 0;
 static void* early_page_allocate(size_t numPages)
 {
-	if (!paging_map(heapaddr, PADDR_ALLOCATE, numPages*PAGESIZE, PAGE_ATTRIBUTE_WRITABLE))
+	volatile size_t* token = reinterpret_cast<volatile size_t*>(&heapaddr);
+	size_t alloc_size = numPages * PAGESIZE;
+	bool success = false;
+	size_t tokval = *token;
+	for (size_t count = 0; count < 10; ++count)
 	{
+		if ((success = arch_cas(token, tokval, tokval + alloc_size)))
+			break;
+		else
+			tokval = *token;
+	}
+	if (!success)
+	{
+		kprintf(u"Allocation failed: contention\n");
+		return nullptr;
+	}
+	void* ptr = (void*)tokval;
+
+	if (!paging_map(ptr, PADDR_ALLOCATE, alloc_size, PAGE_ATTRIBUTE_WRITABLE))
+	{
+		return nullptr;
+		//NOT MULTIPROCESSOR SAFE
 		heapaddr = find_free_paging(numPages*PAGESIZE, heapaddr);
 		if (!paging_map(heapaddr, PADDR_ALLOCATE, numPages*PAGESIZE, PAGE_ATTRIBUTE_WRITABLE))
 			return nullptr;
 	}
-	void* ret = heapaddr;
-	heapaddr = raw_offset<void*>(heapaddr, numPages*PAGESIZE);
-	heap_usage += PAGESIZE * numPages;
-	return ret;
+	
+	heap_usage += alloc_size;
+	return ptr;
 }
 
 static int early_free_pages(void* p, size_t numpages)
@@ -88,6 +109,18 @@ bool pci_print(uint16_t segment, uint16_t bus, uint16_t device)
 	return false;
 }
 
+void user_function(void*)
+{
+	while (1);
+}
+
+static netif* testnif;
+
+EXTERN CHAIKRNL_FUNC void test_netif(netif* ptr)
+{
+	testnif = ptr;
+}
+
 extern bool CallConstructors();
 void _kentry(PKERNEL_BOOT_INFO bootinfo)
 {
@@ -131,7 +164,28 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 	startup_multiprocessor();
 	//Welcome to the thunderdome
 	//startup_acpi();
-	setup_usb();
+	//setup_usb();
+
+	PIMAGE_DESCRIPTOR image = *reinterpret_cast<PIMAGE_DESCRIPTOR*>(bootinfo->modloader_info);
+	while (image)
+	{
+		if (image->imageType == CHAIOS_BOOT_DRIVER)
+		{
+			kprintf_a("Boot Driver: %s\n", image->filename);
+			image->EntryPoint(nullptr);
+		}
+		image = image->next;
+	}
+#if 0
+	kstack_t ustack = arch_create_kernel_stack();
+	void* ustackptr = arch_init_stackptr(ustack);
+	set_paging_attributes(ustack, raw_diff(ustackptr, ustack), PAGE_ATTRIBUTE_USER, 0);
+	void(*ufunc)(void*) = (void(*)(void*))0x10000000000;
+	paging_map(ufunc, PADDR_ALLOCATE, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE);
+	memcpy(ufunc, &user_function, PAGESIZE);
+	set_paging_attributes(ufunc, PAGESIZE, PAGE_ATTRIBUTE_USER, PAGE_ATTRIBUTE_WRITABLE);
+	arch_go_usermode(ustackptr, ufunc, sizeof(size_t)*8);
+#endif
 
 	uint64_be big_endian = CPU_TO_BE64(0xCAFEBABEDEADBEEF);
 	kprintf(u"Big Endian value: %x, as little endian: %x\n", big_endian.v, BE_TO_CPU64(big_endian));
@@ -149,6 +203,34 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 #endif
 	kprintf(u"Heap Usage: %d KiB\n", heap_usage / (1024));
 	kprintf(u"Current CPU ID: %x\n", pcpu_data.cpuid);
+
+	kprintf(u"NETIF: %x\n", testnif);
+	netconn* conn = netconn_new(NETCONN_UDP);
+	err_t err = netconn_bind(conn, NULL, 3120);
+	kprintf(u"conn: %x, err: %d\n", conn, err);
+
+	while (1)
+	{
+		netbuf* buf = NULL;
+		err = netconn_recv(conn, &buf);
+		if (err)
+			continue;
+		kprintf(u"RECV called\n");
+		void* data;
+		uint16_t length;
+		err= netbuf_data(buf, &data, &length);
+		if (err)
+			continue;
+		for (size_t i = 0; i < length; ++i)
+		{
+			char16_t vals[2];
+			vals[0] = ((char*)data)[i];
+			vals[1] = 0;
+			kputs(vals);
+		}
+	}
+	
+
 	kputs(u"System timer: ");
 	while (1)
 	{

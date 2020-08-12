@@ -145,6 +145,8 @@ bool paging_map(void* vaddr, paddr_t paddr, size_t attributes)
 	PTAB_ENTRY* ptab = getPTAB(vaddr);
 
 	PML4_ENTRY& pml4ent = pml4[getPML4index(vaddr)];
+	bool usersection = getPML4index(vaddr) < 256;
+	size_t userflag = usersection ? PAGING_USER : 0;
 	if ((pml4ent & PAGING_PRESENT) == 0)
 	{
 		paddr_t addr = pmmngr_allocate(1);
@@ -152,7 +154,7 @@ bool paging_map(void* vaddr, paddr_t paddr, size_t attributes)
 		{
 			return false;
 		}
-		pml4ent = addr | PAGING_PRESENT | PAGING_WRITABLE;
+		pml4ent = addr | PAGING_PRESENT | PAGING_WRITABLE | userflag;
 		arch_flush_tlb(pdpt);
 		arch_memory_barrier();
 		memset(pdpt, 0, PAGESIZE);
@@ -167,7 +169,7 @@ bool paging_map(void* vaddr, paddr_t paddr, size_t attributes)
 		{
 			return false;
 		}
-		pdptent = addr | PAGING_PRESENT | PAGING_WRITABLE;
+		pdptent = addr | PAGING_PRESENT | PAGING_WRITABLE | userflag;
 		arch_flush_tlb(pdir);
 		arch_memory_barrier();
 		memset(pdir, 0, PAGESIZE);
@@ -182,7 +184,7 @@ bool paging_map(void* vaddr, paddr_t paddr, size_t attributes)
 		{
 			return false;
 		}
-		pdent = addr | PAGING_PRESENT | PAGING_WRITABLE;
+		pdent = addr | PAGING_PRESENT | PAGING_WRITABLE | userflag;
 		arch_flush_tlb(ptab);
 		arch_memory_barrier();
 		memset(ptab, 0, PAGESIZE);
@@ -289,11 +291,18 @@ void paging_free(void* vaddr, size_t length, bool free_physical)
 void set_paging_attributes(void* vaddr, size_t length, size_t attrset, size_t attrclear)
 {
 	PTAB_ENTRY* ptab = getPTAB(vaddr);
-	for (size_t index = getPTABindex(vaddr); index < (length + PAGESIZE - 1) / PAGESIZE; ++index)
+	for (size_t index = getPTABindex(vaddr), count = 0; count < (length + PAGESIZE - 1) / PAGESIZE; ++index, ++count)
 	{
 		ptab[index] |= get_arch_paging_attributes(attrset);
-		ptab[index] &= ~get_arch_paging_attributes(attrclear);
+		ptab[index] &= ~get_arch_paging_attributes(attrclear, false);
 	}
+	if ((attrset & PAGE_ATTRIBUTE_USER) != 0)
+	{
+		getPD(vaddr)[getPDindex(vaddr)] |= PAGING_USER;
+		getPDPT(vaddr)[getPDPTindex(vaddr)] |= PAGING_USER;
+		getPML4(vaddr)[getPML4index(vaddr)] |= PAGING_USER;
+	}
+	arch_flush_tlb(vaddr);
 }
 
 struct paging_info  {

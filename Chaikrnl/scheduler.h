@@ -9,6 +9,9 @@ typedef void* HTHREAD;
 #define THREAD_PRIORITY_IDLE 0
 #define THREAD_PRIORITY_NORMAL 16
 
+void scheduler_init(void(*eoi)());
+typedef void(*thread_proc)(void*);
+
 #ifdef __cplusplus
 enum THREAD_TYPE {
 	KERNEL_MAIN,
@@ -18,13 +21,12 @@ enum THREAD_TYPE {
 	DRIVER_TASK,
 	USER_THREAD
 };
+EXTERN CHAIKRNL_FUNC HTHREAD create_thread(thread_proc proc, void* param, size_t priority = THREAD_PRIORITY_NORMAL, size_t type = KERNEL_TASK);
 #else
 #define KERNEL_TASK 1
+EXTERN CHAIKRNL_FUNC HTHREAD create_thread(thread_proc proc, void* param, size_t priority, size_t type);
 #endif
 
-void scheduler_init(void(*eoi)());
-typedef void(*thread_proc)(void*);
-EXTERN CHAIKRNL_FUNC HTHREAD create_thread(thread_proc proc, void* param, size_t priority = THREAD_PRIORITY_NORMAL, size_t type = KERNEL_TASK);
 void scheduler_schedule(uint64_t tick);
 void scheduler_timer_tick();
 uint8_t isscheduler();

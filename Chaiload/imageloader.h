@@ -6,7 +6,7 @@
 
 typedef void* KLOAD_HANDLE;
 
-KLOAD_HANDLE LoadImage(void* filebuf, const char16_t* filename);
+KLOAD_HANDLE LoadImage(void* filebuf, const char16_t* filename, ChaiosBootType imageType);
 
 kimage_entry GetEntryPoint(KLOAD_HANDLE image);
 void* GetProcAddress(KLOAD_HANDLE image, const char* procname);

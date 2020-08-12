@@ -557,6 +557,39 @@ or rax, 0x200		;Interrupts enabled
 mov [rcx + CONTEXT.rflags], rax
 ret
 
+global x64_go_usermode
+x64_go_usermode:
+;RCX: stackptr RDX: RIP R8: CS R9: DS [stack] - TSS
+mov r10, [rsp+40]
+mov rax, [rsp+48]
+
+;Save stack to TSS
+mov [r10 + 0x4], rsp	;Execute on current kernel stack
+;Flush TSS
+;jmp $
+;ltr ax
+;Prepare for IRETQ
+pushfq
+pop rax
+
+or ax, (1<<9)	;Interrupt enable
+push r9		;SS
+push rcx		;RSP
+push rax		;RFLAGS
+push r8		;CS
+push rdx		;RIP
+
+;mov ds, r9w		;Load segment registers
+;mov es, r9w
+;mov fs, r9w	;FS is kernel per-cpu data
+;mov gs, r9w
+cli
+swapgs			;Load User TLS
+
+iretq			;Go to user mode!
+.end:
+ret
+
 global x64_hlt
 x64_hlt:
 hlt

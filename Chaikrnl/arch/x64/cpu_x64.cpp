@@ -77,6 +77,7 @@ extern "C" int x64_save_context(context_t context);
 extern "C" void x64_load_context(context_t context, int value);
 extern "C" void x64_new_context(context_t context, void* stackptr, void* entry);
 extern "C" void x64_hlt();
+extern "C" void x64_go_usermode(void* stackptr, void(*entry)(void*), uint16_t codeseg, uint16_t dataseg, void* tss, uint16_t tr);
 
 extern "C" uint16_t x64_bswapw(uint16_t);
 extern "C" uint32_t x64_bswapd(uint32_t);
@@ -851,8 +852,15 @@ extern "C" void x64_interrupt_dispatcher(size_t vector, interrupt_stack_frame* i
 extern "C" uint8_t page_fault_handler(size_t vector, void* param)
 {
 	interrupt_stack_frame* frame = (interrupt_stack_frame*)param;
+	void* vaddr = (void*)x64_read_cr2();
+	if (!check_free(vaddr, 8))
+	{
+		kprintf(u"Page fault is probably a TLB issue\n");
+		x64_invlpg(vaddr);
+		//return 0;
+	}
 	kputs(u"A page fault occurred\n");
-	kprintf(u"Error accessing address %x\n", x64_read_cr2());
+	kprintf(u"Error accessing address %x\n", vaddr);
 	kprintf(u"Error code: %x\n", frame->error);
 	kprintf(u"Return address: %x:%x\n", frame->cs, frame->rip);
 	kprintf(u"CPU %d, thread %x\n", pcpu_data.cpuid, pcpu_data.runningthread);
@@ -1068,7 +1076,7 @@ void arch_setup_interrupts()
 	gdt_entry* the_gdt = curr_gdt.gdtaddr;
 	set_gdt_entry(the_gdt[GDT_ENTRY_TSS], tss_addr & UINT32_MAX, sizeof(TSS), GDT_ACCESS_PRESENT | 0x9, 0);
 	*(uint64_t*)&the_gdt[GDT_ENTRY_TSS + 1] = (tss_addr >> 32);
-	x64_ltr(SEGVAL(GDT_ENTRY_TSS, 0));
+	x64_ltr(SEGVAL(GDT_ENTRY_TSS, 3));
 	//Create per-cpu structure
 	arch_per_cpu_data* cpu_data = new arch_per_cpu_data;
 	cpu_data->public_data.cpu_data = &cpu_data->public_data;
@@ -1105,10 +1113,10 @@ void arch_setup_interrupts()
 	}
 	//Reserve exceptions
 	arch_reserve_interrupt_range(0, 31);
+	arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, 0xE, INTERRUPT_CURRENTCPU, &page_fault_handler, nullptr);
 	//Now set up the interrupt controller, so we don't die for no apparent reason
 	x64_init_apic();
 	x64_restore_flags(x64_disable_interrupts() | (1<<9));
-	arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, 0xE, INTERRUPT_CURRENTCPU, &page_fault_handler, nullptr);
 }
 
 CHAIKRNL_FUNC void arch_register_interrupt_subsystem(uint32_t subsystem, arch_interrupt_subsystem* system)
@@ -1139,7 +1147,7 @@ CHAIKRNL_FUNC uint32_t arch_allocate_interrupt_vector()
 	{
 		uint8_t current = availints[i];
 		size_t off = 0;
-		for (; off < 8 && (current & (1 << off) != 0); ++off);
+		for (; off < 8 && ((current & (1 << off)) == 0); ++off);
 		ret = i * 8 + off;		
 	}
 end:
@@ -1154,7 +1162,7 @@ CHAIKRNL_FUNC void arch_reserve_interrupt_range(uint32_t start, uint32_t end)
 	uint8_t* availints = (uint8_t*)arch_read_per_cpu_data(PCPU_DATA_AVAILINTS, 64);
 	size_t i = start / 8;
 	size_t o = start % 8;
-	while (i * 8 + o <= end)
+	while ((i * 8 + o) <= end)
 	{
 		availints[i] &= (UINT8_MAX - (1 << o));
 		++o;
@@ -1229,6 +1237,29 @@ void arch_new_thread(context_t ctxt, kstack_t stack, void* entrypt)
 {
 	void* sp = arch_init_stackptr(stack);
 	x64_new_context(ctxt, sp, entrypt);
+}
+
+void arch_go_usermode(void* userstack, void(*ufunc)(void*), size_t bitness)
+{
+	uint16_t data_selector = SEGVAL(GDT_ENTRY_USER_DATA, 3);
+	uint16_t code_selector = 0;
+	switch (bitness)
+	{
+	case 64:
+		code_selector = SEGVAL(GDT_ENTRY_USER_CODE, 3);
+		break;
+	case 32:
+		code_selector = SEGVAL(GDT_ENTRY_USER_CODE32, 3);
+		break;
+	default:
+		return;
+	}
+	//TODO: Setup TLS?
+	gdtr peek_gdt;
+	x64_sgdt(&peek_gdt);
+	gdt_entry& tssent = peek_gdt.gdtaddr[GDT_ENTRY_TSS];
+	TSS* tss = (TSS*)(tssent.base_low + (tssent.base_mid << 16) + (tssent.base_high << 24) + ((uint64_t)*(uint32_t*)&peek_gdt.gdtaddr[GDT_ENTRY_TSS + 1] << 32));
+	x64_go_usermode(userstack, ufunc, code_selector, data_selector, tss, SEGVAL(GDT_ENTRY_TSS, 3));
 }
 
 void cpu_print_information()

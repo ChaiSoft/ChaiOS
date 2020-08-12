@@ -36,13 +36,16 @@ EXTERN CHAIKRNL_FUNC void delete_spinlock(spinlock_t lock)
 {
 	delete lock;
 }
+#undef __midl
+#include <intrin.h>
+#pragma intrinsic(_ReturnAddress)
 EXTERN CHAIKRNL_FUNC cpu_status_t acquire_spinlock(spinlock_t lock)
 {
 	pspinlock slock = (pspinlock)lock;
 	cpu_status_t v = arch_disable_interrupts();
 	if (slock->value > 1)
 	{
-		kprintf(u"SPINLOCK CORRUPTED: %x (value: %d)\n", slock, slock->value);
+		kprintf(u"SPINLOCK CORRUPTED: %x (value: %d, caller %x)\n", slock, slock->value, _ReturnAddress());
 		slock->value = 0;
 	}
 	//We won't be preempted, so we're only contending with other CPUs
