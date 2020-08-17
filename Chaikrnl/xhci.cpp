@@ -66,6 +66,28 @@ struct protocol_speed {
 
 };
 
+#define MK_SLOT_CONTEXT_DWORD0(entries, hub, MultiTT, Speed, RouteString) \
+(((entries & 0x1F) << 27) | ((hub & 1) << 26) | ((MultiTT & 1) << 25) | ((Speed & 0xF) << 20) | (RouteString & ((1<<20) - 1)))
+
+#define MK_SLOT_CONTEXT_DWORD1(NumberPorts, RootHubPort, MaxExitLatency) \
+(((NumberPorts & 0xFF) << 24) | ((RootHubPort & 0xFF) << 16) | (MaxExitLatency & 0xFFFF))
+
+#define MK_ENDPOINT_CONTEXT_DWORD0(MaxESITHigh, Interval, LSA, MaxPStreams, Mult, EpState) \
+(((MaxESITHigh & 0xFF) << 24) | ((Interval & 0xFF) << 16) | ((LSA & 1) << 15) | ((MaxPStreams & 0x1F) << 10) | ((Mult & 0x3) << 8) | (EpState & 0x7))
+
+#define MK_ENDPOINT_CONTEXT_DWORD1(MaxPacketSize, MaxBurstSize, HID, EPType, CErr) \
+(((MaxPacketSize & 0xFFFF) << 16) | ((MaxBurstSize & 0xFF) << 8) | ((HID & 1) << 7) | ((EPType & 0x7) << 3) | ((CErr & 0x3) << 1))
+
+#define MK_ENDPOINT_CONTEXT_DWORD2(TRDP, DCS) \
+((TRDP & 0xFFFFFFF0)| (DCS & 1))
+
+#define MK_ENDPOINT_CONTEXT_DWORD3(TRDP) \
+((TRDP >> 32) & 0xFFFFFFFF)
+
+#define MK_ENDPOINT_CONTEXT_DWORD4(MaxESITLo, AverageTRBLen) \
+(((MaxESITLo & 0xFFFF) << 16) | (AverageTRBLen & 0xFFFF))
+
+
 static size_t pow2(size_t p)
 {
 	size_t result = 1;
@@ -80,25 +102,6 @@ static size_t get_trb_completion_code(void* trb)
 		return 0;
 	return (((uint64_t*)trb)[1] >> 24) & 0xFF;
 }
-
-#pragma pack(push, 1)
-typedef struct _usb_device_descriptor {
-	uint8_t bLength;
-	uint8_t bDescriptorType;
-	uint16_t bcdUSB;
-	uint8_t bDeviceClass;
-	uint8_t bDeviceSublass;
-	uint8_t bDeviceProtocol;
-	uint8_t bMaxPacketSize0;
-	uint16_t idVendor;
-	uint16_t idProduct;
-	uint16_t bcdDevice;
-	uint8_t iManufacturer;
-	uint8_t iProduct;
-	uint8_t iSerialNumber;
-	uint8_t bNumConfigurations;
-}usb_device_descriptor;
-#pragma pack(pop)
 
 static auto get_debug_flags()
 {
@@ -447,7 +450,7 @@ private:
 			devcmds[3] = nullptr;
 			//port_info->cmdring.enqueue(devcmds[0]);
 			void* statusevt = port_info->cmdring.enqueue_commands(devcmds);
-			void* resulttrb = waitComplete(statusevt, 10000);
+			void* resulttrb = waitComplete(statusevt, 1000);
 			if (get_trb_completion_code(resulttrb) != XHCI_COMPLETION_SUCCESS)
 			{
 				kprintf(u"Error getting device descriptor (code %d)\n", get_trb_completion_code(resulttrb));
@@ -1009,6 +1012,14 @@ private:
 
 	bool createSlotContext(size_t portspeed, xhci_port_info* pinfo)
 	{
+		//Allocate device context
+		paddr_t dctxt = pmmngr_allocate(1);
+		void* mapdctxt = find_free_paging(PAGESIZE);
+		paging_map(mapdctxt, dctxt, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING);
+		memset(mapdctxt, 0, PAGESIZE);
+		//Write to device context array slot
+		*raw_offset<volatile uint64_t*>(devctxt, pinfo->slotid * 8) = dctxt;
+
 		//Allocate input context
 		paddr_t incontext = pmmngr_allocate(1);
 		void* mapincontxt = find_free_paging(PAGESIZE);
@@ -1018,23 +1029,20 @@ private:
 		volatile uint32_t* aflags = raw_offset<volatile uint32_t*>(mapincontxt, 4);
 		*aflags = 3;
 		//Setup slot context
-		*raw_offset<volatile uint32_t*>(mapincontxt, 0x20) = (1 << 27) | (portspeed << 20);
-		*raw_offset<volatile uint32_t*>(mapincontxt, 0x20 + 4) = (pinfo->portindex << 16); //Root hub port number	
+		*raw_offset<volatile uint32_t*>(mapincontxt, 0x20) = MK_SLOT_CONTEXT_DWORD0(1, 0, 0, portspeed, 0);
+		*raw_offset<volatile uint32_t*>(mapincontxt, 0x20 + 4) = MK_SLOT_CONTEXT_DWORD1(0, pinfo->portindex, 0); //Root hub port number	
 		//Initialise endpoint 0 context
 		//Control endpoint, CErr = 3
-		*raw_offset<volatile uint32_t*>(mapincontxt, 0x40 + 4) = (4 << 3) | (max_packet_size(portspeed) << 16) | (3 << 1);
+		*raw_offset<volatile uint32_t*>(mapincontxt, 0x40) = MK_ENDPOINT_CONTEXT_DWORD0(0, 0, 0, 0, 0, 0);
+		*raw_offset<volatile uint32_t*>(mapincontxt, 0x40 + 4) = MK_ENDPOINT_CONTEXT_DWORD1(max_packet_size(portspeed), 0, 0, 4, 3);
 		paddr_t dtrb = pinfo->cmdring.getBaseAddress();
-		*raw_offset<volatile uint32_t*>(mapincontxt, 0x40 + 8) = (dtrb & UINT32_MAX) | 1;
-		*raw_offset<volatile uint32_t*>(mapincontxt, 0x40 + 12) = dtrb >> 32;
-		*raw_offset<volatile uint32_t*>(mapincontxt, 0x40 + 0x10) = PAGESIZE / 0x10;
+		*raw_offset<volatile uint32_t*>(mapincontxt, 0x40 + 8) = MK_ENDPOINT_CONTEXT_DWORD2(dtrb, 1);
+		*raw_offset<volatile uint32_t*>(mapincontxt, 0x40 + 12) = MK_ENDPOINT_CONTEXT_DWORD3(dtrb);
+		*raw_offset<volatile uint32_t*>(mapincontxt, 0x40 + 0x10) = MK_ENDPOINT_CONTEXT_DWORD4(0, 8);		//Average TRB length 8 for control
 
-		//Allocate device context
-		paddr_t dctxt = pmmngr_allocate(1);
-		void* mapdctxt = find_free_paging(PAGESIZE);
-		paging_map(mapdctxt, dctxt, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING);
-		memset(mapdctxt, 0, PAGESIZE);
-		//Write to device context array slot
-		*raw_offset<volatile uint64_t*>(devctxt, pinfo->slotid * 8) = dctxt;
+		//Apparently we write these to the device context
+		memcpy(mapdctxt, raw_offset<void*>(mapincontxt, 0x20), 0x40);
+
 		//Issue address device command
 		void* last_command = cmdring.enqueue(create_address_command(false, incontext, pinfo->slotid));
 		uint64_t* curevt = (uint64_t*)waitComplete(last_command, 1000);
@@ -1046,6 +1054,29 @@ private:
 		Stall(100);
 		pinfo->device_context = mapdctxt;
 
+		//Device address
+		uint8_t dev_addr = (*raw_offset<volatile uint32_t*>(mapdctxt, 0x0C)) & 0xFF;
+
+		uint8_t* buffer = new uint8_t[8];
+
+		REQUEST_PACKET device_packet;
+		device_packet.request_type = USB_BM_REQUEST_INPUT | USB_BM_REQUEST_STANDARD | USB_BM_REQUEST_DEVICE;
+		device_packet.request = USB_BREQUEST_GET_DESCRIPTOR;
+		device_packet.value = USB_DESCRIPTOR_WVALUE(USB_DESCRIPTOR_DEVICE, 0);
+		device_packet.index = 0;
+		device_packet.length = 8;
+
+		if (size_t res = xhci_control_in(pinfo, &device_packet, buffer, 8))
+		{
+			kprintf(u"Error getting FullSpeed packet size: %d\n", res);
+			return false;
+		}
+
+		usb_device_descriptor* devdesc_small = (usb_device_descriptor*)buffer;
+		if (devdesc_small->bDeviceClass == 0x09)
+			kprintf(u"USB Hub\n");
+
+#if 0
 		//If the device is full speed, we need to work out the correct packet size
 		if (portSpeed(portspeed) == FULL_SPEED)
 		{
@@ -1053,6 +1084,7 @@ private:
 			if (!update_packet_size_fs(pinfo))
 				return false;
 		}
+#endif
 
 #if 0
 		last_command = cmdring.enqueue(create_address_command(false, incontext, pinfo->slotid));
@@ -1064,6 +1096,23 @@ private:
 		}
 #endif
 		return true;
+	}
+
+	size_t xhci_control_in(xhci_port_info* pinfo, const REQUEST_PACKET* request, void* dest, const size_t len)
+	{
+		xhci_command** devcmds = new xhci_command*[4];
+		devcmds[0] = create_setup_stage_trb(request->request_type, request->request, request->value, request->index, request->length, 3);		//IN data stage
+		devcmds[1] = create_data_stage_trb(get_physical_address(dest), len, true);
+		devcmds[2] = create_status_stage_trb(true);
+		devcmds[3] = nullptr;
+		void* statusevt = pinfo->cmdring.enqueue_commands(devcmds);
+		void* res = waitComplete(statusevt, 1000);
+		size_t result = get_trb_completion_code(res);
+		if (result != XHCI_COMPLETION_SUCCESS)
+		{
+			return (result == 0 ? 0x100 : result);
+		}
+		return 0;
 	}
 private:
 	void* baseaddr;
@@ -1087,6 +1136,7 @@ static uint8_t xhci_interrupt(size_t vector, void* info)
 	if(!inf->interrupt_msi)
 		inf->Operational.USBSTS.EINT = 1;
 	inf->Runtime.Interrupter(0).IMAN.InterruptPending = 1;
+	inf->Runtime.Interrupter(0).IMAN.InterruptEnable = 1;
 	return 1;
 }
 

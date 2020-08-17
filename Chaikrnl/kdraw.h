@@ -20,6 +20,10 @@ typedef uint32_t COLORREF;
 void InitialiseGraphics(const FRAMEBUFFER_INFORMATION& info, void* ktstat);
 void gputs_k(const char16_t* str);
 
+void* CreateWindow(size_t width, size_t height);
+void CopyWindow(void* wnd);
+void SetKoutWindow(void* wnd);
+void SetBackgroundColour(COLORREF col);
 
 
 #endif

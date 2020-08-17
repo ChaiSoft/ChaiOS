@@ -71,18 +71,18 @@ struct netbuf {
 };
 
 /* Network buffer functions: */
-struct netbuf *   netbuf_new      (void);
-void              netbuf_delete   (struct netbuf *buf);
-void *            netbuf_alloc    (struct netbuf *buf, u16_t size);
-void              netbuf_free     (struct netbuf *buf);
-err_t             netbuf_ref      (struct netbuf *buf,
+CHAILWIP_FUNC struct netbuf *   netbuf_new      (void);
+CHAILWIP_FUNC void              netbuf_delete   (struct netbuf *buf);
+CHAILWIP_FUNC void *            netbuf_alloc    (struct netbuf *buf, u16_t size);
+CHAILWIP_FUNC void              netbuf_free     (struct netbuf *buf);
+CHAILWIP_FUNC err_t             netbuf_ref      (struct netbuf *buf,
                                    const void *dataptr, u16_t size);
 void              netbuf_chain    (struct netbuf *head, struct netbuf *tail);
 
 CHAILWIP_FUNC err_t             netbuf_data     (struct netbuf *buf,
                                    void **dataptr, u16_t *len);
-s8_t              netbuf_next     (struct netbuf *buf);
-void              netbuf_first    (struct netbuf *buf);
+CHAILWIP_FUNC s8_t              netbuf_next     (struct netbuf *buf);
+CHAILWIP_FUNC void              netbuf_first    (struct netbuf *buf);
 
 
 #define netbuf_copy_partial(buf, dataptr, len, offset) \

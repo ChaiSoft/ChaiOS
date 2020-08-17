@@ -145,7 +145,7 @@ static processor_info* create_info(size_t cpuidt, size_t acpid)
 
 static void sync_cpu(uint32_t cpuid, volatile cpu_data* data)
 {
-	return;
+	//return;
 	processor_info* info = cputree[cpuid];
 	volatile cpu_communication* comms = info->comms;
 	data->rendezvous = 0;

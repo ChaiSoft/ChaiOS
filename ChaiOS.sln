@@ -27,7 +27,9 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Chaiload", "Chaiload\Chailo
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Intel219", "Intel219\Intel219.vcxproj", "{387675D5-D6AA-40B3-9186-B3AC6F353175}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LwIP", "LwIP\LwIP.vcxproj", "{60F02341-A3A4-4FD6-9717-720730E2CA8F}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "netstack", "LwIP\LwIP.vcxproj", "{60F02341-A3A4-4FD6-9717-720730E2CA8F}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Ahci", "Ahci\Ahci.vcxproj", "{6C63FCFE-15B4-4F9E-87BF-7D011EEDF5E2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -93,6 +95,14 @@ Global
 		{60F02341-A3A4-4FD6-9717-720730E2CA8F}.Release|x64.Build.0 = Release|x64
 		{60F02341-A3A4-4FD6-9717-720730E2CA8F}.Release|x86.ActiveCfg = Release|Win32
 		{60F02341-A3A4-4FD6-9717-720730E2CA8F}.Release|x86.Build.0 = Release|Win32
+		{6C63FCFE-15B4-4F9E-87BF-7D011EEDF5E2}.Debug|x64.ActiveCfg = Debug|x64
+		{6C63FCFE-15B4-4F9E-87BF-7D011EEDF5E2}.Debug|x64.Build.0 = Debug|x64
+		{6C63FCFE-15B4-4F9E-87BF-7D011EEDF5E2}.Debug|x86.ActiveCfg = Debug|Win32
+		{6C63FCFE-15B4-4F9E-87BF-7D011EEDF5E2}.Debug|x86.Build.0 = Debug|Win32
+		{6C63FCFE-15B4-4F9E-87BF-7D011EEDF5E2}.Release|x64.ActiveCfg = Release|x64
+		{6C63FCFE-15B4-4F9E-87BF-7D011EEDF5E2}.Release|x64.Build.0 = Release|x64
+		{6C63FCFE-15B4-4F9E-87BF-7D011EEDF5E2}.Release|x86.ActiveCfg = Release|Win32
+		{6C63FCFE-15B4-4F9E-87BF-7D011EEDF5E2}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

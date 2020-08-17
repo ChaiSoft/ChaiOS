@@ -438,7 +438,7 @@ void pci_bus_scan(pci_scan_callback callback)
 	}
 }
 
-#define PCI_msix_vctrl_mask	0x0001
+#define PCI_msix_vctrl_mask	0x0002
 
 uint32_t pci_allocate_msi(uint16_t segment, uint16_t bus, uint16_t device, uint16_t function, uint32_t numintrs, dispatch_interrupt_handler handler, void* param)
 {
@@ -506,11 +506,11 @@ uint32_t pci_allocate_msi(uint16_t segment, uint16_t bus, uint16_t device, uint1
 			internalptr = internal_write_pci(segment, bus, device, function, msireg + 1, 32, msi_addr >> 32, internalptr);
 			//kprintf(u"MSI-X desired: %x:%x\n", msi_data, msi_addr);
 			volatile uint32_t* msitab = (volatile uint32_t*)mappedtable;
-			msitab[3] |= PCI_msix_vctrl_mask;
-			msitab[0] = msi_addr & UINT32_MAX;
-			msitab[1] = msi_addr >> 32;
-			msitab[2] = msi_data;
-			msitab[3] &= ~PCI_msix_vctrl_mask;
+			for (int n = 0; n < tablecount; ++n)
+			{
+				msitab[0 + 2 * n] = msi_data;
+				msitab[1 + 2 * n] = msi_addr & (UINT32_MAX - 0x3);		//Mask low two bits
+			}
 			//kprintf(u"MSI-X data mapped %x: %x:%x\n", msitab, msitab[1], msitab[0]);
 			//Enable MSI-X
 			internalptr = internal_write_pci(segment, bus, device, function, msireg, 32, capreg | (1 << 31), internalptr);

@@ -30,4 +30,32 @@
 #define USB_DESCRIPTOR_WVALUE(type, index) \
 ((type << 8) | index)
 
+
+struct REQUEST_PACKET {
+	uint8_t  request_type;
+	uint8_t  request;
+	uint16_t value;
+	uint16_t index;
+	uint16_t length;
+};
+
+#pragma pack(push, 1)
+typedef struct _usb_device_descriptor {
+	uint8_t bLength;
+	uint8_t bDescriptorType;
+	uint16_t bcdUSB;
+	uint8_t bDeviceClass;
+	uint8_t bDeviceSublass;
+	uint8_t bDeviceProtocol;
+	uint8_t bMaxPacketSize0;
+	uint16_t idVendor;
+	uint16_t idProduct;
+	uint16_t bcdDevice;
+	uint8_t iManufacturer;
+	uint8_t iProduct;
+	uint8_t iSerialNumber;
+	uint8_t bNumConfigurations;
+}usb_device_descriptor;
+#pragma pack(pop)
+
 #endif

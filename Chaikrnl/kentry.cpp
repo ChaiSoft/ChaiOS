@@ -121,6 +121,16 @@ EXTERN CHAIKRNL_FUNC void test_netif(netif* ptr)
 	testnif = ptr;
 }
 
+static netconn* connout;
+void kputs_net(const char16_t* str)
+{
+	netbuf* buf = netbuf_new();
+	size_t len = 0;
+	for (; str[len]; ++len);
+	netbuf_ref(buf, str, len + 1);
+	netconn_send(connout, buf);
+}
+
 extern bool CallConstructors();
 void _kentry(PKERNEL_BOOT_INFO bootinfo)
 {
@@ -147,6 +157,10 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 	setLiballocAllocator(&early_page_allocate, &early_free_pages);
 	InitialiseGraphics(*bootinfo->fbinfo, bootinfo->kterm_status);
 	set_stdio_puts(&gputs_k);
+
+	SetBackgroundColour(RGB(0, 0, 0xFF));
+	void* wnd = CreateWindow(900, 700);
+	SetKoutWindow(wnd);
 	kputs(u"complete\nACPI init: ");
 	//Copy boot information
 	bootinfo = copyBootInfo(bootinfo);
@@ -164,7 +178,7 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 	startup_multiprocessor();
 	//Welcome to the thunderdome
 	//startup_acpi();
-	//setup_usb();
+	setup_usb();
 
 	PIMAGE_DESCRIPTOR image = *reinterpret_cast<PIMAGE_DESCRIPTOR*>(bootinfo->modloader_info);
 	while (image)
@@ -204,30 +218,13 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 	kprintf(u"Heap Usage: %d KiB\n", heap_usage / (1024));
 	kprintf(u"Current CPU ID: %x\n", pcpu_data.cpuid);
 
-	kprintf(u"NETIF: %x\n", testnif);
-	netconn* conn = netconn_new(NETCONN_UDP);
-	err_t err = netconn_bind(conn, NULL, 3120);
-	kprintf(u"conn: %x, err: %d\n", conn, err);
+	connout = netconn_new(NETCONN_UDP);
+	const ip_addr_t broadcast = IPADDR4_INIT(IPADDR_BROADCAST);
+	err_t err = netconn_connect(connout, &broadcast, 3120);
 
-	while (1)
+	if (err == 0)
 	{
-		netbuf* buf = NULL;
-		err = netconn_recv(conn, &buf);
-		if (err)
-			continue;
-		kprintf(u"RECV called\n");
-		void* data;
-		uint16_t length;
-		err= netbuf_data(buf, &data, &length);
-		if (err)
-			continue;
-		for (size_t i = 0; i < length; ++i)
-		{
-			char16_t vals[2];
-			vals[0] = ((char*)data)[i];
-			vals[1] = 0;
-			kputs(vals);
-		}
+		kputs_net(u"ChaiOS: Testing network output\n");
 	}
 	
 
