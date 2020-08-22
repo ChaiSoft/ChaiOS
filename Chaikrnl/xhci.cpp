@@ -16,30 +16,40 @@ class XHCI;
 
 typedef RedBlackTree<size_t, pci_address*> XhciPci;
 
-static XhciPci pcicontrollers;
-static size_t handle_alloc = 0;
-
 struct xhci_evtring_info {
 	void* ringbase;
 	void* dequeueptr;
 };
 
+static pci_device_declaration xhci_devs[] = {
+	{PCI_VENDOR_ANY, PCI_VENDOR_ANY, 0x0C, 0x03, 0x30},
+	PCI_DEVICE_END
+};
+
+static void xhci_pci_baseaddr(pci_address* addr, XHCI*& cinfo);
+
 static bool xhci_pci_scan(uint16_t segment, uint16_t bus, uint16_t device, uint8_t function)
 {
-	if (pci_get_classcode(segment, bus, device, function) == 0x0C0330)
-	{
-		//XHCI device
-		uint64_t rev_reg = 0;
-		read_pci_config(segment, bus, device, function, 0x18, 8, &rev_reg);
-		size_t handle = ++handle_alloc;
-		kprintf_a("Found XHCI USB controller (handle %x) at %d:%d:%d:%d\n", handle, segment, bus, device, function);
-		kprintf_a(" USB version %d.%d\n", rev_reg >> 4, rev_reg & 0xF);
-		pci_address* addr = new pci_address;
-		addr->segment = segment; addr->bus = bus; addr->device = device; addr->function = function;
-		pcicontrollers[handle] = addr;
-	}
+	//XHCI device
+	uint64_t rev_reg = 0;
+	read_pci_config(segment, bus, device, function, 0x18, 8, &rev_reg);
+	kprintf_a("Found XHCI USB controller at %d:%d:%d:%d\n", segment, bus, device, function);
+	kprintf_a(" USB version %d.%d\n", rev_reg >> 4, rev_reg & 0xF);
+	pci_address* addr = new pci_address;
+	addr->segment = segment; addr->bus = bus; addr->device = device; addr->function = function;
+
+	XHCI* controller = nullptr;
+	xhci_pci_baseaddr(addr, controller);
+
+	RegisterHostController((USBHostController*)controller);
+
 	return false;
 }
+
+static pci_device_registration xhci_pci_reg = {
+	xhci_devs,
+	&xhci_pci_scan
+};
 
 static uint8_t xhci_interrupt(size_t vector, void* param);
 
@@ -110,7 +120,7 @@ static auto get_debug_flags()
 	return flags;
 }
 
-class XHCI {
+class XHCI : public USBHostController {
 public:
 	XHCI(void* basea)
 		:cmdring(this, XHCI_DOORBELL_HOST, XHCI_DOORBELL_HOST_COMMAND),
@@ -124,7 +134,7 @@ public:
 		port_tree_lock = 0;
 		interrupt_msi = false;
 	}
-	void init(size_t handle)
+	virtual void init(size_t handle)
 	{
 		kprintf_a("Initalizing XHCI controller %x\n", handle);
 		if (Capabilities.HCCPARAMS1.AC64 == 0)
@@ -1172,13 +1182,5 @@ static void xhci_pci_baseaddr(pci_address* addr, XHCI*& cinfo)
 
 void xhci_init()
 {
-	handle_alloc = 0;
-	pci_bus_scan(&xhci_pci_scan);
-	//Now init controllers
-	for (auto it = pcicontrollers.begin(); it != pcicontrollers.end(); ++it)
-	{
-		XHCI* controller = nullptr;
-		xhci_pci_baseaddr(it->second, controller);
-		controller->init(it->first);
-	}
+	register_pci_driver(&xhci_pci_reg);
 }

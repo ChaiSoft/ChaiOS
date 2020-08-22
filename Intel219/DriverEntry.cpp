@@ -278,9 +278,11 @@ typedef struct {
 }rx_desc_t;
 #pragma pack(pop)
 
-static uint16_t DeviceIds[] = {
-	0x10D3,
-	0x15BC
+pci_device_declaration i219_devs[] =
+{
+	{0x8086, 0x10D3, PCI_CLASS_ANY},
+	{0x8086, 0x15BC, PCI_CLASS_ANY},
+	PCI_DEVICE_END
 };
 
 paddr_t pmmngr_allloc_contig(size_t numpages)
@@ -335,18 +337,6 @@ public:
 private:
 	const void* mappedmem;
 };
-
-static bool matchDeviceId(uint16_t val)
-{
-	for (int i = 0; i < sizeof(DeviceIds) / sizeof(*DeviceIds); ++i)
-	{
-		if (DeviceIds[i] > val)
-			break;
-		else if (val == DeviceIds[i])
-			return true;
-	}
-	return false;
-}
 
 struct i219_driver_info {
 	void* mapped_controller;
@@ -674,13 +664,6 @@ static ip4_addr_t testing_gateway;
 
 bool Intel219Finder(uint16_t segment, uint16_t bus, uint16_t device, uint8_t function)
 {
-	uint32_t classcode = pci_get_classcode(segment, bus, device, function);
-	if ((classcode >> 8) != 0x0200)		//Not an ethernet card
-		return false;
-	else if (pci_get_vendor_id(segment, bus, device, function) != 0x8086)
-		return false;
-	else if (!matchDeviceId(pci_get_device_id(segment, bus, device, function)))
-		return false;
 	size_t barsize = 0;
 	paddr_t devbase = read_pci_bar(segment, bus, device, function, 0, &barsize);
 	void* mapped_controller = find_free_paging(barsize);
@@ -721,9 +704,14 @@ bool Intel219Finder(uint16_t segment, uint16_t bus, uint16_t device, uint8_t fun
 	return false;
 }
 
+static pci_device_registration dev_reg_pci = {
+	i219_devs,
+	&Intel219Finder
+};
+
 int DriverEntry(void* param)
 {
 	//Find relevant devices
-	pci_bus_scan(&Intel219Finder);
+	register_pci_driver(&dev_reg_pci);
 	return 0;
 }

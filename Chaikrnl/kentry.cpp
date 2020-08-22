@@ -201,8 +201,6 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 	arch_go_usermode(ustackptr, ufunc, sizeof(size_t)*8);
 #endif
 
-	uint64_be big_endian = CPU_TO_BE64(0xCAFEBABEDEADBEEF);
-	kprintf(u"Big Endian value: %x, as little endian: %x\n", big_endian.v, BE_TO_CPU64(big_endian));
 #if 0
 	tls_slot_t x = AllocateKernelTls();
 	kprintf(u"Allocated Kernel TLS: slot %d\n", x);
@@ -227,6 +225,8 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 		kputs_net(u"ChaiOS: Testing network output\n");
 	}
 	
+	initialize_pci_drivers();
+	//usb_run();
 
 	kputs(u"System timer: ");
 	while (1)

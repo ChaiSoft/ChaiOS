@@ -3,6 +3,7 @@
 #include <arch/paging.h>
 #include <arch/cpu.h>
 #include <kstdio.h>
+#include <redblack.h>
 
 static ACPI_TABLE_MCFG* mcfg = nullptr;
 
@@ -32,6 +33,9 @@ enum PCI_MEM_BAR_TYPES {
 	RESERVED,
 	MEMBAR64
 };
+
+static RedBlackTree<uint32_t, pci_register_callback> pci_by_vendor;
+static RedBlackTree<uint32_t, pci_register_callback> pci_by_class;
 
 static bool read_pci_legacy(uint16_t segment, uint16_t bus, uint16_t device, uint16_t function, uint32_t reg, uint32_t width, uint64_t* result)
 {
@@ -241,6 +245,13 @@ uint16_t pci_get_device_id(uint16_t segment, uint16_t bus, uint16_t device, uint
 	uint64_t result;
 	read_pci_config(segment, bus, device, function, PCI_REG_ID, 32, &result);
 	return (result >> 16) & 0xFFFF;
+}
+
+uint32_t pci_get_vendordev(uint16_t segment, uint16_t bus, uint16_t device, uint16_t function)
+{
+	uint64_t result;
+	read_pci_config(segment, bus, device, function, PCI_REG_ID, 32, &result);
+	return result & UINT32_MAX;
 }
 
 uint8_t pci_get_header_type(uint16_t segment, uint16_t bus, uint16_t device, uint16_t function)
@@ -475,7 +486,7 @@ uint32_t pci_allocate_msi(uint16_t segment, uint16_t bus, uint16_t device, uint1
 		auto cpust = arch_disable_interrupts();
 		uint32_t vector = arch_allocate_interrupt_vector();
 		uint32_t cpu_num = pcpu_data.cpuid;
-		kprintf(u"USB Interrupt Vector: %x (p%d)\n", vector, cpu_num);
+		kprintf(u"MSI Interrupt Vector: %x (p%d)\n", vector, cpu_num);
 		//Setup EOI
 		arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, vector, cpu_num, handler, param);
 		arch_install_interrupt_post_event(INTERRUPT_SUBSYSTEM_DISPATCH, vector, cpu_num, &arch_local_eoi);
@@ -513,6 +524,7 @@ uint32_t pci_allocate_msi(uint16_t segment, uint16_t bus, uint16_t device, uint1
 			}
 			//kprintf(u"MSI-X data mapped %x: %x:%x\n", msitab, msitab[1], msitab[0]);
 			//Enable MSI-X
+			capreg &= ~(1 << 30);
 			internalptr = internal_write_pci(segment, bus, device, function, msireg, 32, capreg | (1 << 31), internalptr);
 		}
 		else
@@ -548,3 +560,88 @@ fail:
 	unmap_config(internalptr);
 	return -1;
 }
+
+#define PCI_TOKEN_BYVENDOR(vendor, device) \
+	((device << 16) | vendor)
+
+#define PCI_TOKEN_BYCLASS(classcode, subclass, progif) \
+	((classcode << 16) | (subclass << 8) | progif)
+
+static bool driver_init = false;
+
+bool pci_driver_matcher(uint16_t segment, uint16_t bus, uint16_t device, uint8_t function)
+{
+	uint32_t vendortoken = pci_get_vendordev(segment, bus, device, function);
+	auto it = pci_by_vendor.find(vendortoken);
+	if (it != pci_by_vendor.end())
+	{
+		it->second(segment, bus, device, function);
+		return false;
+	}
+	
+	uint32_t classtoken = pci_get_classcode(segment, bus, device, function);
+	it = pci_by_class.find(classtoken);
+	if (it != pci_by_class.end())
+	{
+		//Perfect match on classcode
+		it->second(segment, bus, device, function);
+		return false;
+	}
+	//Try class:subclass only
+	classtoken |= 0xFF;
+	it = pci_by_class.find(classtoken);
+	if (it != pci_by_class.end())
+	{
+		//Matched
+		it->second(segment, bus, device, function);
+		return false;
+	}
+	//Try class only
+	classtoken |= 0xFFFF;
+	it = pci_by_class.find(classtoken);
+	if (it != pci_by_class.end())
+	{
+		//Matched
+		it->second(segment, bus, device, function);
+		return false;
+	}
+	//As a last resort, try vendor only
+	vendortoken |= PCI_TOKEN_BYVENDOR(0, 0xFFFF);
+	it = pci_by_vendor.find(vendortoken);
+	if (it != pci_by_vendor.end())
+	{
+		it->second(segment, bus, device, function);
+		return false;
+	}
+	//No driver
+	return false;
+}
+
+CHAIKRNL_FUNC void register_pci_driver(pci_device_registration* registr)
+{
+	pci_device_declaration* devids = registr->ids_list;
+	for (int n = 0; !(devids[n].vendor == PCI_VENDOR_ANY && devids[n].dev_class == PCI_CLASS_ANY); ++n)
+	{
+		if (devids[n].vendor != PCI_VENDOR_ANY)
+		{
+			uint32_t token = PCI_TOKEN_BYVENDOR(devids[n].vendor, devids[n].product);
+			pci_by_vendor[token] = registr->callback;
+		}
+		else if (devids[n].dev_class != PCI_CLASS_ANY)
+		{
+			uint32_t token = PCI_TOKEN_BYCLASS(devids[n].dev_class, devids[n].subclass, devids[n].progif);
+			pci_by_class[token] = registr->callback;
+		}
+	}
+	if (driver_init)
+	{
+		//TODO
+	}
+}
+
+void initialize_pci_drivers()
+{
+	pci_bus_scan(&pci_driver_matcher);
+	driver_init = true;
+}
+

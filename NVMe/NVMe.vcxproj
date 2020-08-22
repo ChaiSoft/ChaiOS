@@ -20,8 +20,8 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
-    <ProjectGuid>{6c63fcfe-15b4-4f9e-87bf-7d011eedf5e2}</ProjectGuid>
-    <RootNamespace>Ahci</RootNamespace>
+    <ProjectGuid>{a058f18e-339e-4af6-8bd4-9aceda4306a7}</ProjectGuid>
+    <RootNamespace>NVMe</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -30,6 +30,7 @@
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v141</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
+    <SpectreMitigation />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -37,12 +38,14 @@
     <PlatformToolset>v141</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
+    <SpectreMitigation />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v141</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
+    <SpectreMitigation />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -50,6 +53,7 @@
     <PlatformToolset>v141</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
+    <SpectreMitigation />
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -101,7 +105,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>netstack.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <BaseAddress>0xFFFFC00090000000</BaseAddress>
+      <BaseAddress>0xFFFFC000A0000000</BaseAddress>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -116,7 +120,7 @@
     </ClCompile>
     <Link>
       <AdditionalDependencies>netstack.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <BaseAddress>0xFFFFC00090000000</BaseAddress>
+      <BaseAddress>0xFFFFC000A0000000</BaseAddress>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -131,7 +135,7 @@
     </ClCompile>
     <Link>
       <AdditionalDependencies>netstack.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <BaseAddress>0xFFFFC00090000000</BaseAddress>
+      <BaseAddress>0xFFFFC000A0000000</BaseAddress>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -150,7 +154,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>netstack.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <BaseAddress>0xFFFFC00090000000</BaseAddress>
+      <BaseAddress>0xFFFFC000A0000000</BaseAddress>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

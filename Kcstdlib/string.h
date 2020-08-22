@@ -4,8 +4,8 @@
 #include "kcstdlib.h"
 #include <stdint.h>
 
-EXTERN KCSTDLIB_FUNC void* memcpy(void* destination, const void* source, size_t num);
-EXTERN KCSTDLIB_FUNC void* memset(void* destination, int val, size_t num);
+EXTERN KCSTDLIB_FUNC void* memcpy(volatile void* destination, const volatile void* source, size_t num);
+EXTERN KCSTDLIB_FUNC void* memset(volatile void* destination, int val, size_t num);
 EXTERN KCSTDLIB_FUNC int memcmp(const void* destination, const void* source, size_t num);
 EXTERN KCSTDLIB_FUNC int strncmp(const char* s1, const char* s2, size_t length);
 EXTERN KCSTDLIB_FUNC char* strncpy(char* dest, const char* src, size_t length);

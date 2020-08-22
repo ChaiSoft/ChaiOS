@@ -1,6 +1,8 @@
 #ifndef CHAIOS_USB_PRIVATE_H
 #define CHAIOS_USB_PRIVATE_H
 
+#include <stdint.h>
+
 #define USB_BM_REQUEST_INPUT 0x80
 #define USB_BM_REQUEST_STANDARD 0
 #define USB_BM_REQUEST_CLASS 0x20
@@ -57,5 +59,15 @@ typedef struct _usb_device_descriptor {
 	uint8_t bNumConfigurations;
 }usb_device_descriptor;
 #pragma pack(pop)
+
+class USBHostController {
+public:
+	virtual void init(size_t handle)
+	{
+
+	}
+};
+
+void RegisterHostController(USBHostController* hc);
 
 #endif

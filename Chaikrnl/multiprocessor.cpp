@@ -263,3 +263,8 @@ void iterate_aps(ap_callback callback)
 			break;
 	}
 }
+
+size_t num_cpus()
+{
+	return cputree.size();
+}

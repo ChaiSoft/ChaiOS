@@ -31,6 +31,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "netstack", "LwIP\LwIP.vcxpr
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Ahci", "Ahci\Ahci.vcxproj", "{6C63FCFE-15B4-4F9E-87BF-7D011EEDF5E2}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NVMe", "NVMe\NVMe.vcxproj", "{A058F18E-339E-4AF6-8BD4-9ACEDA4306A7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -103,6 +105,14 @@ Global
 		{6C63FCFE-15B4-4F9E-87BF-7D011EEDF5E2}.Release|x64.Build.0 = Release|x64
 		{6C63FCFE-15B4-4F9E-87BF-7D011EEDF5E2}.Release|x86.ActiveCfg = Release|Win32
 		{6C63FCFE-15B4-4F9E-87BF-7D011EEDF5E2}.Release|x86.Build.0 = Release|Win32
+		{A058F18E-339E-4AF6-8BD4-9ACEDA4306A7}.Debug|x64.ActiveCfg = Debug|x64
+		{A058F18E-339E-4AF6-8BD4-9ACEDA4306A7}.Debug|x64.Build.0 = Debug|x64
+		{A058F18E-339E-4AF6-8BD4-9ACEDA4306A7}.Debug|x86.ActiveCfg = Debug|Win32
+		{A058F18E-339E-4AF6-8BD4-9ACEDA4306A7}.Debug|x86.Build.0 = Debug|Win32
+		{A058F18E-339E-4AF6-8BD4-9ACEDA4306A7}.Release|x64.ActiveCfg = Release|x64
+		{A058F18E-339E-4AF6-8BD4-9ACEDA4306A7}.Release|x64.Build.0 = Release|x64
+		{A058F18E-339E-4AF6-8BD4-9ACEDA4306A7}.Release|x86.ActiveCfg = Release|Win32
+		{A058F18E-339E-4AF6-8BD4-9ACEDA4306A7}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
