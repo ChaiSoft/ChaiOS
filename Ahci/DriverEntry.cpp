@@ -683,7 +683,7 @@ static pci_device_registration ahci_pci =
 	ahci_finder
 };
 
-int DriverEntry(void* param)
+EXTERN int CppDriverEntry(void* param)
 {
 	//Find relevant devices
 	register_pci_driver(&ahci_pci);

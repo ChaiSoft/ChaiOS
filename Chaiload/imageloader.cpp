@@ -58,6 +58,17 @@ typedef struct _IMAGE_DATA_DIRECTORY {
 	uint32_t Size;			// size of table
 } IMAGE_DATA_DIRECTORY, *PIMAGE_DATA_DIRECTORY;
 
+enum PE_DLL_CHARACTERISTICS {
+	IMAGE_DLL_CHARACTERISTICS_DYNAMIC_BASE = 0x40,
+	IMAGE_DLL_CHARACTERISTICS_FORCE_INTEGRITY = 0x80,
+	IMAGE_DLL_CHARACTERISTICS_NX_COMPAT = 0x100,
+	IMAGE_DLL_CHARACTERISTICS_NO_ISOLATION = 0x200,
+	IMAGE_DLL_CHARACTERISTICS_NO_SEH = 0x400,
+	IMAGE_DLL_CHARACTERISTICS_NO_BIND = 0x800,
+	IMAGE_DLL_CHARACTERISTICS_WDM_DRIVER = 0x2000,
+	IMAGE_DLL_CHARACTERISTICS_TERMINAL_SERVER_AWARE = 0x8000
+};
+
 #define IMAGE_NUMBEROF_DIRECTORY_ENTRIES 16
 
 typedef struct _IMAGE_OPTIONAL_HEADER_PE32 {
@@ -167,6 +178,7 @@ typedef struct _IMAGE_SECTION_HEADER {
 
 #define IMAGE_DATA_DIRECTORY_EXPORT 0
 #define IMAGE_DATA_DIRECTORY_IMPORT 1
+#define IMAGE_DATA_DIRECTORY_RELOC 5
 
 typedef struct _IMAGE_EXPORT_DIRECTORY {
 	uint32_t ExportFlags;
@@ -201,6 +213,30 @@ typedef uint32_t IMAGE_IMPORT_LOOKUP_TABLE_PE32, *PIMAGE_IMPORT_LOOKUP_TABLE_PE3
 
 #define IMAGE_IMPORT_LOOKUP_TABLE_FLAG_PE32P 0x8000000000000000
 typedef uint64_t IMAGE_IMPORT_LOOKUP_TABLE_PE32P, *PIMAGE_IMPORT_LOOKUP_TABLE_PE32P;
+
+
+typedef struct _IMAGE_RELOCATION_ENTRY {
+	uint16_t offset : 12;
+	uint16_t type : 4;
+}IMAGE_RELOCATION_ENTRY, *PIMAGE_RELOCATION_ENTRY;
+
+typedef struct _IMAGE_RELOCATION_BLOCK {
+	uint32_t PageRVA;
+	uint32_t BlockSize;
+	IMAGE_RELOCATION_ENTRY entries[0];
+}IMAGE_RELOCATION_BLOCK, *PIMAGE_RELOCATION_BLOCK;
+
+enum IMAGE_RELOCATION_TYPE {
+	IMAGE_REL_BASED_ABSOLUTE = 0,
+	IMAGE_REL_BASED_HIGH = 1,
+	IMAGE_REL_BASED_LOW = 2,
+	IMAGE_REL_BASED_HIGHLOW = 3,
+	IMAGE_REL_BASED_HIGHADJ = 4,
+	IMAGE_REL_BASED_MIPS_JMPADDR = 5,
+	IMAGE_REL_BASED_MIPS_JMPADDR16 = 9,
+	IMAGE_REL_BASED_DIR64 = 10
+};
+
 
 #pragma pack(pop)
 
@@ -283,6 +319,68 @@ static size_t binary_search_strings(const void* ImageBase, const uint32_t* list,
 		}
 	}
 	return length;
+}
+
+static bool relocation_fixup(const void* LoadedFile, PIMAGE_NT_HEADERS ntHeaders, intptr_t diff)
+{
+	if (diff == 0)
+		return true;
+	if ((ntHeaders->OptionalHeader.DllCharacteristics & IMAGE_DLL_CHARACTERISTICS_DYNAMIC_BASE) == 0)
+	{
+		return false;		//Not relocatable
+	}
+	if (IMAGE_DATA_DIRECTORY_RELOC + 1 > ntHeaders->OptionalHeader.NumberOfRvaAndSizes)
+	{
+		return true;
+	}
+	IMAGE_DATA_DIRECTORY& datadir = ntHeaders->OptionalHeader.DataDirectory[IMAGE_DATA_DIRECTORY_RELOC];
+	if (datadir.VirtualAddress == 0 || datadir.Size == 0)
+	{
+		return true;
+	}
+	printf(u"Relocating\n");
+	PIMAGE_RELOCATION_BLOCK relocTable = raw_offset<PIMAGE_RELOCATION_BLOCK>(LoadedFile, datadir.VirtualAddress);
+	PIMAGE_RELOCATION_BLOCK curBlock = relocTable;
+
+	while (raw_diff(curBlock, relocTable) < datadir.Size)
+	{
+		uint32_t entries = (curBlock->BlockSize - 8) / 2;
+		for (uint32_t i = 0; i < entries; ++i)
+		{
+			auto& entry = curBlock->entries[i];
+			IMAGE_RELOCATION_TYPE type = (IMAGE_RELOCATION_TYPE)entry.type;
+			void* relocitem = raw_offset<void*>(LoadedFile, entry.offset + curBlock->PageRVA);
+			switch (type)
+			{
+			case IMAGE_REL_BASED_ABSOLUTE:
+				//Empty relocation
+				break;
+			case IMAGE_REL_BASED_HIGH:
+				*reinterpret_cast<uint16_t*>(relocitem) += (diff >> 16) & UINT16_MAX;
+				break;
+			case IMAGE_REL_BASED_LOW:
+				*reinterpret_cast<uint16_t*>(relocitem) += (diff & UINT16_MAX);
+				break;
+			case IMAGE_REL_BASED_HIGHLOW:
+				*reinterpret_cast<uint32_t*>(relocitem) += (diff & UINT32_MAX);
+				break;
+			case IMAGE_REL_BASED_HIGHADJ:
+				return false;
+				break;
+			case IMAGE_REL_BASED_DIR64:
+				*reinterpret_cast<uint64_t*>(relocitem) += (diff & UINT64_MAX);
+				break;
+			default:
+				return false;
+				break;
+			}
+		}
+		
+		uint32_t nextOffset = DIV_ROUND_UP(curBlock->BlockSize, 4) * 4;
+		curBlock = raw_offset<PIMAGE_RELOCATION_BLOCK>(curBlock, nextOffset);
+	}
+
+	return true;
 }
 
 void* GetProcAddress(KLOAD_HANDLE image, const char* procname)
@@ -431,12 +529,17 @@ KLOAD_HANDLE LoadImage(void* filebuf, const char16_t* filename, ChaiosBootType i
 	//Now load the image sections
 	PSECTION_HEADER sectionHeaders = raw_offset<PSECTION_HEADER>(&ntHeaders->OptionalHeader, ntHeaders->FileHeader.SizeOfOptionalHeader);
 	size_t ImageBase = ntHeaders->OptionalHeader.ImageBase;
+	size_t origImageBase = ImageBase;
 	void* ImBase = (void*)ImageBase;
+	intptr_t relocDiff = 0;
 	//Check if we need to relocate
 	if (!check_free(ImBase, ntHeaders->OptionalHeader.SizeOfImage))
 	{
-		printf(u"Error: cannot load image %s at address %x: cannot relocate\n", filename, ImageBase);
-		return NULL;
+		void* new_base = find_free_paging(ntHeaders->OptionalHeader.SizeOfImage);
+		relocDiff = raw_diff(new_base, ImBase);
+
+		ImBase = new_base;
+		ImageBase += relocDiff;
 	}
 	//Start loading the image to memory
 	if (!paging_map(ImBase, PADDR_T_MAX, ntHeaders->OptionalHeader.SizeOfHeaders, PAGE_ATTRIBUTE_WRITABLE))
@@ -470,6 +573,12 @@ KLOAD_HANDLE LoadImage(void* filebuf, const char16_t* filename, ChaiosBootType i
 			set_paging_attributes(sectaddr, sectsize, PAGE_ATTRIBUTE_NO_PAGING, 0);
 		if ((sectionHeaders[i].Characteristics & IMAGE_SCN_MEM_NOT_CACHED) == 0)
 			set_paging_attributes(sectaddr, sectsize, PAGE_ATTRIBUTE_NO_CACHING, 0);
+	}
+	//Sections now loaded, apply relocations
+	if (!relocation_fixup(ImBase, ntHeaders, relocDiff))
+	{
+		printf(u"Error: cannot load image %s at address %x: cannot relocate to %x\n", filename, origImageBase, ImageBase);
+		return NULL;
 	}
 	//Sections are now loaded into memory. Register the image and invoke the dynamic linker
 	link_image(ImBase);

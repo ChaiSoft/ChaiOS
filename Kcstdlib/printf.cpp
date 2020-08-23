@@ -109,18 +109,20 @@ static void outs(charptr lp)
 /* This routine moves a number to the output buffer  */
 /* as directed by the padding and positioning flags. */
 /*                                                   */
-static void outnum(unsigned int num, const long base)
+static void outnum(int64_t num, const long base)
 {
 	char* cp;
 	int negative;
-	char outbuf[32];
+	char outbuf[64];
 	const char digits[] = "0123456789ABCDEF";
 
+	uint64_t unsignedValue = (uint64_t)num;
 	/* Check if number is negative                    */
 	/* NAK 2009-07-29 Negate the number only if it is not a hex value. */
-	if ((int)num < 0L && base != 16L) {
+	if ((int64_t)num < 0L && base != 16L) {
 		negative = 1;
 		num = -num;
+		unsignedValue = num;
 	}
 	else
 		negative = 0;
@@ -128,8 +130,8 @@ static void outnum(unsigned int num, const long base)
 	/* Build number (backwards) in outbuf             */
 	cp = outbuf;
 	do {
-		*cp++ = digits[(int)(num % base)];
-	} while ((num /= base) > 0);
+		*cp++ = digits[(uint64_t)(unsignedValue % base)];
+	} while ((unsignedValue /= base) > 0);
 	if (negative)
 		*cp++ = '-';
 	*cp-- = 0;
@@ -239,7 +241,7 @@ void esp_vprintf(const func_ptr f_ptr,
 		case 'i':
 		case 'd':
 			if (long_flag || ch == 'D') {
-				outnum(va_arg(argp, long), 10L);
+				outnum(va_arg(argp, int64_t), 10L);
 				continue;
 			}
 			else {
@@ -247,7 +249,14 @@ void esp_vprintf(const func_ptr f_ptr,
 				continue;
 			}
 		case 'x':
-			outnum((long)va_arg(argp, int), 16L);
+			if (long_flag) {
+				outnum(va_arg(argp, uint64_t), 16L);
+				continue;
+			}
+			else {
+				outnum(va_arg(argp, unsigned int), 16L);
+				continue;
+			}
 			continue;
 
 		case 's':
@@ -361,8 +370,8 @@ EXTERN KCSTDLIB_FUNC void kprintf(const char16_t* format, ...)
 				size_t i = va_arg(args, size_t);
 				char16_t buffer[sizeof(size_t) * 8 + 1];
 				sztoa(i, buffer, 10);
-				size_t len = strlen_simple(buffer);
-				while (len++ < width)
+				size_t length = strlen_simple(buffer);
+				while (length++ < width)
 					kputs(u"0");
 				kputs(buffer);
 			}
@@ -441,8 +450,8 @@ EXTERN KCSTDLIB_FUNC void kvprintf(const char* format, va_list args)
 				size_t i = va_arg(args, size_t);
 				char16_t buffer[sizeof(size_t) * 8 + 1];
 				sztoa(i, buffer, 10);
-				size_t len = strlen_simple(buffer);
-				while (len++ < width)
+				size_t length = strlen_simple(buffer);
+				while (length++ < width)
 					kputs(u"0");
 				kputs(buffer);
 			}

@@ -266,6 +266,7 @@
     <ClCompile Include="spinlock.cpp" />
     <ClCompile Include="uefihelper.cpp" />
     <ClCompile Include="usb.cpp" />
+    <ClCompile Include="vds.cpp" />
     <ClCompile Include="xhci.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -290,6 +291,7 @@
     <ClInclude Include="uefihelper.h" />
     <ClInclude Include="usb.h" />
     <ClInclude Include="usb_private.h" />
+    <ClInclude Include="vds.h" />
     <ClInclude Include="xhci_registers.h" />
   </ItemGroup>
   <ItemGroup>

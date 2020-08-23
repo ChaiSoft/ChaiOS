@@ -5,6 +5,8 @@
 #include <endian.h>
 #include <scheduler.h>
 #include <multiprocessor.h>
+#include <vds.h>
+#include <guid.h>
 
 #define NVME_PCI_MBAR 0
 
@@ -24,7 +26,11 @@
 
 #define ATA_CMD_IDENTIFY 0xEC
 
+#define kprintf(...)
+
 uint8_t nvme_interrupt(size_t vector, void* param);
+vds_err_t nvme_disk_read(void* param, lba_t blockaddr, vds_length_t count, void* buffer, semaphore_t* completionEvent);
+PCHAIOS_VDS_PARAMS nvme_disk_params(void* param);
 
 class NVME {
 public:
@@ -175,27 +181,30 @@ public:
 
 		PNVME_COMPLETION setfeature = m_adminCompletionQueue->wait_event(1000, token);
 		uint32_t allocated = setfeature->CommandSpecific;
-		uint32_t completionQueues = (allocated >> 16) + 1;
-		uint32_t submissionQueues = (allocated & UINT16_MAX) + 1;
+		m_countIoCompletion = (allocated >> 16) + 1;
+		m_countIoSubmission = (allocated & UINT16_MAX) + 1;
 
 		kprintf(u"  %d queues requested, %d allocated\n", desired + 1, (allocated & UINT16_MAX) + 1);
 
-		if (completionQueues > desired + 1)
-			completionQueues = desired + 1;
+		if (m_countIoCompletion > desired + 1)
+			m_countIoCompletion = desired + 1;
 
-		if (submissionQueues > desired + 1)
-			submissionQueues = desired + 1;
+		if (m_countIoSubmission > desired + 1)
+			m_countIoSubmission = desired + 1;
+
+		m_IoSubmissionQueues = new CommandQueue*[m_countIoSubmission];
+		m_IoCompletionQueues = new CompletionQueue*[m_countIoCompletion];
 
 		uint32_t maxents = LE_TO_CPU16(capreg->MQES) + 1;
 		maxents = (maxents > (PAGESIZE / sizeof(NVME_COMMAND))) ? (PAGESIZE / sizeof(NVME_COMMAND)) : maxents;
 
-		CompletionQueue* completion1;
-		CommandQueue* command1;
 
-		for (unsigned i = 1; i <= completionQueues; ++i)
+
+		for (unsigned i = 1; i <= m_countIoCompletion; ++i)
 		{
 			paddr_t phyaddr;
 			CompletionQueue* ioCompletion = new CompletionQueue(this, phyaddr, maxents * sizeof(NVME_COMPLETION), i);
+			m_IoCompletionQueues[i - 1] = ioCompletion;
 			//Register queue
 			cmd = m_adminCommandQueue->get_entry();
 			cmd->opcode = CREATE_IO_COMPLETION;
@@ -216,16 +225,16 @@ public:
 			if (i == 1)
 			{
 				kprintf(u"    Completion queue 1 status: %x\n", createio->Status);
-				completion1 = ioCompletion;
 			}
 
 		}
 		kprintf(u"  Created completion queues\n");
 
-		for (unsigned i = 1; i <= submissionQueues; ++i)
+		for (unsigned i = 1; i <= m_countIoSubmission; ++i)
 		{
 			paddr_t phyaddr;
 			CommandQueue* ioCommand = new CommandQueue(this, phyaddr, maxents * sizeof(NVME_COMMAND), i);
+			m_IoSubmissionQueues[i - 1] = ioCommand;
 			//Register queue
 			cmd = m_adminCommandQueue->get_entry();
 			cmd->opcode = CREATE_IO_SUBMISSION;
@@ -246,7 +255,6 @@ public:
 			if (i == 1)
 			{
 				kprintf(u"    Submission queue 1 status: %x\n", createio->Status);
-				command1 = ioCommand;
 			}
 
 		}
@@ -256,65 +264,10 @@ public:
 		{
 			if (identifiers[i] == 0)
 				break;
-			void* nsbuf = new uint8_t[4096];
-			kprintf(u"  Active namespace %d\n", identifiers[i]);
-			cmd = m_adminCommandQueue->get_entry();
-			cmd->opcode = IDENTIFY;		//IDENTIFY
-			cmd->NSID = identifiers[i];
-			cmd->prp_fuse = NVME_PRP | NVME_NOTFUSED;
-			cmd->reserved = 0;
-			cmd->metadata_ptr = 0;
-			cmd->data_ptr.prp1 = get_physical_address(nsbuf);
-			cmd->data_ptr.prp2 = 0;
-			cmd->cdword_1x[0] = 0x0;		//CNS, namespace
-			memset(&cmd->cdword_1x[1], 0, 5 * sizeof(uint32_t));
-			token = m_adminCommandQueue->submit_entry(cmd);
-
-			m_adminCompletionQueue->wait_event(1000, token);
-			PNVME_NAMESPACE namesp = (PNVME_NAMESPACE)nsbuf;
-			uint8_t lbaFormat = namesp->formattedLbaSize & 0xF;
-			uint8_t lbads = namesp->lbaformats[lbaFormat].lbadataSize;
-
-			uint64_t blocksize = (1 << lbads);
-
-			kprintf(u"    Size: %d blocks\n", namesp->namespaceSize);
-			kprintf(u"    Capacity: %d blocks\n", namesp->namespaceCapacity);
-			kprintf(u"    Block size: %d\n", blocksize);
-			kprintf(u"    Size: %x:%x B\n", namesp->namespaceBytesHigh, namesp->namespaceBytesLow);
-
+			
 			//Export namespace as block device
-			void* block0bufffer = new uint8_t[blocksize];
-
-			cmd = command1->get_entry();
-			cmd->opcode = NVME_READ;
-			cmd->NSID = identifiers[i];
-			cmd->prp_fuse = NVME_PRP | NVME_NOTFUSED;
-			cmd->reserved = 0;
-			cmd->metadata_ptr = 0;
-			cmd->data_ptr.prp1 = get_physical_address(block0bufffer);
-			cmd->data_ptr.prp2 = 0;
-
-			//Starting LBA
-			uint64_t lba = 0;
-			cmd->cdword_1x[0] = lba & UINT32_MAX;
-			cmd->cdword_1x[1] = (lba >> 32);
-
-			//Count, no protection info
-			cmd->cdword_1x[2] = (1-1);
-
-			memset(&cmd->cdword_1x[3], 0, 3 * sizeof(uint32_t));
-
-			token = command1->submit_entry(cmd);
-
-			completion1->wait_event(1000, token);
-
-			kprintf(u"    LBA 0 READ:\n");
-			for (int i = 0; i < blocksize / sizeof(size_t); ++i)
-				kprintf(u"%x ", ((size_t*)block0bufffer)[i]);
-			kprintf(u"\n");
-
-			delete[] block0bufffer;
-			delete[] nsbuf;
+			NvmeNamespace* nspace = new NvmeNamespace(this, identifiers[i]);
+			nspace->initialize();
 		}
 
 		delete[] idbuf;
@@ -516,7 +469,7 @@ protected:
 
 		uint8_t Reserved[40];
 
-		uint8_t NGUID[16];
+		GUID NGUID;
 		uint64_le EUI64;
 
 		NVME_LBA_FORMAT lbaformats[16];
@@ -725,11 +678,120 @@ protected:
 			return false;
 		else
 			return queue->is_valid();
-	}
+	};
+
+public:
+	class NvmeNamespace {
+	public:
+		NvmeNamespace(NVME* parent, uint32_t nsid)
+			:m_parent(parent), m_nsid(nsid)
+		{
+
+		}
+
+		void initialize()
+		{
+			void* nsbuf = new uint8_t[4096];
+			kprintf(u"  Active namespace %d\n", m_nsid);
+			auto cmd = m_parent->m_adminCommandQueue->get_entry();
+			cmd->opcode = IDENTIFY;		//IDENTIFY
+			cmd->NSID = m_nsid;
+			cmd->prp_fuse = NVME_PRP | NVME_NOTFUSED;
+			cmd->reserved = 0;
+			cmd->metadata_ptr = 0;
+			cmd->data_ptr.prp1 = get_physical_address(nsbuf);
+			cmd->data_ptr.prp2 = 0;
+			cmd->cdword_1x[0] = 0x0;		//CNS, namespace
+			memset(&cmd->cdword_1x[1], 0, 5 * sizeof(uint32_t));
+			uint16_t token = m_parent->m_adminCommandQueue->submit_entry(cmd);
+
+			m_parent->m_adminCompletionQueue->wait_event(1000, token);
+			PNVME_NAMESPACE namesp = (PNVME_NAMESPACE)nsbuf;
+			uint8_t lbaFormat = namesp->formattedLbaSize & 0xF;
+			uint8_t lbads = namesp->lbaformats[lbaFormat].lbadataSize;
+
+			uint64_t blocksize = (1 << lbads);
+
+			kprintf(u"    Size: %d blocks\n", namesp->namespaceSize);
+			kprintf(u"    Capacity: %d blocks\n", namesp->namespaceCapacity);
+			kprintf(u"    Block size: %d\n", blocksize);
+			kprintf(u"    Size: %x:%x B\n", namesp->namespaceBytesHigh, namesp->namespaceBytesLow);
+
+			//REGISTER WITH VDS
+
+			m_diskparams.diskSize = namesp->namespaceSize;
+			m_diskparams.sectorSize = blocksize;
+			GUID x = CHAIOS_VDS_DISK_NVME;
+			m_diskparams.diskType = x;
+			m_diskparams.diskId = *(GUID*)&namesp->NGUID;
+			m_diskparams.parent = NULL;
+
+			m_diskdriver.write_fn = nullptr;
+			m_diskdriver.read_fn = &nvme_disk_read;
+			m_diskdriver.get_params = &nvme_disk_params;
+			m_diskdriver.fn_param = this;
+			RegisterVdsDisk(&m_diskdriver);
+
+#if 0
+			void* block0bufffer = new uint8_t[blocksize];
+			read(0, 1, block0bufffer, nullptr);
+			delete[] block0bufffer;
+#endif
+			delete[] nsbuf;
+		}
+
+	protected:
+
+		vds_err_t read(lba_t blockaddr, vds_length_t count, void* buffer, semaphore_t* completionEvent)
+		{
+			//kprintf(u"NVMe read: block %d, length %d\n", blockaddr, count);
+			auto cmd = m_parent->m_IoSubmissionQueues[0]->get_entry();
+			cmd->opcode = NVME_READ;
+			cmd->NSID = m_nsid;
+			cmd->prp_fuse = NVME_PRP | NVME_NOTFUSED;
+			cmd->reserved = 0;
+			cmd->metadata_ptr = 0;
+			cmd->data_ptr.prp1 = get_physical_address(buffer);
+			cmd->data_ptr.prp2 = 0;
+
+			//Starting LBA
+			cmd->cdword_1x[0] = blockaddr & UINT32_MAX;
+			cmd->cdword_1x[1] = (blockaddr >> 32);
+
+			//Count, no protection info
+			cmd->cdword_1x[2] = (count - 1);
+
+			memset(&cmd->cdword_1x[3], 0, 3 * sizeof(uint32_t));
+
+			auto token = m_parent->m_IoSubmissionQueues[0]->submit_entry(cmd);
+
+			if (completionEvent)
+			{
+				kprintf(u"NVMe WARNING: asynchronous read not implemented\n");
+			}
+			m_parent->m_IoCompletionQueues[0]->wait_event(1000, token);
+			return 0;
+		}
+
+	private:
+		NVME* const m_parent;
+		const uint32_t m_nsid;
+		CHAIOS_VDS_DISK m_diskdriver;
+		CHAIOS_VDS_PARAMS m_diskparams;
+
+		friend vds_err_t nvme_disk_read(void* param, lba_t blockaddr, vds_length_t count, void* buffer, semaphore_t* completionEvent);
+		friend PCHAIOS_VDS_PARAMS nvme_disk_params(void* param);
+	};
+
 
 private:
 	CommandQueue* m_adminCommandQueue;
 	CompletionQueue* m_adminCompletionQueue;
+
+	CommandQueue** m_IoSubmissionQueues;
+	CompletionQueue** m_IoCompletionQueues;
+	size_t m_countIoSubmission;
+	size_t m_countIoCompletion;
 
 	const void* m_mbar;
 	const size_t m_mbarsize;
@@ -743,6 +805,18 @@ uint8_t nvme_interrupt(size_t vector, void* param)
 {
 	NVME* nvme = (NVME*)param;
 	return nvme->interrupt(vector);
+}
+
+vds_err_t nvme_disk_read(void* param, lba_t blockaddr, vds_length_t count, void* buffer, semaphore_t* completionEvent)
+{
+	NVME::NvmeNamespace* namesp = (NVME::NvmeNamespace*)param;
+	return namesp->read(blockaddr, count, buffer, completionEvent);
+}
+
+PCHAIOS_VDS_PARAMS nvme_disk_params(void* param)
+{
+	NVME::NvmeNamespace* namesp = (NVME::NvmeNamespace*)param;
+	return &namesp->m_diskparams;
 }
 
 bool nvme_finder(uint16_t segment, uint16_t bus, uint16_t device, uint8_t function)
@@ -787,7 +861,7 @@ static pci_device_registration nvme_pci =
 	nvme_finder
 };
 
-int DriverEntry(void* param)
+EXTERN int CppDriverEntry(void* param)
 {
 	//Find relevant devices
 	register_pci_driver(&nvme_pci);

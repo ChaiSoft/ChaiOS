@@ -33,6 +33,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Ahci", "Ahci\Ahci.vcxproj",
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NVMe", "NVMe\NVMe.vcxproj", "{A058F18E-339E-4AF6-8BD4-9ACEDA4306A7}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FAT", "FAT\FAT.vcxproj", "{37540608-A455-471C-A44A-B3360DB384B6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -113,6 +115,14 @@ Global
 		{A058F18E-339E-4AF6-8BD4-9ACEDA4306A7}.Release|x64.Build.0 = Release|x64
 		{A058F18E-339E-4AF6-8BD4-9ACEDA4306A7}.Release|x86.ActiveCfg = Release|Win32
 		{A058F18E-339E-4AF6-8BD4-9ACEDA4306A7}.Release|x86.Build.0 = Release|Win32
+		{37540608-A455-471C-A44A-B3360DB384B6}.Debug|x64.ActiveCfg = Debug|x64
+		{37540608-A455-471C-A44A-B3360DB384B6}.Debug|x64.Build.0 = Debug|x64
+		{37540608-A455-471C-A44A-B3360DB384B6}.Debug|x86.ActiveCfg = Debug|Win32
+		{37540608-A455-471C-A44A-B3360DB384B6}.Debug|x86.Build.0 = Debug|Win32
+		{37540608-A455-471C-A44A-B3360DB384B6}.Release|x64.ActiveCfg = Release|x64
+		{37540608-A455-471C-A44A-B3360DB384B6}.Release|x64.Build.0 = Release|x64
+		{37540608-A455-471C-A44A-B3360DB384B6}.Release|x86.ActiveCfg = Release|Win32
+		{37540608-A455-471C-A44A-B3360DB384B6}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -63,6 +63,9 @@ static_assert(sizeof(uint64_le) == 8, "Struct Alignment Incompatible");
 #define CPU_TO_BE16(x) {arch_swap_endian16(x)}
 #define CPU_TO_BE32(x) {arch_swap_endian32(x)}
 #define CPU_TO_BE64(x) {arch_swap_endian64(x)}
+
+#define BE_PREPROCESSOR16(x) \
+	((x >> 8) | ((x & 0xFF) << 8))
 #else
 #define BE_TO_CPU16(x) x
 #define BE_TO_CPU32(x) x

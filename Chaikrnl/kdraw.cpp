@@ -230,7 +230,7 @@ void gputs_k(const char16_t* str, void* wnd)
 				putpixel(buf, 8 + buf->text_xpos * 9, y + buf->text_ypos * 16, background);
 			}
 			++buf->text_xpos;
-			if (buf->text_xpos > buf->h_res / 9)
+			if (buf->text_xpos + 1 > buf->h_res / 9)
 			{
 				buf->text_xpos = 0;
 				++buf->text_ypos;

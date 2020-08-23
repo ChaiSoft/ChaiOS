@@ -244,6 +244,7 @@
     <ClCompile Include="printf.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\Include\guid.h" />
     <ClInclude Include="..\Include\liballoc.h" />
     <ClInclude Include="..\Include\linkedlist.h" />
     <ClInclude Include="..\Include\stdheaders.h" />

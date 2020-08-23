@@ -16,6 +16,7 @@
 #include <endian.h>
 #include <lwip/netifapi.h>
 #include <lwip/api.h>
+#include <vds.h>
 
 #define CHAIOS_KERNEL_VERSION_MAJOR 0
 #define CHAIOS_KERNEL_VERSION_MINOR 9
@@ -131,6 +132,38 @@ void kputs_net(const char16_t* str)
 	netconn_send(connout, buf);
 }
 
+static void print_guid(GUID& id)
+{
+	uint64_t part5 = 0;
+	for (int i = 0; i < 6; ++i)
+	{
+		part5 <<= 8;
+		part5 |= id.Data5[i];
+	}
+	kprintf_a("%x-%x-%x-%x-%lx", id.Data1, id.Data2, id.Data3, BE_TO_CPU16(id.Data4), part5);
+}
+
+static vds_enum_result vds_enum(HDISK disk)
+{
+	auto params = GetVdsParams(disk);
+	if (params->parent != NULL)
+		kprintf(u"  ");
+	uint64_t megabytes = (params->diskSize * params->sectorSize) / (1024 * 1024);
+	if (megabytes > 10 * 1024 * 1024)
+		kprintf(u"  Disk %d: %d sectors, sector size %d, total size: %d TB, type ", disk, params->diskSize, params->sectorSize, megabytes / (1024*1024));
+	else if(megabytes > 10*1024)
+		kprintf(u"  Disk %d: %d sectors, sector size %d, total size: %d GB, type ", disk, params->diskSize, params->sectorSize, megabytes / 1024);
+	else
+		kprintf(u"  Disk %d: %d sectors, sector size %d, total size: %d MB, type ", disk, params->diskSize, params->sectorSize, megabytes);
+
+	print_guid(params->diskType);
+	kprintf(u", id ");
+	print_guid(params->diskId);
+	kprintf(u"\n");
+
+	return RESULT_NOTBOUND;
+}
+
 extern bool CallConstructors();
 void _kentry(PKERNEL_BOOT_INFO bootinfo)
 {
@@ -179,6 +212,8 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 	//Welcome to the thunderdome
 	//startup_acpi();
 	setup_usb();
+	//Start Virtual Disk System
+	init_vds();
 
 	PIMAGE_DESCRIPTOR image = *reinterpret_cast<PIMAGE_DESCRIPTOR*>(bootinfo->modloader_info);
 	while (image)
@@ -227,6 +262,10 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 	
 	initialize_pci_drivers();
 	//usb_run();
+
+	vds_start_filesystem_matching();
+	kprintf(u"VDS Information:\n");
+	enumerate_disks(&vds_enum);
 
 	kputs(u"System timer: ");
 	while (1)

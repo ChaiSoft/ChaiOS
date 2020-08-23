@@ -101,7 +101,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>netstack.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <BaseAddress>0xFFFFC00090000000</BaseAddress>
+      <BaseAddress>0xFFFFC00080000000</BaseAddress>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -131,7 +131,7 @@
     </ClCompile>
     <Link>
       <AdditionalDependencies>netstack.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <BaseAddress>0xFFFFC00090000000</BaseAddress>
+      <BaseAddress>0xFFFFC00080000000</BaseAddress>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">

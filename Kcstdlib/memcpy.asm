@@ -14,3 +14,8 @@ rep movsb
 pop rdi
 pop rsi
 ret
+
+export _purecall
+global _purecall
+_purecall:
+ret

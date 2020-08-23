@@ -59,6 +59,9 @@
     <ClInclude Include="..\Include\linkedlist.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\Include\guid.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <NASM Include="arch\x64\memset.asm">

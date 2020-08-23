@@ -709,7 +709,7 @@ static pci_device_registration dev_reg_pci = {
 	&Intel219Finder
 };
 
-int DriverEntry(void* param)
+EXTERN int CppDriverEntry(void* param)
 {
 	//Find relevant devices
 	register_pci_driver(&dev_reg_pci);

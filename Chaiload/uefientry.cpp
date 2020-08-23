@@ -321,10 +321,6 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 			{
 				set_memcpy((memcpy_proc)GetProcAddress(dll, "memcpy"));
 			}
-			if (bootfile->bootType == CHAIOS_BOOT_DRIVER)
-			{
-				printf(u"Boot Driver: %s\n", bootfile->fileName);
-			}
 		}
 		else if (bootfile->bootType == CHAIOS_BOOT_KERNEL)
 		{

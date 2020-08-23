@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="cpp.cpp" />
+    <ClCompile Include="DriverEntrySupport.cpp" />
   </ItemGroup>
   <ItemGroup>
     <NASM Include="crt.asm">
