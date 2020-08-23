@@ -620,6 +620,11 @@ cmove rax, rdx
 mov dr7, rax
 ret
 
+global user_function
+user_function:
+syscall
+jmp short user_function
+
 section .data
 global x64_context_size
 x64_context_size: dq CONTEXT.end

@@ -38,7 +38,8 @@ typedef struct _thread {
 	THREAD_STATE state;
 	THREAD_TYPE threadtype;
 	uint32_t cpu_id;
-	kstack_t stack;
+	stack_t kernel_stack;
+	stack_t user_stack;
 	linked_list_node<_thread*> listnode;
 	HTHREAD handle;
 	thread_proc proc;
@@ -225,6 +226,7 @@ get_ready:
 			release_spinlock(ready_lock, stat);
 			//kprintf(u"THREAD SWITCH: %x -> %x\n", thread->handle, next->handle);
 			arch_write_tls_base(next->threadlocal, 0);
+			arch_write_kstack(thread->kernel_stack);
 			jump_context(next->threadctxt, 0);
 		}
 	}
@@ -234,6 +236,7 @@ get_ready:
 		pcpu_data.runningthread = next;
 		//kprintf(u"THREAD SWITCH: %x\n", next->handle);
 		arch_write_tls_base(next->threadlocal, 0);
+		arch_write_kstack(thread->kernel_stack);
 		jump_context(next->threadctxt, 0);
 	}
 sched_end:
@@ -248,6 +251,9 @@ sched_end:
 	pcpu_data.irql = current_irql;
 }
 
+#include <kernelinfo.h>
+EXTERN PKERNEL_BOOT_INFO getBootInfo();
+
 void scheduler_init(void(*eoi)())
 {
 	the_eoi = eoi;
@@ -255,7 +261,8 @@ void scheduler_init(void(*eoi)())
 	PTHREAD kthread = new THREAD;	//Initial kernel thread
 	kthread->cpu_id = arch_current_processor_id();
 	kthread->state = RUNNING;
-	kthread->stack = nullptr;
+	kthread->kernel_stack = getBootInfo()->bootstack;
+	kthread->user_stack = nullptr;
 	kthread->timeout_event = nullptr;
 	kthread->handle = (HTHREAD)1;
 	kthread->threadctxt = context_factory();
@@ -295,6 +302,18 @@ static void inital_thread_proc()
 	while (1);
 }
 
+stack_t getThreadStack(HTHREAD thread, uint8_t user)
+{
+	auto st = acquire_spinlock(allthreads_lock);
+	PTHREAD pt = all_threads[thread];
+	release_spinlock(allthreads_lock, st);
+
+	if (user)
+		return pt->user_stack;
+	else
+		return pt->kernel_stack;
+}
+
 EXTERN CHAIKRNL_FUNC HTHREAD create_thread(thread_proc proc, void* param, size_t priority, size_t type)
 {
 	PTHREAD thread = new THREAD;
@@ -303,10 +322,19 @@ EXTERN CHAIKRNL_FUNC HTHREAD create_thread(thread_proc proc, void* param, size_t
 	thread->state = READY;
 	if (!(thread->threadctxt = context_factory()))
 		return nullptr;
-	if (!(thread->stack = arch_create_kernel_stack()))
+	if (!(thread->kernel_stack = arch_create_stack(0, 0)))
 		return nullptr;
 	if (!(thread->thread_lock = create_spinlock()))
 		return nullptr;
+	if (type >= THREAD_TYPE::USER_THREAD)
+	{
+		if (!(thread->user_stack = arch_create_stack(0, 1)))
+			return nullptr;
+	}
+	else
+		thread->user_stack = NULL;
+
+
 	thread->timeout_event = nullptr;
 	thread->handle = (HTHREAD)thread;
 	thread->proc = proc;
@@ -321,7 +349,7 @@ EXTERN CHAIKRNL_FUNC HTHREAD create_thread(thread_proc proc, void* param, size_t
 	release_spinlock(allthreads_lock, st);
 
 	//Now create the initial thread context
-	arch_new_thread(thread->threadctxt, thread->stack, &inital_thread_proc);
+	arch_new_thread(thread->threadctxt, thread->kernel_stack, &inital_thread_proc);
 	auto stat = acquire_spinlock(ready_lock);
 	ready.insert(thread);
 	release_spinlock(ready_lock, stat);

@@ -460,7 +460,7 @@ uint32_t pci_allocate_msi(uint16_t segment, uint16_t bus, uint16_t device, uint1
 	status >>= 16;
 	if ((status & PCI_STATUS_CAPLIST) != 0)
 	{
-		uint64_t capptr, capreg, msireg = 0;
+		uint64_t capptr = 0, capreg = 0, msireg = 0;
 		internalptr = internal_read_pci(segment, bus, device, function, PCI_REG_CAPPTR, 32, &capptr, internalptr);
 		capptr &= 0xFF;
 		capptr /= 4;
@@ -492,37 +492,53 @@ uint32_t pci_allocate_msi(uint16_t segment, uint16_t bus, uint16_t device, uint1
 		arch_install_interrupt_post_event(INTERRUPT_SUBSYSTEM_DISPATCH, vector, cpu_num, &arch_local_eoi);
 		//Now we have all per-CPU stuff sorted
 		arch_restore_state(cpust);
+		//Get MSI address
+		uint64_t msi_data = 0;
+		paddr_t msi_addr = arch_msi_address(&msi_data, vector, cpu_num);
+
 		internalptr = internal_read_pci(segment, bus, device, function, msireg, 32, &capreg, internalptr);
 		if ((capreg & 0xFF) == PCI_CAP_ID_MSIX)
 		{
 			kprintf(u"Using MSI-X\n");
-			//Find the correct BAR and read upper address
-			uint64_t table_bir, upper_address;
-			internalptr = internal_read_pci(segment, bus, device, function, msireg + 1, 32, &upper_address, internalptr);
-			internalptr = internal_read_pci(segment, bus, device, function, msireg + 2, 32, &table_bir, internalptr);
+			//Find the correct BAR
+			uint64_t table_bir = 0, pending_bir=0;
+			internalptr = internal_read_pci(segment, bus, device, function, msireg + 1, 32, &table_bir, internalptr);
+			internalptr = internal_read_pci(segment, bus, device, function, msireg + 2, 32, &pending_bir, internalptr);
+
+			kprintf(u"MSI-X capability\n");
+			kprintf(u"  %x\n", capreg);
+			kprintf(u"  %x\n", table_bir);
+			kprintf(u"  %x\n", pending_bir);
+
 			uint32_t bar = table_bir & 0x7;
 			size_t barsize = 0;
 			paddr_t msibar = read_pci_bar(segment, bus, device, function, bar, &barsize);
+
 			size_t offset = table_bir & (UINT32_MAX - 0x7);
-			size_t pageoffset = table_bir & (UINT32_MAX - 0xFFF);
-			size_t inoffset = table_bir & 0xFF8;
-			size_t tablecount = (capreg & 0x7FF + 1);
-			size_t tablesize = tablecount * 8;		//sizeof(table_entry) == 8
+			size_t pageoffset = offset & (UINT32_MAX - 0xFFF);
+			size_t inoffset = offset & 0xFF8;
+
+			size_t tablecount = (((capreg>>16) & 0x7FF) + 1);
+			size_t tablesize = tablecount * 16;		//sizeof(table_entry) == 16
 			void* mappedtable = find_free_paging(barsize);
-			paging_map(mappedtable, msibar, barsize, PAGE_ATTRIBUTE_NO_CACHING | PAGE_ATTRIBUTE_WRITABLE);
-			mappedtable = raw_offset<void*>(mappedtable, offset);
-			//kprintf(u"MSI-X table BAR%d (%x), offset %x\n", bar, msibar, table_bir);
-			uint64_t msi_data = 0;
-			paddr_t msi_addr = arch_msi_address(&msi_data, vector, cpu_num);
+			kprintf(u"Mapping BAR%d to %x: address %x, length %x\n", bar, mappedtable, msibar, barsize);
+			if (!paging_map(mappedtable, msibar, barsize, PAGE_ATTRIBUTE_NO_CACHING | PAGE_ATTRIBUTE_WRITABLE))
+				kprintf(u"FAILED\n");
+
+			kprintf(u"MSI-X BIR %x, table BAR%d (%x), offset %x, count %d\n", table_bir, bar, msibar, offset, tablecount);
+			kprintf(u"Message address: %x, data: %x\n", msi_addr, msi_data);
+			//Write upper address
 			internalptr = internal_write_pci(segment, bus, device, function, msireg + 1, 32, msi_addr >> 32, internalptr);
 			//kprintf(u"MSI-X desired: %x:%x\n", msi_data, msi_addr);
-			volatile uint32_t* msitab = (volatile uint32_t*)mappedtable;
+			volatile uint32_t* msitab = raw_offset<volatile uint32_t*>(mappedtable, offset);
 			for (int n = 0; n < tablecount; ++n)
 			{
-				msitab[0 + 2 * n] = msi_data;
-				msitab[1 + 2 * n] = msi_addr & (UINT32_MAX - 0x3);		//Mask low two bits
+				msitab[0 + 4 * n] = msi_addr & (UINT32_MAX - 0x3);		//DWORD aligned
+				msitab[1 + 4 * n] = (msi_addr >> 32);
+				msitab[2 + 4 * n] = msi_data;
+				msitab[3 + 4 * n] = 0;			//Vector control: unmasked
 			}
-			//kprintf(u"MSI-X data mapped %x: %x:%x\n", msitab, msitab[1], msitab[0]);
+			kprintf(u"MSI-X data mapped %x: %x:%x\n", msitab, msitab[1], msitab[0]);
 			//Enable MSI-X
 			capreg &= ~(1 << 30);
 			internalptr = internal_write_pci(segment, bus, device, function, msireg, 32, capreg | (1 << 31), internalptr);
@@ -536,8 +552,6 @@ uint32_t pci_allocate_msi(uint16_t segment, uint16_t bus, uint16_t device, uint1
 			bool bits64cap = ((msgctrl & (1 << 7)) != 0);
 			uint32_t requestedvecs = (msgctrl >> 1) & 0x7;
 			//Write message and data
-			uint64_t msi_data = 0;
-			paddr_t msi_addr = arch_msi_address(&msi_data, vector, cpu_num);
 			internalptr = internal_write_pci(segment, bus, device, function, msireg + 1, 32, msi_addr & UINT32_MAX, internalptr);
 			uint32_t data_offset = 2;
 			if (bits64cap)

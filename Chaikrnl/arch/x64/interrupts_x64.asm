@@ -98,11 +98,101 @@ mov rsp, r9	;Load old stack
 jmp r8
 
 
+extern x64_syscall_handler
+
+;SYSCALL
+global x64_syscall_entry
+x64_syscall_entry:
+;RCX: return address
+;R11: FLAGS
+;Save user stack
+mov rdx, rsp
+;Load kernel stack
+mov rsp, qword[fs:0x20]
+swapgs
+
+;Save Syscall Return stuff
+push rcx
+push rdx
+push r11
+push rbp
+mov rbp, rsp
+
+;align the stack
+and sp, 0xFFF0
+
+;KERNEL
+sti
+
+sub rsp, 32
+call x64_syscall_handler
+add rsp, 32
+
+;Return
+cli
+
+;restore stack
+mov rsp, rbp
+pop rbp
+pop r11
+pop rdx
+pop rcx
+
+swapgs
+
+;USER STACK
+mov rsp, rdx
+o64 sysret
+
+
+
+x64_compat_common:
+sti		;Preemptable
+
+jmp $
+
+cli
+ret
+
+global x64_syscall_entry_compat
+x64_syscall_entry_compat:
+;RCX: return address
+;R11: FLAGS
+;Save user stack
+mov rdx, rsp
+;Load kernel stack
+mov rsp, [fs:0x20]
+swapgs
+;KERNEL
+call x64_compat_common
+;Return
+swapgs
+mov rsp, rdx
+sysret
+
+global x64_sysenter_entry_compat
+x64_sysenter_entry_compat:
+cli
+;RDX: return address
+;RCX: user stack
+swapgs
+xchg rdx, rcx
+
+call x64_compat_common
+
+xchg rdx, rcx
+;Return
+swapgs
+sti
+sysexit
+
+
 ;First parameter: error code passed
 ;Second parameter: 
 %macro INTERRUPT_HANDLER 2
 global x64_interrupt_handler_%2
 x64_interrupt_handler_%2:
+cld
 %if %1 == 0
 push 0xDEADBEEF			;Dummy error code
 %endif

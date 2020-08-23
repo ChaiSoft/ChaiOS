@@ -360,12 +360,13 @@ protected:
 
 	friend uint8_t nvme_interrupt(size_t vector, void* param);
 
+#undef kprintf
 	uint8_t interrupt(size_t vector)
 	{
 		kprintf(u"NVMe Interrupt\n");
 		return 1;
 	}
-
+#define kprintf(...)
 #pragma pack(push, 1)
 	typedef volatile struct _nvme_cap_reg {
 		uint16_le MQES;

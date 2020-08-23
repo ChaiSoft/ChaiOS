@@ -79,6 +79,10 @@ extern "C" void x64_new_context(context_t context, void* stackptr, void* entry);
 extern "C" void x64_hlt();
 extern "C" void x64_go_usermode(void* stackptr, void(*entry)(void*), uint16_t codeseg, uint16_t dataseg, void* tss, uint16_t tr);
 
+extern "C" void x64_syscall_entry();
+extern "C" void x64_syscall_entry_compat();
+extern "C" void x64_sysenter_entry_compat();
+
 extern "C" uint16_t x64_bswapw(uint16_t);
 extern "C" uint32_t x64_bswapd(uint32_t);
 extern "C" uint64_t x64_bswapq(uint64_t);
@@ -97,6 +101,17 @@ extern "C" size_t xsavearea_size = 0;
 extern "C" size_t x64_avx_level = 0;
 
 #define IA32_EFER 0xC0000080
+#define IA32_STAR 0xC0000081
+#define IA32_LSTAR 0xC0000082
+#define IA32_CSTAR 0xC0000083
+#define IA32_SFMASK 0xC0000084
+
+#define IA32_SYSENTER_CS 0x174
+#define IA32_SYSENTER_ESP 0x175
+#define IA32_SYSENTER_EIP 0x176
+
+#define IA32_EFLAGS_INTR (1<<9)
+#define IA32_EFLAGS_DIRF (1<<10)
 
 static size_t cpuid_max_page = 0;
 static size_t max_cpuid_page()
@@ -242,13 +257,22 @@ static void save_sregs()
 
 static void load_default_sregs()
 {
-	x64_set_segment_register(SREG_CS, SEGVAL(GDT_ENTRY_KERNEL_CODE, 0));		
+	x64_set_segment_register(SREG_CS, SEGVAL(GDT_ENTRY_KERNEL_CODE, 0));
+#if 0
 	x64_set_segment_register(SREG_DS, SEGVAL(GDT_ENTRY_KERNEL_DATA, 0));
 	x64_set_segment_register(SREG_ES, SEGVAL(GDT_ENTRY_KERNEL_DATA, 0));
 	x64_set_segment_register(SREG_SS, SEGVAL(GDT_ENTRY_KERNEL_DATA, 0));
 	//Per CPU data
 	x64_set_segment_register(SREG_FS, SEGVAL(GDT_ENTRY_KERNEL_DATA, 0));
 	x64_set_segment_register(SREG_GS, SEGVAL(GDT_ENTRY_KERNEL_DATA, 0));
+#else
+	x64_set_segment_register(SREG_SS, SEGVAL(GDT_ENTRY_KERNEL_DATA, 0));
+	x64_set_segment_register(SREG_DS, SEGVAL(0, 0));
+	x64_set_segment_register(SREG_ES, SEGVAL(0, 0));
+	//Per CPU data
+	x64_set_segment_register(SREG_FS, SEGVAL(0, 0));
+	x64_set_segment_register(SREG_GS, SEGVAL(0, 0));
+#endif
 }
 
 static void x64_performance_features()
@@ -1064,6 +1088,25 @@ struct arch_tls_data {
 static_assert(sizeof(per_cpu_data) <= 0x30, "Please reallocate");
 #define PCPU_DATA_AVAILINTS 0x30
 
+void arch_write_kstack(stack_t stack)
+{
+	if (getCpuVendor() == VENDOR_INTEL)
+		x64_wrmsr(IA32_SYSENTER_ESP, (size_t)stack);
+	pcpu_data.kstack = stack;
+}
+
+EXTERN void x64_syscall_handler()
+{
+	uint64_t timer = arch_get_system_timer();
+	kprintf(u"%d", timer);
+	if (timer == 0)
+		kputs(u"\b");
+	for (; timer != 0; timer /= 10)
+	{
+		kputs(u"\b");
+	}
+}
+
 void arch_setup_interrupts()
 {
 	arch_disable_interrupts();
@@ -1116,7 +1159,29 @@ void arch_setup_interrupts()
 	arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, 0xE, INTERRUPT_CURRENTCPU, &page_fault_handler, nullptr);
 	//Now set up the interrupt controller, so we don't die for no apparent reason
 	x64_init_apic();
-	x64_restore_flags(x64_disable_interrupts() | (1<<9));
+	x64_restore_flags(x64_disable_interrupts() | IA32_EFLAGS_INTR);
+
+	//Set up SYSCALL
+	uint64_t syscallsel = SEGVAL(GDT_ENTRY_KERNEL_CODE, 0);
+	uint64_t sysretsel = SEGVAL(GDT_ENTRY_USER_CODE32, 3);
+	x64_wrmsr(IA32_STAR, (sysretsel << 48) | (syscallsel << 32));
+	x64_wrmsr(IA32_LSTAR, (size_t)&x64_syscall_entry);
+	x64_wrmsr(IA32_SFMASK, IA32_EFLAGS_INTR | IA32_EFLAGS_DIRF);		//atomicity
+	if (getCpuVendor() == VENDOR_AMD)
+	{
+		x64_wrmsr(IA32_CSTAR, (size_t)&x64_syscall_entry_compat);
+	}
+	else if (getCpuVendor() == VENDOR_INTEL)
+	{
+		x64_wrmsr(IA32_SYSENTER_CS, SEGVAL(GDT_ENTRY_KERNEL_CODE, 0));
+		x64_wrmsr(IA32_SYSENTER_EIP, (size_t)&x64_sysenter_entry_compat);
+	}
+	else
+	{
+		kprintf(u"FATAL ERROR: Unknown CPU manufacturer\n");
+		while (1);
+	}
+
 }
 
 CHAIKRNL_FUNC void arch_register_interrupt_subsystem(uint32_t subsystem, arch_interrupt_subsystem* system)
@@ -1218,24 +1283,36 @@ CHAIKRNL_FUNC uint64_t arch_swap_endian64(uint64_t v)
 static const size_t PAGES_STACK = 16;
 
 #include <liballoc.h>
-kstack_t arch_create_kernel_stack()
+stack_t arch_create_stack(size_t length, uint8_t user)
 {
-	void* kstack = kmalloc(PAGES_STACK*PAGESIZE);
-	return kstack;
+	if (length == 0)
+		length = PAGES_STACK * PAGESIZE;
+	void* stack;
+	if (user == 0)
+		stack = kmalloc(length);
+	else
+	{
+		stack = find_free_paging(length, (void*)0x1000000000);
+		if (!paging_map(stack, PADDR_ALLOCATE, length, PAGE_ATTRIBUTE_USER | PAGE_ATTRIBUTE_WRITABLE))
+			return NULL;
+	}
+	return stack;
 }
 
-void arch_destroy_kernel_stack(kstack_t stack)
+void arch_destroy_stack(stack_t stack, size_t length)
 {
 	kfree(stack);
 }
-void* arch_init_stackptr(kstack_t stack)
+void* arch_init_stackptr(stack_t stack, size_t length)
 {
-	return raw_offset<void*>(stack, PAGESIZE *PAGES_STACK - sizeof(void*));
+	if (length == 0)
+		length = PAGES_STACK * PAGESIZE;
+	return raw_offset<void*>(stack, length - sizeof(void*));
 }
 
-void arch_new_thread(context_t ctxt, kstack_t stack, void* entrypt)
+void arch_new_thread(context_t ctxt, stack_t stack, void* entrypt)
 {
-	void* sp = arch_init_stackptr(stack);
+	void* sp = arch_init_stackptr(stack, 0);
 	x64_new_context(ctxt, sp, entrypt);
 }
 
@@ -1259,6 +1336,18 @@ void arch_go_usermode(void* userstack, void(*ufunc)(void*), size_t bitness)
 	x64_sgdt(&peek_gdt);
 	gdt_entry& tssent = peek_gdt.gdtaddr[GDT_ENTRY_TSS];
 	TSS* tss = (TSS*)(tssent.base_low + (tssent.base_mid << 16) + (tssent.base_high << 24) + ((uint64_t)*(uint32_t*)&peek_gdt.gdtaddr[GDT_ENTRY_TSS + 1] << 32));
+
+	//Kernel stack
+	stack_t kernStack = getThreadStack(current_thread(), 0);
+	void* stackptr = arch_init_stackptr(kernStack, 0);
+
+	if (getCpuVendor() == VENDOR_INTEL)
+	{
+		//Set RSP MSR
+		x64_wrmsr(IA32_SYSENTER_ESP, (size_t)stackptr);
+	}
+	arch_write_per_cpu_data(0x20, 64, (size_t)stackptr);
+
 	x64_go_usermode(userstack, ufunc, code_selector, data_selector, tss, SEGVAL(GDT_ENTRY_TSS, 3));
 }
 

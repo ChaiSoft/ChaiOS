@@ -112,7 +112,7 @@ struct processor_info {
 	volatile cpu_communication* comms;
 	uint32_t acpi_id;
 	bool enabled;
-	kstack_t init_stack;
+	stack_t init_stack;
 };
 typedef RedBlackTree<uint32_t, processor_info*> cputree_t;
 static cputree_t cputree;
@@ -129,9 +129,9 @@ static processor_info* create_info(size_t cpuidt, size_t acpid)
 
 	if (cpuidt != arch_current_processor_id())
 	{
-		if (kstack_t stack = arch_create_kernel_stack())
+		if (stack_t stack = arch_create_stack(0, 0))
 		{
-			comms->stack = (size_t)arch_init_stackptr(stack);
+			comms->stack = (size_t)arch_init_stackptr(stack, 0);
 			info->init_stack = stack;
 		}
 		else
@@ -153,7 +153,7 @@ static void sync_cpu(uint32_t cpuid, volatile cpu_data* data)
 	{
 		kprintf(u"CPU %d wouldn't wake: %x\r\n", cpuid, data->rendezvous);
 		delete_spinlock(comms->spinlock);
-		arch_destroy_kernel_stack(info->init_stack);
+		arch_destroy_stack(info->init_stack, 0);
 		return;
 	}
 	while (data->rendezvous);

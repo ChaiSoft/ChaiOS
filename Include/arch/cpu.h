@@ -72,7 +72,8 @@ static class _cpu_data {
 	static const uint32_t offset_ticks = 0x10;
 	static const uint32_t offset_id = 0x18;
 	static const uint32_t offset_irql = 0x1C;
-	static const uint32_t offset_max = 0x20;
+	static const uint32_t offset_kstack = 0x20;
+	static const uint32_t offset_max = 0x28;
 public:
 	static const size_t data_size = 0x38;
 	class cpu_id {
@@ -100,6 +101,12 @@ public:
 		uint32_t operator = (uint32_t i) { arch_write_per_cpu_data(offset_irql, 32, i); return i; }
 		operator uint32_t() const { return arch_read_per_cpu_data(offset_irql, 32); }
 	}irql;
+
+	class cpu_kstack {
+	public:
+		void* operator = (void* i) { arch_write_per_cpu_data(offset_kstack, 64, (size_t)i); return i; }
+		operator void*() const { return (void*)arch_read_per_cpu_data(offset_kstack, 64); }
+	}kstack;
 }pcpu_data;
 uint64_t arch_msi_address(uint64_t* data, size_t vector, uint32_t processor, uint8_t edgetrigger = 1, uint8_t deassert = 0);
 #endif
@@ -129,13 +136,14 @@ void context_destroy(context_t ctx);
 int save_context(context_t ctxt);
 void jump_context(context_t ctxt, int value);
 
-typedef void* kstack_t;
-kstack_t arch_create_kernel_stack();
-void arch_destroy_kernel_stack(kstack_t stack);
-void* arch_init_stackptr(kstack_t stack);
-void arch_new_thread(context_t ctxt, kstack_t stack, void* entrypt);
+typedef void* stack_t;
+stack_t arch_create_stack(size_t length, uint8_t user);
+void arch_destroy_stack(stack_t stack, size_t length);
+void* arch_init_stackptr(stack_t stack, size_t length);
+void arch_new_thread(context_t ctxt, stack_t stack, void* entrypt);
 
 void arch_go_usermode(void* userstack, void (*ufunc)(void*), size_t bitness);
+void arch_write_kstack(stack_t stack);
 
 void arch_flush_tlb(void*);
 CHAIKRNL_FUNC void arch_flush_cache();

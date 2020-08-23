@@ -12,6 +12,7 @@ typedef uint16_t char16_t;
 #define LWIP_NO_INTTYPES_H 1
 #define LWIP_NO_LIMITS_H 0
 #define LWIP_NO_CTYPE_H 1
+#define LWIP_NO_UNISTD_H 1
 
 #define X8_F "x"
 #define U16_F "d"

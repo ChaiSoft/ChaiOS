@@ -349,6 +349,7 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	bootinfo.boottype = CHAIOS_BOOT_TYPE_UEFI;
 	bootinfo.printf_proc = &printf;
 	bootinfo.puts_proc = &puts;
+	bootinfo.bootstack = stackaddr;
 	printf(u"Success: Kernel entry point at %x, stack at %x, length %x\n", kentry, stackaddr, kstacksize);
 	call_kernel(&bootinfo, kentry, stackaddr, kstacksize);
 	puts(u"Kernel returned");

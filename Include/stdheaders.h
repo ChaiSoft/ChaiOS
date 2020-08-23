@@ -11,6 +11,14 @@
 #define EXTERN
 #endif
 
+typedef intptr_t ssize_t;
+#define SSIZE_MAX INTPTR_MAX
+
+//This pointer may be a user mode specified buffer. Don't trust it
+#define __user
+//Kernel mode pointer
+#define __kernel
+
 #ifdef __cplusplus
 extern "C++" {
 	template <class T, class U> intptr_t raw_diff(T* p1, U* p2)

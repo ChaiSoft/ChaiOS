@@ -45,6 +45,7 @@ typedef struct _KERNEL_BOOT_INFO {
 	void* kterm_status;
 	void(*puts_proc)(const char16_t*);
 	void(*printf_proc)(const char16_t*, ...);
+	void* bootstack;
 }KERNEL_BOOT_INFO, *PKERNEL_BOOT_INFO;
 
 typedef struct _image_descriptor {

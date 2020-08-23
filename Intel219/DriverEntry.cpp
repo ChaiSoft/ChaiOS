@@ -357,6 +357,7 @@ struct i219_driver_info {
 
 static uint8_t ethernet_interrupt(size_t vector, void* param)
 {
+	kprintf(u"Ethernet Interrupt\n");
 	i219_driver_info* dinfo = (i219_driver_info*)param;
 	I219Registers devregs(dinfo->mapped_controller);
 	uint32_t status = devregs.read(E1000_REG_ICR);

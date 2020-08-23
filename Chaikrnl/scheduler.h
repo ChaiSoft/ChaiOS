@@ -19,6 +19,7 @@ enum THREAD_TYPE {
 	KERNEL_IDLE,
 	DRIVER_EVENT,
 	DRIVER_TASK,
+	//All user mode thread types must come after here
 	USER_THREAD
 };
 EXTERN CHAIKRNL_FUNC HTHREAD create_thread(thread_proc proc, void* param, size_t priority = THREAD_PRIORITY_NORMAL, size_t type = KERNEL_TASK);
@@ -32,6 +33,7 @@ void scheduler_timer_tick();
 uint8_t isscheduler();
 EXTERN CHAIKRNL_FUNC void wake_thread(HTHREAD thread);
 EXTERN CHAIKRNL_FUNC HTHREAD current_thread();
+stack_t getThreadStack(HTHREAD thread, uint8_t user);
 #define TIMEOUT_INFINITY SIZE_MAX
 typedef uint8_t(*sched_should_wait)(spinlock_t lock, void* param);
 uint8_t scheduler_wait(size_t timeout, spinlock_t lock, sched_should_wait _should_wait, void* fparam, cpu_status_t* st);

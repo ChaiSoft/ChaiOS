@@ -267,6 +267,7 @@
     <ClCompile Include="uefihelper.cpp" />
     <ClCompile Include="usb.cpp" />
     <ClCompile Include="vds.cpp" />
+    <ClCompile Include="vfs.cpp" />
     <ClCompile Include="xhci.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -276,6 +277,7 @@
     <ClInclude Include="..\Include\kernelinfo.h" />
     <ClInclude Include="..\Include\kgraphics.h" />
     <ClInclude Include="..\Include\spinlock.h" />
+    <ClInclude Include="..\Include\vfs.h" />
     <ClInclude Include="acpihelp.h" />
     <ClInclude Include="arch\paging.h" />
     <ClInclude Include="arch\x64\apic.h" />

@@ -110,11 +110,6 @@ bool pci_print(uint16_t segment, uint16_t bus, uint16_t device)
 	return false;
 }
 
-void user_function(void*)
-{
-	while (1);
-}
-
 static netif* testnif;
 
 EXTERN CHAIKRNL_FUNC void test_netif(netif* ptr)
@@ -164,6 +159,14 @@ static vds_enum_result vds_enum(HDISK disk)
 	return RESULT_NOTBOUND;
 }
 
+static PKERNEL_BOOT_INFO bootinf = nullptr;
+EXTERN PKERNEL_BOOT_INFO getBootInfo()
+{
+	return bootinf;
+}
+
+EXTERN void user_function();
+
 extern bool CallConstructors();
 void _kentry(PKERNEL_BOOT_INFO bootinfo)
 {
@@ -190,7 +193,7 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 	setLiballocAllocator(&early_page_allocate, &early_free_pages);
 	InitialiseGraphics(*bootinfo->fbinfo, bootinfo->kterm_status);
 	set_stdio_puts(&gputs_k);
-
+	bootinf = bootinfo = copyBootInfo(bootinfo);
 	SetBackgroundColour(RGB(0, 0, 0xFF));
 	void* wnd = CreateWindow(900, 700);
 	SetKoutWindow(wnd);
@@ -211,7 +214,7 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 	startup_multiprocessor();
 	//Welcome to the thunderdome
 	//startup_acpi();
-	setup_usb();
+	//setup_usb();
 	//Start Virtual Disk System
 	init_vds();
 
@@ -268,15 +271,21 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 	enumerate_disks(&vds_enum);
 
 	kputs(u"System timer: ");
-	while (1)
+	//Test usermode
+#if 1
+	void* ufn = find_free_paging(PAGESIZE, (void*)0x1000000000);
+	if (!paging_map(ufn, PADDR_ALLOCATE, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE))
 	{
-		uint64_t timer = arch_get_system_timer();
-		kprintf(u"%d", timer);
-		if(timer == 0)
-			kputs(u"\b");
-		for (;timer != 0; timer /= 10)
-		{
-			kputs(u"\b");
-		}
+		kprintf(u"Failed to map at %x\n", ufn);
 	}
+	else
+	{
+		memcpy(ufn, &user_function, PAGESIZE);
+		set_paging_attributes(ufn, PAGESIZE, PAGE_ATTRIBUTE_USER, PAGE_ATTRIBUTE_WRITABLE);
+		void* stack = arch_init_stackptr(arch_create_stack(0, 1), 0);
+		arch_go_usermode(stack, (void(*)(void*))ufn, 64);
+	}
+#endif
+
+	while (1);
 }
