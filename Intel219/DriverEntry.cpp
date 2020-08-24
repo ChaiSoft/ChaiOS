@@ -1,4 +1,4 @@
-#include <chaikrnl.h>
+﻿#include <chaikrnl.h>
 #include <pciexpress.h>
 #include <kstdio.h>
 #include <string.h>
@@ -7,6 +7,8 @@
 #include <lwip/netifapi.h>
 #include <lwip/etharp.h>
 #include <lwip/ethip6.h>
+
+#define USE_DHCP 0
 
 /* Registers */
 typedef enum
@@ -357,7 +359,6 @@ struct i219_driver_info {
 
 static uint8_t ethernet_interrupt(size_t vector, void* param)
 {
-	kprintf(u"Ethernet Interrupt\n");
 	i219_driver_info* dinfo = (i219_driver_info*)param;
 	I219Registers devregs(dinfo->mapped_controller);
 	uint32_t status = devregs.read(E1000_REG_ICR);
@@ -477,8 +478,6 @@ err_t i219_tx(struct netif *netif, struct pbuf *p)
 
 	return ERR_OK;
 }
-
-EXTERN CHAIKRNL_FUNC void test_netif(netif* ptr);
 
 err_t i219_init(struct netif *netif)
 {
@@ -656,7 +655,6 @@ err_t i219_init(struct netif *netif)
 	{
 		netifapi_netif_set_link_up_async(netif);
 	}
-	test_netif(netif);
 }
 
 static ip4_addr_t testing_ip;
@@ -692,16 +690,19 @@ bool Intel219Finder(uint16_t segment, uint16_t bus, uint16_t device, uint8_t fun
 	memset(netdev, 0, sizeof(netif));
 	state->netif = netdev;
 	//netdev->hwaddr
-	IP4_ADDR(&testing_ip, 169, 254, 118, 124);
-	IP4_ADDR(&testing_netmask, 255, 255, 255, 0);
-	IP4_ADDR(&testing_gateway, 169, 254, 118, 1);
-#if 1
-	netifapi_netif_add(netdev, &testing_ip, &testing_netmask, &testing_gateway, state, &i219_init, &tcpip_input);
-#else
+	char16_t iptest = 'ח';		//Chet
+	IP4_ADDR(&testing_ip, 172, 16, iptest >> 8, iptest & 0xFF);
+	IP4_ADDR(&testing_netmask, 255, 255, 0, 0);
+	IP4_ADDR(&testing_gateway, 172, 16, 0, 1);
+#if USE_DHCP
 	netifapi_netif_add(netdev, NULL, NULL, NULL, state, &i219_init, &tcpip_input);
+#else
+	netifapi_netif_add(netdev, &testing_ip, &testing_netmask, &testing_gateway, state, &i219_init, &tcpip_input);
 #endif
 	netifapi_netif_set_up_async(netdev);
-
+#if USE_DHCP
+	netifapi_dhcp_start(netdev);
+#endif
 	return false;
 }
 

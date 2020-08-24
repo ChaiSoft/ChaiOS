@@ -21,11 +21,11 @@ struct semaphore {
 	spinlock_t spinlock;
 	size_t value;
 	LinkedList<wait_queue_entry*>* wait_queue;
-	char16_t* semname;
+	const char16_t* semname;
 };
 
 
-EXTERN CHAIKRNL_FUNC semaphore_t create_semaphore(size_t count, char16_t* name)
+EXTERN CHAIKRNL_FUNC semaphore_t create_semaphore(size_t count, const char16_t* name)
 {
 	semaphore* sem = new semaphore;
 	if (!sem)

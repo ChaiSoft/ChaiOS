@@ -28,6 +28,8 @@ static ACPI_TABLE_MCFG* mcfg = nullptr;
 #define PCI_CAP_ID_MSI 0x05
 #define PCI_CAP_ID_MSIX 0x11
 
+#define DEBUG 0
+
 enum PCI_MEM_BAR_TYPES {
 	MEMBAR32,
 	RESERVED,
@@ -504,11 +506,12 @@ uint32_t pci_allocate_msi(uint16_t segment, uint16_t bus, uint16_t device, uint1
 			uint64_t table_bir = 0, pending_bir=0;
 			internalptr = internal_read_pci(segment, bus, device, function, msireg + 1, 32, &table_bir, internalptr);
 			internalptr = internal_read_pci(segment, bus, device, function, msireg + 2, 32, &pending_bir, internalptr);
-
+#if DEBUG
 			kprintf(u"MSI-X capability\n");
 			kprintf(u"  %x\n", capreg);
 			kprintf(u"  %x\n", table_bir);
 			kprintf(u"  %x\n", pending_bir);
+#endif
 
 			uint32_t bar = table_bir & 0x7;
 			size_t barsize = 0;
@@ -521,12 +524,15 @@ uint32_t pci_allocate_msi(uint16_t segment, uint16_t bus, uint16_t device, uint1
 			size_t tablecount = (((capreg>>16) & 0x7FF) + 1);
 			size_t tablesize = tablecount * 16;		//sizeof(table_entry) == 16
 			void* mappedtable = find_free_paging(barsize);
+#if DEBUG
 			kprintf(u"Mapping BAR%d to %x: address %x, length %x\n", bar, mappedtable, msibar, barsize);
+#endif
 			if (!paging_map(mappedtable, msibar, barsize, PAGE_ATTRIBUTE_NO_CACHING | PAGE_ATTRIBUTE_WRITABLE))
-				kprintf(u"FAILED\n");
-
+				kprintf(u"MSI-X MAPPING FAILED\n");
+#if DEBUG
 			kprintf(u"MSI-X BIR %x, table BAR%d (%x), offset %x, count %d\n", table_bir, bar, msibar, offset, tablecount);
 			kprintf(u"Message address: %x, data: %x\n", msi_addr, msi_data);
+#endif
 			//Write upper address
 			internalptr = internal_write_pci(segment, bus, device, function, msireg + 1, 32, msi_addr >> 32, internalptr);
 			//kprintf(u"MSI-X desired: %x:%x\n", msi_data, msi_addr);
@@ -538,7 +544,9 @@ uint32_t pci_allocate_msi(uint16_t segment, uint16_t bus, uint16_t device, uint1
 				msitab[2 + 4 * n] = msi_data;
 				msitab[3 + 4 * n] = 0;			//Vector control: unmasked
 			}
+#if DEBUG
 			kprintf(u"MSI-X data mapped %x: %x:%x\n", msitab, msitab[1], msitab[0]);
+#endif
 			//Enable MSI-X
 			capreg &= ~(1 << 30);
 			internalptr = internal_write_pci(segment, bus, device, function, msireg, 32, capreg | (1 << 31), internalptr);

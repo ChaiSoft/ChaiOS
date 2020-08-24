@@ -14,6 +14,7 @@ typedef uint32_t vds_err_t;
 
 typedef vds_err_t(*chaios_vds_read)(void* param, lba_t blockaddr, vds_length_t count, void* buffer, semaphore_t* completionEvent);
 typedef vds_err_t(*chaios_vds_write)(void* param, lba_t blockaddr, vds_length_t count, void* buffer, semaphore_t* completionEvent);
+typedef vds_err_t(*chaios_vds_async_status)(void* param, vds_err_t token, semaphore_t completionEvent);
 
 #pragma pack(push, 1)
 typedef struct _CHAIOS_VDS_PARAMS {
@@ -30,6 +31,7 @@ typedef struct _CHAIOS_VDS_DISK {
 	chaios_vds_read read_fn;
 	chaios_vds_write write_fn;
 	chaios_vds_params get_params;
+	chaios_vds_async_status async_status;
 	void* fn_param;
 }CHAIOS_VDS_DISK, *PCHAIOS_VDS_DISK;
 
@@ -51,8 +53,22 @@ enum VDS_ENUM_RESULT {
 void init_vds();
 
 EXTERN CHAIKRNL_FUNC HDISK RegisterVdsDisk(PCHAIOS_VDS_DISK diskInfo);
+/*
+	VDS READ
+		* HDISK disk - Disk to read from
+		* lba_t block - Block to read from
+		* vds_length_t count -Number of blocks to read
+		* void* buffer - Buffer to read to
+		Synchronous operation: completionEvent = nullptr
+			Returns status of completion
+		Asynchronous operation: completionEvent -> semaphore_t
+			Outputs to *completionEvent a semaphore representing the event
+			Returns vds_err_t token, this must be passed to GetVdsStatusAsync after the operation completes to get status.
+			Note that GetVdsStatusAsync *must* be called
+*/
 EXTERN CHAIKRNL_FUNC vds_err_t ReadVdsDisk(HDISK disk, lba_t block, vds_length_t count, void* buffer, semaphore_t* completionEvent);
 EXTERN CHAIKRNL_FUNC vds_err_t WriteVdsDisk(HDISK disk, lba_t block, vds_length_t count, void* buffer, semaphore_t* completionEvent);
+EXTERN CHAIKRNL_FUNC vds_err_t GetVdsStatusAsync(HDISK disk, vds_err_t token, semaphore_t completionEvent);
 EXTERN CHAIKRNL_FUNC PCHAIOS_VDS_PARAMS GetVdsParams(HDISK disk);
 
 EXTERN CHAIKRNL_FUNC void enumerate_disks(chaios_vds_enum_callback callback);

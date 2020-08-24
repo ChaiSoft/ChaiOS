@@ -16,7 +16,7 @@
 #define LWIP_IPV6 1
 #define LWIP_IPV6_FORWARD 1
 #define ETHARP_TCPIP_ETHINPUT 1
-#define LWIP_DHCP 0
+#define LWIP_DHCP 1
 
 //This can be zero on 32 bit
 #define IPV6_FRAG_COPYHEADER 1

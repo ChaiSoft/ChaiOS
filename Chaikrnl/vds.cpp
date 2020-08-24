@@ -374,6 +374,18 @@ EXTERN CHAIKRNL_FUNC vds_err_t WriteVdsDisk(HDISK disk, lba_t block, vds_length_
 {
 	return -1;
 }
+EXTERN CHAIKRNL_FUNC vds_err_t GetVdsStatusAsync(HDISK disk, vds_err_t token, semaphore_t completionEvent)
+{
+	auto st = acquire_spinlock(treelock);
+	auto it = handle_translator.find(disk);
+	release_spinlock(treelock, st);
+	if (it == handle_translator.end())
+		return -1;
+	PCHAIOS_VDS_DISK diskinf = it->second->publicinfo;
+	if (!diskinf->read_fn)
+		return -1;
+	return diskinf->async_status(diskinf->fn_param, token, completionEvent);
+}
 EXTERN CHAIKRNL_FUNC PCHAIOS_VDS_PARAMS GetVdsParams(HDISK disk)
 {
 	auto st = acquire_spinlock(treelock);

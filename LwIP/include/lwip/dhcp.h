@@ -105,7 +105,7 @@ void dhcp_set_struct(struct netif *netif, struct dhcp *dhcp);
 /** Remove a struct dhcp previously set to the netif using dhcp_set_struct() */
 #define dhcp_remove_struct(netif) netif_set_client_data(netif, LWIP_NETIF_CLIENT_DATA_INDEX_DHCP, NULL)
 void dhcp_cleanup(struct netif *netif);
-err_t dhcp_start(struct netif *netif);
+CHAILWIP_FUNC err_t dhcp_start(struct netif *netif);
 err_t dhcp_renew(struct netif *netif);
 err_t dhcp_release(struct netif *netif);
 void dhcp_stop(struct netif *netif);
