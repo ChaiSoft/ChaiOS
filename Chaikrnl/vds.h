@@ -63,13 +63,13 @@ EXTERN CHAIKRNL_FUNC HDISK RegisterVdsDisk(PCHAIOS_VDS_DISK diskInfo);
 			Returns status of completion
 		Asynchronous operation: completionEvent -> semaphore_t
 			Outputs to *completionEvent a semaphore representing the event
-			Returns vds_err_t token, this must be passed to GetVdsStatusAsync after the operation completes to get status.
-			Note that GetVdsStatusAsync *must* be called
+			Returns vds_err_t token, this must be passed to VdsGetStatusAsync after the operation completes to get status.
+			Note that VdsGetStatusAsync *must* be called
 */
-EXTERN CHAIKRNL_FUNC vds_err_t ReadVdsDisk(HDISK disk, lba_t block, vds_length_t count, void* buffer, semaphore_t* completionEvent);
-EXTERN CHAIKRNL_FUNC vds_err_t WriteVdsDisk(HDISK disk, lba_t block, vds_length_t count, void* buffer, semaphore_t* completionEvent);
-EXTERN CHAIKRNL_FUNC vds_err_t GetVdsStatusAsync(HDISK disk, vds_err_t token, semaphore_t completionEvent);
-EXTERN CHAIKRNL_FUNC PCHAIOS_VDS_PARAMS GetVdsParams(HDISK disk);
+EXTERN CHAIKRNL_FUNC vds_err_t VdsReadDisk(HDISK disk, lba_t block, vds_length_t count, void* buffer, semaphore_t* completionEvent);
+EXTERN CHAIKRNL_FUNC vds_err_t VdsWriteDisk(HDISK disk, lba_t block, vds_length_t count, void* buffer, semaphore_t* completionEvent);
+EXTERN CHAIKRNL_FUNC vds_err_t VdsGetStatusAsync(HDISK disk, vds_err_t token, semaphore_t completionEvent);
+EXTERN CHAIKRNL_FUNC PCHAIOS_VDS_PARAMS VdsGetParams(HDISK disk);
 
 EXTERN CHAIKRNL_FUNC void enumerate_disks(chaios_vds_enum_callback callback);
 

@@ -77,7 +77,7 @@ static bool match_fat_guid(GUID& guid)
 
 static vds_enum_result FatVdsCallback(HDISK disk)
 {
-	auto params = GetVdsParams(disk);
+	auto params = VdsGetParams(disk);
 	if (params->parent != NULL)
 	{
 		//Check partition type ID
@@ -88,7 +88,7 @@ static vds_enum_result FatVdsCallback(HDISK disk)
 	}
 	//Superfloppy or matching partition ID... is it FAT?
 	void* sector = new uint8_t[params->sectorSize];
-	if (ReadVdsDisk(disk, 0, 1, sector, nullptr) != 0)
+	if (VdsReadDisk(disk, 0, 1, sector, nullptr) != 0)
 		return RESULT_NOTBOUND;
 
 	PFAT_BPB bpb = (PFAT_BPB)sector;

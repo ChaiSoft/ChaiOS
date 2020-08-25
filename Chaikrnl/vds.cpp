@@ -138,13 +138,13 @@ protected:
 	{
 		if (m_startLba + blockaddr + count - 1 > m_endLba)
 			return -1;
-		return ReadVdsDisk(m_parent, blockaddr + m_startLba, count, buffer, completionEvent);
+		return VdsReadDisk(m_parent, blockaddr + m_startLba, count, buffer, completionEvent);
 	}
 	virtual vds_err_t write(lba_t blockaddr, vds_length_t count, void* buffer, semaphore_t* completionEvent)
 	{
 		if (m_startLba + blockaddr + count - 1 > m_endLba)
 			return -1;
-		return WriteVdsDisk(m_parent, blockaddr + m_startLba, count, buffer, completionEvent);
+		return VdsWriteDisk(m_parent, blockaddr + m_startLba, count, buffer, completionEvent);
 	}
 
 private:
@@ -212,13 +212,13 @@ protected:
 	{
 		if (blockaddr + count > m_diskSize)
 			return -1;
-		return ReadVdsDisk(m_parent, blockaddr + m_startLba, count, buffer, completionEvent);
+		return VdsReadDisk(m_parent, blockaddr + m_startLba, count, buffer, completionEvent);
 	}
 	virtual vds_err_t write(lba_t blockaddr, vds_length_t count, void* buffer, semaphore_t* completionEvent)
 	{
 		if (blockaddr + count > m_diskSize)
 			return -1;
-		return WriteVdsDisk(m_parent, blockaddr + m_startLba, count, buffer, completionEvent);
+		return VdsWriteDisk(m_parent, blockaddr + m_startLba, count, buffer, completionEvent);
 	}
 
 private:
@@ -249,7 +249,7 @@ static vds_enum_result partitionManagerCallback(HDISK disk)
 {
 	//kprintf(u"Checking for partitions on disk %d\n", disk);
 
-	auto params = GetVdsParams(disk);
+	auto params = VdsGetParams(disk);
 
 	auto sectorSize = params->sectorSize;
 
@@ -257,7 +257,7 @@ static vds_enum_result partitionManagerCallback(HDISK disk)
 
 	vds_enum_result result = RESULT_NOTBOUND;
 	//GPT check
-	if (ReadVdsDisk(disk, 1, 1, sector, nullptr) != 0)
+	if (VdsReadDisk(disk, 1, 1, sector, nullptr) != 0)
 		goto ret_result;		//Could not read!
 	if (strncmp((char*)sector, "EFI PART", 8) == 0)
 	{
@@ -275,7 +275,7 @@ static vds_enum_result partitionManagerCallback(HDISK disk)
 			uint64_t offset = (i * entrySize) % sectorSize;
 			if (lba != curlba)
 			{
-				if (ReadVdsDisk(disk, lba, 1, sector, nullptr) != 0)
+				if (VdsReadDisk(disk, lba, 1, sector, nullptr) != 0)
 					return result;
 				curlba = lba;
 			}
@@ -294,7 +294,7 @@ static vds_enum_result partitionManagerCallback(HDISK disk)
 	else
 	{
 		//Check for BIOS MBR
-		if (ReadVdsDisk(disk, 0, 1, sector, nullptr) != 0)
+		if (VdsReadDisk(disk, 0, 1, sector, nullptr) != 0)
 			goto ret_result;		//Could not read!
 
 		PMBR_BOOTSECTOR mbr = (PMBR_BOOTSECTOR)sector;
@@ -358,7 +358,7 @@ EXTERN CHAIKRNL_FUNC HDISK RegisterVdsDisk(PCHAIOS_VDS_DISK diskInfo)
 
 	return handle;
 }
-EXTERN CHAIKRNL_FUNC vds_err_t ReadVdsDisk(HDISK disk, lba_t block, vds_length_t count, void* buffer, semaphore_t* completionEvent)
+EXTERN CHAIKRNL_FUNC vds_err_t VdsReadDisk(HDISK disk, lba_t block, vds_length_t count, void* buffer, semaphore_t* completionEvent)
 {
 	auto st = acquire_spinlock(treelock);
 	auto it = handle_translator.find(disk);
@@ -370,11 +370,11 @@ EXTERN CHAIKRNL_FUNC vds_err_t ReadVdsDisk(HDISK disk, lba_t block, vds_length_t
 		return -1;
 	return diskinf->read_fn(diskinf->fn_param, block, count, buffer, completionEvent);
 }
-EXTERN CHAIKRNL_FUNC vds_err_t WriteVdsDisk(HDISK disk, lba_t block, vds_length_t count, void* buffer, semaphore_t* completionEvent)
+EXTERN CHAIKRNL_FUNC vds_err_t VdsWriteDisk(HDISK disk, lba_t block, vds_length_t count, void* buffer, semaphore_t* completionEvent)
 {
 	return -1;
 }
-EXTERN CHAIKRNL_FUNC vds_err_t GetVdsStatusAsync(HDISK disk, vds_err_t token, semaphore_t completionEvent)
+EXTERN CHAIKRNL_FUNC vds_err_t VdsGetStatusAsync(HDISK disk, vds_err_t token, semaphore_t completionEvent)
 {
 	auto st = acquire_spinlock(treelock);
 	auto it = handle_translator.find(disk);
@@ -386,7 +386,7 @@ EXTERN CHAIKRNL_FUNC vds_err_t GetVdsStatusAsync(HDISK disk, vds_err_t token, se
 		return -1;
 	return diskinf->async_status(diskinf->fn_param, token, completionEvent);
 }
-EXTERN CHAIKRNL_FUNC PCHAIOS_VDS_PARAMS GetVdsParams(HDISK disk)
+EXTERN CHAIKRNL_FUNC PCHAIOS_VDS_PARAMS VdsGetParams(HDISK disk)
 {
 	auto st = acquire_spinlock(treelock);
 	auto it = handle_translator.find(disk);

@@ -205,10 +205,10 @@ bool paging_map(void* vaddr, paddr_t paddr, size_t attributes)
 	return true;
 }
 
-static bool check_free(int level, void* start_addr, void* end_addr)
+static bool check_free(int level, void* start_addr, void* end_addr, bool checkBufPresent = false, bool checkUserMode = false)
 {
 	if (level == 0)
-		return false;
+		return checkBufPresent;
 	size_t* paging_entry = get_tab_dispatch[level](start_addr);
 	get_tab_index getindex = get_index_dispatch[level];
 
@@ -220,11 +220,14 @@ static bool check_free(int level, void* start_addr, void* end_addr)
 	{
 		if ((paging_entry[pindex] & PAGING_PRESENT) == 0)
 		{
-			
+			if (checkBufPresent)
+				return false;
 		}
+		else if (checkUserMode && ((paging_entry[pindex] & PAGING_USER) == 0))
+			return false;
 		else
 		{
-			if (!check_free(level - 1, (void*)cur_addr, end_addr))
+			if (!check_free(level - 1, (void*)cur_addr, end_addr, checkBufPresent, checkUserMode))
 				return false;
 		}
 		cur_addr >>= (level * 9 + 3);
@@ -234,13 +237,19 @@ static bool check_free(int level, void* start_addr, void* end_addr)
 	return true;
 }
 
-bool check_free(void* vaddr, size_t length)
+EXTERN bool check_free(void* vaddr, size_t length)
 {
 	void* endaddr = raw_offset<void*>(vaddr, length - 1);
 	return check_free(4, vaddr, endaddr);
 }
 
-bool paging_map(void* vaddr, paddr_t paddr, size_t length, size_t attributes)
+EXTERN bool check_buf_present(void* __user vaddr, size_t length, bool usermode)
+{
+	void* endaddr = raw_offset<void*>(vaddr, length - 1);
+	return check_free(4, vaddr, endaddr, true, usermode);
+}
+
+EXTERN bool paging_map(void* vaddr, paddr_t paddr, size_t length, size_t attributes)
 {
 	auto st = acquire_spinlock(paging_lock);
 	if (!check_free(vaddr, length))
@@ -275,7 +284,7 @@ bool paging_map(void* vaddr, paddr_t paddr, size_t length, size_t attributes)
 	return true;
 }
 
-void paging_free(void* vaddr, size_t length, bool free_physical)
+EXTERN void paging_free(void* vaddr, size_t length, bool free_physical)
 {
 	PTAB_ENTRY* ptab = getPTAB(vaddr);
 	for (size_t index = getPTABindex(vaddr), offset = 0; offset < (length + PAGESIZE - 1) / PAGESIZE; ++index, ++offset)
@@ -288,7 +297,7 @@ void paging_free(void* vaddr, size_t length, bool free_physical)
 	}
 }
 
-void set_paging_attributes(void* vaddr, size_t length, size_t attrset, size_t attrclear)
+EXTERN void set_paging_attributes(void* vaddr, size_t length, size_t attrset, size_t attrclear)
 {
 	PTAB_ENTRY* ptab = getPTAB(vaddr);
 	for (size_t index = getPTABindex(vaddr), count = 0; count < (length + PAGESIZE - 1) / PAGESIZE; ++index, ++count)
@@ -358,10 +367,62 @@ static paddr_t copy_paging_structures()
 	return copy_paging_structure(mapping_loc, nullptr, 4);
 }
 
-paddr_t get_physical_address(void* addr)
+EXTERN paddr_t get_physical_address(void* addr)
 {
 	size_t offset = (size_t)addr & (0xFFF);	
 	return get_paddr(getPTAB(addr)[getPTABindex(addr)]) + offset;
+}
+
+EXTERN size_t PagingGetPhysicalAddresses(void* __user vaddr, size_t length, PPAGING_PHYADDR_DESC paddrbuf, size_t bufsize, bool userModeRequest)
+{
+	if (!check_buf_present(vaddr, length, userModeRequest))
+		return 0;
+	//This is a valid user buffer. TODO: lock the buffer so that it doesn't get changed
+	//Return the physical addresses
+	size_t addresses = 0;
+	paddr_t current_addr = get_physical_address(vaddr);
+	size_t current_length = PAGESIZE;
+	size_t offset = current_addr & (PAGESIZE - 1);
+	current_length -= offset;
+
+	size_t total_length = current_length;
+	void* cur_ptr = raw_offset<void*>(vaddr, total_length);
+
+	while (addresses < bufsize || paddrbuf == NULL)
+	{
+		while (total_length < length)
+		{
+			if (get_physical_address(cur_ptr) != current_addr + current_length)
+			{
+				//Physical address break;
+				break;
+			}
+			total_length += PAGESIZE;
+			current_length += PAGESIZE;
+			cur_ptr = raw_offset<void*>(vaddr, total_length);
+		}
+		if (total_length > length)
+		{
+			//Remove overshoot
+			current_length -= (total_length - length);
+			total_length = length;
+		}
+		if (paddrbuf)
+		{
+			paddrbuf[addresses].phyaddr = current_addr;
+			paddrbuf[addresses].length = current_length;
+		}
+
+		++addresses;
+
+		if (total_length >= length)
+			break;
+
+		current_length = 0;
+		current_addr = get_physical_address(cur_ptr);
+	}
+	//Return total count of addresses
+	return addresses;
 }
 
 #define MSR_IA32_PAT 0x277

@@ -140,7 +140,7 @@ static void print_guid(GUID& id)
 
 static vds_enum_result vds_enum(HDISK disk)
 {
-	auto params = GetVdsParams(disk);
+	auto params = VdsGetParams(disk);
 	if (params->parent != NULL)
 		kprintf(u"  ");
 	uint64_t megabytes = (params->diskSize * params->sectorSize) / (1024 * 1024);

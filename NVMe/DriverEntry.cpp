@@ -419,6 +419,24 @@ protected:
 		uint8_t sglid;
 	}NVME_SGL, *PNVME_SGL;
 
+	enum NVME_SGL_TYPE {
+		SGL_DATA_BLOCK = 0,
+		SGL_BIT_BUCKET = 1,
+		SGL_SEGMENT = 2,
+		SGL_LAST_SEGMENT = 3,
+		SGL_KEYED = 4
+	};
+
+	enum NVME_SGL_SUBTYPE {
+		SGL_ADDRESS = 0,
+		SGL_OFFSET = 1
+	};
+
+	inline static uint8_t sglid(NVME_SGL_TYPE type, NVME_SGL_SUBTYPE subt)
+	{
+		return ((type << 4) | subt);
+	}
+
 	typedef volatile struct _nvme_command {
 		//CDWORD 0
 		uint8_t opcode;
@@ -874,18 +892,21 @@ public:
 
 	protected:
 
-		vds_err_t read(lba_t blockaddr, vds_length_t count, void* buffer, semaphore_t* completionEvent)
+		vds_err_t read(lba_t blockaddr, vds_length_t count, void* __user buffer, semaphore_t* completionEvent)
 		{
 			//kprintf(u"NVMe read: block %d, length %d\n", blockaddr, count);
 			uint16_t subQueue = 1;
 			auto cmd = m_parent->m_IoSubmissionQueues[subQueue - 1]->get_entry();
 			cmd->opcode = NVME_READ;
 			cmd->NSID = m_nsid;
-			cmd->prp_fuse = NVME_PRP | NVME_NOTFUSED;
+			//cmd->prp_fuse = NVME_PRP | NVME_NOTFUSED;
+			cmd->prp_fuse = NVME_SGL_OM | NVME_NOTFUSED;
 			cmd->reserved = 0;
 			cmd->metadata_ptr = 0;
-			cmd->data_ptr.prp1 = get_physical_address(buffer);
-			cmd->data_ptr.prp2 = 0;
+			//cmd->data_ptr.prp1 = get_physical_address(buffer);
+			//cmd->data_ptr.prp2 = 0;
+			//create_prp_list(buffer, count * m_diskparams.sectorSize, cmd);
+			create_sgl_list(buffer, count * m_diskparams.sectorSize, cmd);
 
 			//Starting LBA
 			cmd->cdword_1x[0] = blockaddr & UINT32_MAX;
@@ -931,6 +952,156 @@ public:
 		friend PCHAIOS_VDS_PARAMS nvme_disk_params(void* param);
 	};
 
+	static bool create_prp_list(void* __user buffer, size_t length, const PNVME_COMMAND command)
+	{
+		size_t desccount = PagingGetPhysicalAddresses(buffer, length, NULL, 0, false);
+		PPAGING_PHYADDR_DESC descriptors = new PAGING_PHYADDR_DESC[desccount];
+		size_t count = PagingGetPhysicalAddresses(buffer, length, descriptors, desccount, false);
+		if (count == 0)
+			return false;		//Some error
+
+		PPAGING_PHYADDR_DESC curdesc = &descriptors[0];
+		PPAGING_PHYADDR_DESC end = &descriptors[count];
+
+		size_t remaining_length = length;
+
+		//First PRP is dealt with directly, and may have an offset
+		command->data_ptr.prp1 = CPU_TO_LE64(curdesc->phyaddr);
+		size_t offset = curdesc->phyaddr & (PAGESIZE-1);
+		size_t curlen = PAGESIZE - offset;
+		curdesc->length -= (remaining_length > curlen ? curlen : remaining_length);
+		if (curdesc->length == 0)
+			++curdesc;
+		remaining_length -= curlen;
+
+		//Check if PRP2 is direct
+		if (remaining_length < PAGESIZE)
+		{
+			if (remaining_length != 0)
+				command->data_ptr.prp2 = CPU_TO_LE64(curdesc->phyaddr);
+			else
+				command->data_ptr.prp2 = CPU_TO_LE64(0);
+			return true;
+		}
+
+		//PRP2 is indirect. Build the structures
+		size_t entries = remaining_length / PAGESIZE;
+
+		curlen = PAGESIZE;		//We deal in pages for everything else
+
+		paddr_t pdpage = pmmngr_allocate(1); 
+		uint64_le* window = (uint64_le*)find_free_paging(PAGESIZE);
+		if (!paging_map(window, pdpage, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE))
+			return false;
+		uint64_le* curent = window;
+		size_t page_length_remaining = PAGESIZE / sizeof(uint64_le);
+
+		while (curdesc != end)
+		{
+			while (curdesc->length > 0)
+			{
+				*curent++ = curdesc->phyaddr;
+				--page_length_remaining;
+				if (page_length_remaining == 1)
+				{
+					//Linked list time
+					paddr_t newpage = *curent = pmmngr_allocate(1);
+					paging_free(window, PAGESIZE, false);
+					if (!paging_map(window, newpage, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE))
+						return false;
+					curent = window;
+				}
+				curdesc->phyaddr += PAGESIZE;
+				curdesc->length = (curdesc->length < PAGESIZE ? 0 : curdesc->length - PAGESIZE);
+			}
+			++curdesc;
+		}
+
+		command->data_ptr.prp2 = CPU_TO_LE64(pdpage);
+		paging_free(window, PAGESIZE, false);
+
+		return true;
+		//kprintf_a("%d descriptors required to represent buffer %x (len %d)\n", desccount, buffer, length);
+	}
+
+	static bool create_sgl_list(void* __user buffer, size_t length, const PNVME_COMMAND command)
+	{
+		size_t desccount = PagingGetPhysicalAddresses(buffer, length, NULL, 0, false);
+		PPAGING_PHYADDR_DESC descriptors = new PAGING_PHYADDR_DESC[desccount];
+		size_t count = PagingGetPhysicalAddresses(buffer, length, descriptors, desccount, false);
+		if (count == 0)
+			return false;		//Some error
+
+		PPAGING_PHYADDR_DESC curdesc = &descriptors[0];
+		PPAGING_PHYADDR_DESC end = &descriptors[count];
+
+		PNVME_SGL sgl = &command->data_ptr.scatter_gather;
+		if (count == 1)
+		{
+			//Direct SGL
+			sgl->sglid = sglid(SGL_DATA_BLOCK, SGL_ADDRESS);
+			sgl->address = descriptors->phyaddr;
+			sgl->length = descriptors->length;
+		}
+		else
+		{
+			const size_t maxSegment = PAGESIZE / sizeof(NVME_SGL);
+			paddr_t Segment = 0;
+			PNVME_SGL mappedSegment = (PNVME_SGL)find_free_paging(PAGESIZE);
+			size_t currentEntry = 0;
+
+
+			while (currentEntry < count)
+			{
+				if (Segment != 0)
+					paging_free((void*)mappedSegment, PAGESIZE, false);
+				Segment = pmmngr_allocate(1);
+				if (!paging_map((void*)mappedSegment, Segment, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE))
+					return false;
+
+				if ((count - currentEntry) > maxSegment)
+					sgl->sglid = sglid(SGL_SEGMENT, SGL_ADDRESS);
+				else
+					sgl->sglid = sglid(SGL_LAST_SEGMENT, SGL_ADDRESS);
+				sgl->length = ((count - currentEntry) > maxSegment ? maxSegment : (count - currentEntry)) * sizeof(NVME_SGL);
+				sgl->address = Segment;
+				sgl->high = sgl->highb = 0;
+				sgl = mappedSegment;
+
+				for (unsigned i = 0; (currentEntry < count) && (i < maxSegment - 1); ++i)
+				{
+					sgl[i].address = descriptors[currentEntry].phyaddr;
+					sgl[i].length = descriptors[currentEntry].length;
+					sgl[i].high = sgl[i].highb = 0;
+					sgl[i].sglid = sglid(SGL_DATA_BLOCK, SGL_ADDRESS);
+					++currentEntry;
+				}
+
+				if (currentEntry == count - 1)
+				{
+					//Special case: we are the last segment completely full
+					sgl[maxSegment - 1].address = descriptors[currentEntry].phyaddr;
+					sgl[maxSegment - 1].length = descriptors[currentEntry].length;
+					sgl[maxSegment - 1].high = sgl[maxSegment - 1].highb = 0;
+					sgl[maxSegment - 1].sglid = sglid(SGL_DATA_BLOCK, SGL_ADDRESS);
+					++currentEntry;
+				}
+				else if (currentEntry < count)
+				{
+					Segment = pmmngr_allocate(1);
+					if ((count - currentEntry) > maxSegment)
+						sgl[maxSegment - 1].sglid = sglid(SGL_SEGMENT, SGL_ADDRESS);
+					else
+						sgl[maxSegment - 1].sglid = sglid(SGL_LAST_SEGMENT, SGL_ADDRESS);
+					sgl[maxSegment - 1].address = Segment;
+					sgl[maxSegment - 1].length = ((count - currentEntry) > maxSegment ? maxSegment : (count - currentEntry)) * sizeof(NVME_SGL);
+					sgl[maxSegment - 1].high = sgl[maxSegment - 1].highb = 0;
+				}
+			}
+			
+		}
+		return true;
+	}
 
 private:
 	CommandQueue* m_adminCommandQueue;
