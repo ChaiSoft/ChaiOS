@@ -14,6 +14,7 @@ typedef uint32_t vds_err_t;
 
 typedef vds_err_t(*chaios_vds_read)(void* param, lba_t blockaddr, vds_length_t count, void* buffer, semaphore_t* completionEvent);
 typedef vds_err_t(*chaios_vds_write)(void* param, lba_t blockaddr, vds_length_t count, void* buffer, semaphore_t* completionEvent);
+typedef vds_err_t(*chaios_vds_flush)(void* param, semaphore_t* completionEvent);
 typedef vds_err_t(*chaios_vds_async_status)(void* param, vds_err_t token, semaphore_t completionEvent);
 
 #pragma pack(push, 1)
@@ -32,6 +33,7 @@ typedef struct _CHAIOS_VDS_DISK {
 	chaios_vds_write write_fn;
 	chaios_vds_params get_params;
 	chaios_vds_async_status async_status;
+	chaios_vds_flush flush_buffers;
 	void* fn_param;
 }CHAIOS_VDS_DISK, *PCHAIOS_VDS_DISK;
 
@@ -68,6 +70,7 @@ EXTERN CHAIKRNL_FUNC HDISK RegisterVdsDisk(PCHAIOS_VDS_DISK diskInfo);
 */
 EXTERN CHAIKRNL_FUNC vds_err_t VdsReadDisk(HDISK disk, lba_t block, vds_length_t count, void* buffer, semaphore_t* completionEvent);
 EXTERN CHAIKRNL_FUNC vds_err_t VdsWriteDisk(HDISK disk, lba_t block, vds_length_t count, void* buffer, semaphore_t* completionEvent);
+EXTERN CHAIKRNL_FUNC vds_err_t VdsFlushDisk(HDISK disk, semaphore_t* completionEvent);
 EXTERN CHAIKRNL_FUNC vds_err_t VdsGetStatusAsync(HDISK disk, vds_err_t token, semaphore_t completionEvent);
 EXTERN CHAIKRNL_FUNC PCHAIOS_VDS_PARAMS VdsGetParams(HDISK disk);
 

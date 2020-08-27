@@ -158,7 +158,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="CommandQueue.cpp" />
+    <ClCompile Include="CompletionQueue.cpp" />
     <ClCompile Include="DriverEntry.cpp" />
+    <ClCompile Include="Namespace.cpp" />
+    <ClCompile Include="NvmeController.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="NvmeController.h" />
+    <ClInclude Include="nvme_intdefs.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

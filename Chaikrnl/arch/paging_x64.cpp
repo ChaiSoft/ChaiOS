@@ -205,7 +205,7 @@ bool paging_map(void* vaddr, paddr_t paddr, size_t attributes)
 	return true;
 }
 
-static bool check_free(int level, void* start_addr, void* end_addr, bool checkBufPresent = false, bool checkUserMode = false)
+static bool check_free(int level, void* start_addr, void* end_addr, bool checkBufPresent = false, bool checkUserMode = false, bool lockBuffer = false)
 {
 	if (level == 0)
 		return checkBufPresent;
@@ -243,10 +243,10 @@ EXTERN bool check_free(void* vaddr, size_t length)
 	return check_free(4, vaddr, endaddr);
 }
 
-EXTERN bool check_buf_present(void* __user vaddr, size_t length, bool usermode)
+EXTERN bool check_buf_present(void* __user vaddr, size_t length, bool usermode, bool lockBuffer)
 {
 	void* endaddr = raw_offset<void*>(vaddr, length - 1);
-	return check_free(4, vaddr, endaddr, true, usermode);
+	return check_free(4, vaddr, endaddr, true, usermode, lockBuffer);
 }
 
 EXTERN bool paging_map(void* vaddr, paddr_t paddr, size_t length, size_t attributes)
@@ -373,9 +373,9 @@ EXTERN paddr_t get_physical_address(void* addr)
 	return get_paddr(getPTAB(addr)[getPTABindex(addr)]) + offset;
 }
 
-EXTERN size_t PagingGetPhysicalAddresses(void* __user vaddr, size_t length, PPAGING_PHYADDR_DESC paddrbuf, size_t bufsize, bool userModeRequest)
+EXTERN size_t PagingGetPhysicalAddresses(void* __user vaddr, size_t length, PPAGING_PHYADDR_DESC paddrbuf, size_t bufsize, bool userModeRequest, bool lockBuffer)
 {
-	if (!check_buf_present(vaddr, length, userModeRequest))
+	if (!check_buf_present(vaddr, length, userModeRequest, lockBuffer))
 		return 0;
 	//This is a valid user buffer. TODO: lock the buffer so that it doesn't get changed
 	//Return the physical addresses
@@ -423,6 +423,11 @@ EXTERN size_t PagingGetPhysicalAddresses(void* __user vaddr, size_t length, PPAG
 	}
 	//Return total count of addresses
 	return addresses;
+}
+
+EXTERN CHAIKRNL_FUNC void PagingFinishDma(void* __user vaddr, size_t length)
+{
+
 }
 
 #define MSR_IA32_PAT 0x277

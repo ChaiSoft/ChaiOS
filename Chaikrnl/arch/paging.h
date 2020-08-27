@@ -39,7 +39,14 @@ userModeRequest - If set, ensures that the virtual address is user mode memory
 
 Return value - Number of descriptors written to paddrbuf, or the number of descriptors required if paddrbuf is NULL
 */
-EXTERN CHAIKRNL_FUNC size_t PagingGetPhysicalAddresses(void* __user vaddr, size_t length, PPAGING_PHYADDR_DESC paddrbuf, size_t bufsize, bool userModeRequest);
+EXTERN CHAIKRNL_FUNC size_t PagingGetPhysicalAddresses(void* __user vaddr, size_t length, PPAGING_PHYADDR_DESC paddrbuf, size_t bufsize, bool userModeRequest, bool lockBuffer);
+
+static inline size_t PagingPrepareDma(void* __user vaddr, size_t length, PPAGING_PHYADDR_DESC paddrbuf, size_t bufsize, bool userModeRequest)
+{
+	return PagingGetPhysicalAddresses(vaddr, length, paddrbuf, bufsize, userModeRequest, true);
+}
+
+EXTERN CHAIKRNL_FUNC void PagingFinishDma(void* __user vaddr, size_t length);
 
 void fill_arch_paging_info(void*& info);
 void paging_initialize(void*& info);
