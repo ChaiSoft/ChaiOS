@@ -148,6 +148,9 @@ public:
 		ctrlid->SerialNumber[19] = 0;
 		kprintf_a("  Serial Number: %s\n", ctrlid->SerialNumber);
 
+		m_SglSupport = ctrlid->SglSupport;
+		kprintf_a("  Scatter Gather support: %d\n", ctrlid->SglSupport);
+
 		m_maxTransferSize = ctrlid->MaximumTransferSize;
 
 		//IDENTIFY namespaces
@@ -470,6 +473,10 @@ protected:
 	}NVME_COMPLETION, *PNVME_COMPLETION;
 	static_assert(sizeof(NVME_COMPLETION) == 16, "Packing error: NVMe");
 
+	typedef volatile struct _nvme_power_state_descriptor {
+		uint8_t data[32];
+	}NVME_POWER_STATE_DESC, *PNVME_POWER_STATE_DESC;
+
 	typedef volatile struct _nvme_controller_identify {
 		uint16_le VendorId;
 		uint16_le SubsystemVendor;
@@ -496,8 +503,39 @@ protected:
 		uint8_t SQES;
 		uint8_t CQES;
 		uint16_le MAXCMD;
+		uint32_le NumNamespaces;
+		uint16_le OptNvmeCommands;
+		uint16_le FusedOperationSupport;
+		uint8_t FormatNvmAttributes;
+		uint8_t VolatileWriteCache;
+		uint16_le AtomicWriteUnitNormal;
+		uint16_le AtomicWriteUnitPowerFail;
+		uint8_t VendorSpecificCommands;
+		uint8_t Reserved3;
+		uint16_le AtomicCompareWriteUnit;
+		uint16_le Reserved4;
+		uint32_le SglSupport;
+		uint8_t Reserved5[228];
+		char NvmeQualifiedName[256];
+		uint8_t Reserved6[768];
+		uint8_t NvmeOverFabrics[256];
+		NVME_POWER_STATE_DESC PowerStates[32];
+		uint8_t VendorSpecific[1024];
 	}NVME_CONTROLLER, *PNVME_CONTROLLER;
-	static_assert(sizeof(NVME_CONTROLLER) == 516, "Packing error: NVMe");
+	static_assert(sizeof(NVME_CONTROLLER) == 4096, "Packing error: NVMe");
+
+	enum NVME_SGL_SUPPORT {
+		NVME_COMMAND_NOSGLS = 0,
+		NVME_COMMAND_BYTESGLS = 1,
+		NVME_COMMAND_DWORDSGLS = 2,
+		NVME_COMMAND_SGLMASK = 0x3,
+		NVME_COMMAND_KEYEDSGL = 0x4,
+		NVME_COMMAND_SGLBITBUCKET = (1<<16),
+		NVME_COMMAND_BYTECONTIGMETADATA = (1<<17),
+		NVME_COMMAND_LONGSGLS = (1<<18),
+		NVME_COMMAND_METASGLS = (1<<19),
+		NVME_COMMAND_OFFSETSGLS = (1<<20)
+	};
 
 	typedef volatile struct _nvme_controller_lbaformat {
 		uint16_le metadataSize;
@@ -892,6 +930,7 @@ public:
 
 	protected:
 
+#undef kprintf
 		vds_err_t read(lba_t blockaddr, vds_length_t count, void* __user buffer, semaphore_t* completionEvent)
 		{
 			//kprintf(u"NVMe read: block %d, length %d\n", blockaddr, count);
@@ -899,14 +938,20 @@ public:
 			auto cmd = m_parent->m_IoSubmissionQueues[subQueue - 1]->get_entry();
 			cmd->opcode = NVME_READ;
 			cmd->NSID = m_nsid;
-			//cmd->prp_fuse = NVME_PRP | NVME_NOTFUSED;
-			cmd->prp_fuse = NVME_SGL_OM | NVME_NOTFUSED;
+			if ((m_parent->m_SglSupport & NVME_COMMAND_SGLMASK) == NVME_COMMAND_NOSGLS)
+			{
+				cmd->prp_fuse = NVME_PRP | NVME_NOTFUSED;
+				create_prp_list(buffer, count * m_diskparams.sectorSize, cmd);
+			}
+			else
+			{
+				cmd->prp_fuse = NVME_SGL_OM | NVME_NOTFUSED;
+				create_sgl_list(buffer, count * m_diskparams.sectorSize, cmd);
+			}
 			cmd->reserved = 0;
 			cmd->metadata_ptr = 0;
 			//cmd->data_ptr.prp1 = get_physical_address(buffer);
 			//cmd->data_ptr.prp2 = 0;
-			//create_prp_list(buffer, count * m_diskparams.sectorSize, cmd);
-			create_sgl_list(buffer, count * m_diskparams.sectorSize, cmd);
 
 			//Starting LBA
 			cmd->cdword_1x[0] = blockaddr & UINT32_MAX;
@@ -1023,79 +1068,100 @@ public:
 		return true;
 		//kprintf_a("%d descriptors required to represent buffer %x (len %d)\n", desccount, buffer, length);
 	}
-
+#undef kprintf
 	static bool create_sgl_list(void* __user buffer, size_t length, const PNVME_COMMAND command)
 	{
+		kprintf(u"WARNING: SGL Lists are currently untested\n");
 		size_t desccount = PagingGetPhysicalAddresses(buffer, length, NULL, 0, false);
 		PPAGING_PHYADDR_DESC descriptors = new PAGING_PHYADDR_DESC[desccount];
 		size_t count = PagingGetPhysicalAddresses(buffer, length, descriptors, desccount, false);
 		if (count == 0)
 			return false;		//Some error
 
-		PPAGING_PHYADDR_DESC curdesc = &descriptors[0];
-		PPAGING_PHYADDR_DESC end = &descriptors[count];
+		RedBlackTree<paddr_t, void*> AllocatedSegments;
+		const size_t maxSegment = PAGESIZE / sizeof(NVME_SGL);
+
+		auto writeSglFromPhydesc = [](NVME_SGL& sgl, PAGING_PHYADDR_DESC& phydesc)
+		{
+			sgl.address = phydesc.phyaddr;
+			sgl.length = phydesc.length;
+			sgl.high = sgl.highb = 0;
+			sgl.sglid = sglid(SGL_DATA_BLOCK, SGL_ADDRESS);
+		};
+
+		auto calculateLength = [maxSegment](size_t len) -> size_t
+		{
+			return (len > maxSegment ? maxSegment : len) * sizeof(NVME_SGL);
+		};
+
+		auto createSegment = [&](paddr_t& phyaddr) -> PNVME_SGL
+		{
+			phyaddr = pmmngr_allocate(1);
+			if (!phyaddr)
+				return nullptr;
+			PNVME_SGL segment = (PNVME_SGL)find_free_paging(PAGESIZE);
+			if (!paging_map((void*)segment, phyaddr, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING))
+				return nullptr;
+			AllocatedSegments[phyaddr] = (void*)segment;
+			return segment;
+		};
 
 		PNVME_SGL sgl = &command->data_ptr.scatter_gather;
 		if (count == 1)
 		{
 			//Direct SGL
-			sgl->sglid = sglid(SGL_DATA_BLOCK, SGL_ADDRESS);
-			sgl->address = descriptors->phyaddr;
-			sgl->length = descriptors->length;
+			writeSglFromPhydesc(*sgl, descriptors[0]);
 		}
 		else
 		{
-			const size_t maxSegment = PAGESIZE / sizeof(NVME_SGL);
 			paddr_t Segment = 0;
-			PNVME_SGL mappedSegment = (PNVME_SGL)find_free_paging(PAGESIZE);
+			PNVME_SGL mappedSegment;
 			size_t currentEntry = 0;
+			
+			mappedSegment = createSegment(Segment);
+			if (!mappedSegment)
+				return false;
 
+			if ((count - currentEntry) > maxSegment)
+				sgl->sglid = sglid(SGL_SEGMENT, SGL_ADDRESS);
+			else
+				sgl->sglid = sglid(SGL_LAST_SEGMENT, SGL_ADDRESS);
+			sgl->length = calculateLength(count - currentEntry);
+			sgl->address = Segment;
+			sgl->high = sgl->highb = 0;
+
+			kprintf(u"Created SGL: %x, length %d, type %x, mapped %x\n", sgl->address, sgl->length, sgl->sglid, mappedSegment);
 
 			while (currentEntry < count)
 			{
-				if (Segment != 0)
-					paging_free((void*)mappedSegment, PAGESIZE, false);
-				Segment = pmmngr_allocate(1);
-				if (!paging_map((void*)mappedSegment, Segment, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE))
-					return false;
-
-				if ((count - currentEntry) > maxSegment)
-					sgl->sglid = sglid(SGL_SEGMENT, SGL_ADDRESS);
-				else
-					sgl->sglid = sglid(SGL_LAST_SEGMENT, SGL_ADDRESS);
-				sgl->length = ((count - currentEntry) > maxSegment ? maxSegment : (count - currentEntry)) * sizeof(NVME_SGL);
-				sgl->address = Segment;
-				sgl->high = sgl->highb = 0;
 				sgl = mappedSegment;
 
 				for (unsigned i = 0; (currentEntry < count) && (i < maxSegment - 1); ++i)
 				{
-					sgl[i].address = descriptors[currentEntry].phyaddr;
-					sgl[i].length = descriptors[currentEntry].length;
-					sgl[i].high = sgl[i].highb = 0;
-					sgl[i].sglid = sglid(SGL_DATA_BLOCK, SGL_ADDRESS);
+					writeSglFromPhydesc(sgl[i], descriptors[currentEntry]);
 					++currentEntry;
+					kprintf(u"  SGL entry: %x, length %d, type %x\n", sgl[i].address, sgl[i].length, sgl[i].sglid);
 				}
 
 				if (currentEntry == count - 1)
 				{
 					//Special case: we are the last segment completely full
-					sgl[maxSegment - 1].address = descriptors[currentEntry].phyaddr;
-					sgl[maxSegment - 1].length = descriptors[currentEntry].length;
-					sgl[maxSegment - 1].high = sgl[maxSegment - 1].highb = 0;
-					sgl[maxSegment - 1].sglid = sglid(SGL_DATA_BLOCK, SGL_ADDRESS);
+					writeSglFromPhydesc(sgl[maxSegment - 1], descriptors[currentEntry]);
+					kprintf(u"  SGL entry: %x, length %d\n", sgl[maxSegment - 1].address, sgl[maxSegment - 1].length);
 					++currentEntry;
 				}
 				else if (currentEntry < count)
 				{
-					Segment = pmmngr_allocate(1);
+					mappedSegment = createSegment(Segment);
+
 					if ((count - currentEntry) > maxSegment)
 						sgl[maxSegment - 1].sglid = sglid(SGL_SEGMENT, SGL_ADDRESS);
 					else
 						sgl[maxSegment - 1].sglid = sglid(SGL_LAST_SEGMENT, SGL_ADDRESS);
 					sgl[maxSegment - 1].address = Segment;
-					sgl[maxSegment - 1].length = ((count - currentEntry) > maxSegment ? maxSegment : (count - currentEntry)) * sizeof(NVME_SGL);
+					sgl[maxSegment - 1].length = calculateLength(count - currentEntry);
 					sgl[maxSegment - 1].high = sgl[maxSegment - 1].highb = 0;
+					kprintf(u"  SGL entry: %x, length %d\n", sgl[maxSegment - 1].address, sgl[maxSegment - 1].length);
 				}
 			}
 			
@@ -1112,6 +1178,8 @@ private:
 	size_t m_countIoSubmission;
 	size_t m_countIoCompletion;
 	bool m_completionReady;
+
+	size_t m_SglSupport;
 
 	const void* m_mbar;
 	const size_t m_mbarsize;

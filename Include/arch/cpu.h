@@ -145,7 +145,7 @@ void arch_new_thread(context_t ctxt, stack_t stack, void* entrypt);
 void arch_go_usermode(void* userstack, void (*ufunc)(void*), size_t bitness);
 void arch_write_kstack(stack_t stack);
 
-void arch_flush_tlb(void*);
+CHAIKRNL_FUNC void arch_flush_tlb(void*);
 CHAIKRNL_FUNC void arch_flush_cache();
 void arch_memory_barrier();
 
