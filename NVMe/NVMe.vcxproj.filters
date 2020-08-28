@@ -30,6 +30,9 @@
     <ClCompile Include="Namespace.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="NvmeControllerDma.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="NvmeController.h">

@@ -1169,7 +1169,7 @@ static void xhci_pci_baseaddr(pci_address* addr, XHCI*& cinfo)
 		kprintf(u"Mapping failed\n");
 	}
 	cinfo = new XHCI(mapped_controller);
-	uint32_t vector = pci_allocate_msi(addr->segment, addr->bus, addr->device, addr->function, 1, &xhci_interrupt, cinfo);
+	uint32_t vector = PciAllocateMsi(addr->segment, addr->bus, addr->device, addr->function, 1, &xhci_interrupt, cinfo);
 	if (vector == -1)
 	{
 		kprintf(u"Error: no MSI(-X) support\n");

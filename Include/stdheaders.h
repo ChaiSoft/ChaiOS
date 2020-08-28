@@ -11,6 +11,10 @@
 #define EXTERN
 #endif
 
+#define BOOL uint8_t
+#define FALSE 0
+#define TRUE 1
+
 typedef intptr_t ssize_t;
 #define SSIZE_MAX INTPTR_MAX
 

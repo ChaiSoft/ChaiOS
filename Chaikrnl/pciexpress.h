@@ -47,7 +47,7 @@ CHAIKRNL_FUNC uint8_t pci_get_subclass(uint16_t segment, uint8_t bus, uint8_t de
 CHAIKRNL_FUNC uint32_t pci_get_classcode(uint16_t segment, uint8_t bus, uint8_t device, uint8_t function);
 CHAIKRNL_FUNC uint8_t pci_get_header_type(uint16_t segment, uint16_t bus, uint16_t device, uint16_t function);
 
-CHAIKRNL_FUNC uint32_t pci_allocate_msi(uint16_t segment, uint16_t bus, uint16_t device, uint16_t function, uint32_t numintrs, dispatch_interrupt_handler handler, void* param);
+CHAIKRNL_FUNC uint32_t PciAllocateMsi(uint16_t segment, uint16_t bus, uint16_t device, uint16_t function, uint32_t numintrs, dispatch_interrupt_handler handler, void* param);
 CHAIKRNL_FUNC void pci_bus_scan(pci_scan_callback callback);
 
 CHAIKRNL_FUNC void register_pci_driver(pci_device_registration* registr);

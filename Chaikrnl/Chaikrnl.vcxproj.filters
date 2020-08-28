@@ -78,6 +78,9 @@
     <ClCompile Include="vfs.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ReaderWriterLock.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Include\kernelinfo.h">
@@ -150,6 +153,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\Include\vfs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\ReadersWriterLock.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

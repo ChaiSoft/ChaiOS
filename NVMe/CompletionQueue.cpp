@@ -1,6 +1,17 @@
 #include "NvmeController.h"
 #include "nvme_intdefs.h"
 
+NVME::CompletionQueue::CompletionQueue(NVME* parent, paddr_t& pqueue, size_t length, size_t queueid)
+:m_parent(parent), m_queuebase(parent->allocate_queue(length, m_addr)), m_entries(length / ENTRY_SIZE), m_queueid(queueid)
+{
+	pqueue = m_addr;
+	m_list_head = 0;
+	m_flag = 1;
+	m_waiting = 0;
+	memset(m_queuebase, 0, length);
+	m_treelock = create_spinlock();
+}
+
 void NVME::CompletionQueue::dispatch_events()
 {
 	PNVME_COMPLETION cur = raw_offset<PNVME_COMPLETION>(m_queuebase, m_list_head*ENTRY_SIZE);
@@ -129,4 +140,11 @@ PCOMPLETION_INFO NVME::CompletionQueue::wait_event(uint64_t timeout, uint16_t su
 bool NVME::CompletionQueue::is_valid()
 {
 	return m_queuebase != nullptr;
+}
+
+size_t NVME::CompletionQueue::next_after(size_t val, size_t& flag)
+{
+	val = (val + 1) % m_entries;
+	flag = (val == 0 ? (!flag & 1) : flag);
+	return val;
 }

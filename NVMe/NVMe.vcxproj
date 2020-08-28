@@ -160,6 +160,7 @@
   <ItemGroup>
     <ClCompile Include="CommandQueue.cpp" />
     <ClCompile Include="CompletionQueue.cpp" />
+    <ClCompile Include="NvmeControllerDma.cpp" />
     <ClCompile Include="DriverEntry.cpp" />
     <ClCompile Include="Namespace.cpp" />
     <ClCompile Include="NvmeController.cpp" />

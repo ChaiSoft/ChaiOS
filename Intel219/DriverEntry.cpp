@@ -614,7 +614,7 @@ err_t i219_init(struct netif *netif)
 	dinfo->RX_DESC_COUNT = RX_DESC_COUNT;
 	dinfo->rxCur = 0;
 
-	pci_allocate_msi(dinfo->address.segment, dinfo->address.bus, dinfo->address.device, dinfo->address.function, 1, &ethernet_interrupt, dinfo);
+	PciAllocateMsi(dinfo->address.segment, dinfo->address.bus, dinfo->address.device, dinfo->address.function, 1, &ethernet_interrupt, dinfo);
 
 	//Allocate PBUFs for receiving
 

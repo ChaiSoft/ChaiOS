@@ -1,5 +1,6 @@
 #include "NvmeController.h"
 #include "nvme_intdefs.h"
+#include <multiprocessor.h>
 
 #define kprintf(...)
 
@@ -16,6 +17,29 @@ void nvme_event_thread(void* param)
 {
 	NVME* nvme = (NVME*)param;
 	return nvme->eventThread();
+}
+
+NVME::NVME(void* abar, size_t barsize, pci_address busaddr)
+	:m_mbar(abar), m_mbarsize(barsize), m_busaddr(busaddr)
+{
+	m_countIoCompletion = 0;
+	m_countIoSubmission = 0;
+	m_completionReady = false;
+}
+
+void NVME::createAdminCommand(PNVME_COMMAND pCommand, NVME_ADMIN_COMMAND opcode, uint32_t namespaceId, paddr_t phyAddr, uint32_t cdword10, uint32_t cdword11)
+{
+	pCommand->opcode = opcode;
+	pCommand->NSID = CPU_TO_LE32(namespaceId);
+	pCommand->prp_fuse = NVME_PRP | NVME_NOTFUSED;
+	pCommand->reserved = CPU_TO_LE64(0);
+	pCommand->metadata_ptr = CPU_TO_LE64(0);
+	pCommand->data_ptr.prp1 = CPU_TO_LE64(phyAddr);
+	pCommand->data_ptr.prp2 = CPU_TO_LE64(0);
+	pCommand->cdword_1x[0] = CPU_TO_LE32(cdword10);
+	pCommand->cdword_1x[1] = CPU_TO_LE32(cdword11);
+	memset(&pCommand->cdword_1x[2], 0, 4 * sizeof(uint32_le));
+	
 }
 
 void NVME::init()
@@ -56,7 +80,7 @@ void NVME::init()
 
 	size_t admin_queue_size = PAGESIZE;
 	paddr_t pasq = 0, pacq = 0;
-	m_adminCommandQueue = new CommandQueue(this, pasq, admin_queue_size, NVME_ADMIN_QUEUE_ID);
+	m_adminCommandQueue = new CommandQueue(this, pasq, admin_queue_size, NVME_ADMIN_QUEUE_ID, NVME_ADMIN_QUEUE_ID);
 	if (!queue_valid(m_adminCommandQueue))
 		return kprintf(u"Error allocating NVMe ASQ\n");
 
@@ -73,7 +97,7 @@ void NVME::init()
 	write_nvme_reg32(NVME_REG_AQA, admin_entries_command | (admin_entries_command << 16));		//TODO: tweak
 
 	//Set MSI interrupt
-	pci_allocate_msi(m_busaddr.segment, m_busaddr.bus, m_busaddr.device, m_busaddr.function, 1, &nvme_interrupt, this);
+	PciAllocateMsi(m_busaddr.segment, m_busaddr.bus, m_busaddr.device, m_busaddr.function, 1, &nvme_interrupt, this);
 
 	//Configure Controller
 	auto regcc = read_nvme_reg32(NVME_REG_CC);
@@ -101,16 +125,8 @@ void NVME::init()
 		return kprintf(u"Could not allocate IDENTIFY buffer\n");
 
 	PNVME_COMMAND cmd = m_adminCommandQueue->get_entry();
-	cmd->opcode = IDENTIFY;		//IDENTIFY
-	cmd->NSID = 0;
-	cmd->prp_fuse = NVME_PRP | NVME_NOTFUSED;
-	cmd->reserved = 0;
-	cmd->metadata_ptr = 0;
-	cmd->data_ptr.prp1 = get_physical_address(idbuf);
-	cmd->data_ptr.prp2 = 0;
-	cmd->cdword_1x[0] = 0x1;		//CNS, controller
-	memset(&cmd->cdword_1x[1], 0, 5 * sizeof(uint32_t));
-
+	//CNS, controller
+	createAdminCommand(cmd, IDENTIFY, 0, get_physical_address(idbuf), 0x1, 0);
 	auto token = m_adminCommandQueue->submit_entry(cmd);
 
 	PCOMPLETION_INFO completion = m_adminCompletionQueue->wait_event(1000, NVME_ADMIN_QUEUE_ID, token);
@@ -127,41 +143,24 @@ void NVME::init()
 	m_maxTransferSize = ctrlid->MaximumTransferSize;
 
 	//IDENTIFY namespaces
+	//CNS, namespaces
 	cmd = m_adminCommandQueue->get_entry();
-	cmd->opcode = IDENTIFY;		//IDENTIFY
-	cmd->NSID = 0;
-	cmd->prp_fuse = NVME_PRP | NVME_NOTFUSED;
-	cmd->reserved = 0;
-	cmd->metadata_ptr = 0;
-	cmd->data_ptr.prp1 = get_physical_address(idbuf);
-	cmd->data_ptr.prp2 = 0;
-	cmd->cdword_1x[0] = 0x2;		//CNS, namespaces
-	memset(&cmd->cdword_1x[1], 0, 5 * sizeof(uint32_t));
-
+	createAdminCommand(cmd, IDENTIFY, 0, get_physical_address(idbuf), 0x2, 0);
 	token = m_adminCommandQueue->submit_entry(cmd);
 
 	m_adminCompletionQueue->wait_event(1000, NVME_ADMIN_QUEUE_ID, token);
 	uint32_le* identifiers = (uint32_t*)idbuf;
 
 	//Create I/O queues
-	size_t desired = num_cpus();
+	size_t desired = CpuCount();
 
 	desired = (desired == 0) ? 1 : desired;
 	desired = (desired > UINT16_MAX) ? UINT16_MAX : desired;
 	--desired;		//Zero's based
 
 	cmd = m_adminCommandQueue->get_entry();
-	cmd->opcode = SET_FEATURES;
-	cmd->NSID = 0;
-	cmd->prp_fuse = NVME_PRP | NVME_NOTFUSED;
-	cmd->reserved = 0;
-	cmd->metadata_ptr = 0;
-	cmd->data_ptr.prp1 = 0;
-	cmd->data_ptr.prp2 = 0;
-	memset(cmd->cdword_1x, 0, 6 * sizeof(uint32_t));
-
-	cmd->cdword_1x[0] = 0x7;	//Number of Queues
-	cmd->cdword_1x[1] = (desired << 16) | desired;
+	//Number of Queues
+	createAdminCommand(cmd, SET_FEATURES, 0, 0, 0x7, (desired << 16) | desired);
 	token = m_adminCommandQueue->submit_entry(cmd);
 
 	PCOMPLETION_INFO setfeature = m_adminCompletionQueue->wait_event(1000, NVME_ADMIN_QUEUE_ID, token);
@@ -189,23 +188,19 @@ void NVME::init()
 	{
 		paddr_t phyaddr;
 		CompletionQueue* ioCompletion = new CompletionQueue(this, phyaddr, maxents * sizeof(NVME_COMPLETION), i);
+		if (!queue_valid(ioCompletion))
+		{
+			kprintf(u"Error allocating I/O completion queue\n");
+			return;
+		}
 		m_IoCompletionQueues[i - 1] = ioCompletion;
 		//Register queue
 		cmd = m_adminCommandQueue->get_entry();
-		cmd->opcode = CREATE_IO_COMPLETION;
-		cmd->NSID = 0;
-		cmd->prp_fuse = NVME_PRP | NVME_NOTFUSED;
-		cmd->reserved = 0;
-		cmd->metadata_ptr = 0;
-		cmd->data_ptr.prp1 = phyaddr;
-		cmd->data_ptr.prp2 = 0;
-		memset(cmd->cdword_1x, 0, 6 * sizeof(uint32_t));
 		//CDWORD 10 - queue size and ID
-		cmd->cdword_1x[0] = (maxents << 16) | i;
 		//CDWORD 11 - interrupts & contig
-		cmd->cdword_1x[1] = (0 << 16) | (1 << 1) | (1 << 0);
-
+		createAdminCommand(cmd, CREATE_IO_COMPLETION, 0, phyaddr, (maxents << 16) | i, (0 << 16) | (1 << 1) | (1 << 0));
 		token = m_adminCommandQueue->submit_entry(cmd);
+
 		PCOMPLETION_INFO createio = m_adminCompletionQueue->wait_event(1000, NVME_ADMIN_QUEUE_ID, token);
 		if (i == 1)
 		{
@@ -219,23 +214,19 @@ void NVME::init()
 	for (unsigned i = 1; i <= m_countIoSubmission; ++i)
 	{
 		paddr_t phyaddr;
-		CommandQueue* ioCommand = new CommandQueue(this, phyaddr, maxents * sizeof(NVME_COMMAND), i);
+		size_t pairedCompletion = i;
+		CommandQueue* ioCommand = new CommandQueue(this, phyaddr, maxents * sizeof(NVME_COMMAND), i, pairedCompletion);
+		if (!queue_valid(ioCommand))
+		{
+			kprintf(u"Error allocating I/O submission queue\n");
+			return;
+		}
 		m_IoSubmissionQueues[i - 1] = ioCommand;
 		//Register queue
 		cmd = m_adminCommandQueue->get_entry();
-		cmd->opcode = CREATE_IO_SUBMISSION;
-		cmd->NSID = 0;
-		cmd->prp_fuse = NVME_PRP | NVME_NOTFUSED;
-		cmd->reserved = 0;
-		cmd->metadata_ptr = 0;
-		cmd->data_ptr.prp1 = phyaddr;
-		cmd->data_ptr.prp2 = 0;
-		memset(cmd->cdword_1x, 0, 6 * sizeof(uint32_t));
 		//CDWORD 10 - queue size and ID
-		cmd->cdword_1x[0] = (maxents << 16) | i;
 		//CDWORD 11 - paired completion queue, priority, contig
-		cmd->cdword_1x[1] = (i << 16) | (0 << 1) | (1 << 0);
-
+		createAdminCommand(cmd, CREATE_IO_SUBMISSION, 0, phyaddr, (maxents << 16) | i, (pairedCompletion << 16) | (0 << 1) | (1 << 0));
 		token = m_adminCommandQueue->submit_entry(cmd);
 		PCOMPLETION_INFO createio = m_adminCompletionQueue->wait_event(1000, NVME_ADMIN_QUEUE_ID, token);
 		if (i == 1)
@@ -335,217 +326,54 @@ void* NVME::createNvmeCommandBuffer(command_memory& AllocatedSegments, paddr_t& 
 	return buffer;
 }
 
-bool NVME::nvmePrepareDma(void *__user buffer, size_t length, NVME_DMA_DESCRIPTOR & dmaDescriptor)
+uint64_le NVME::read_rawnvme_reg64(NVME_CONTROLLER_REGISTERS reg)
 {
-	size_t desccount = PagingPrepareDma(buffer, length, NULL, 0, false);
-	if (desccount == 0)
-		return (length == 0);
-	dmaDescriptor.physicalAddresses = new PAGING_PHYADDR_DESC[desccount];
-	if (!dmaDescriptor.physicalAddresses)
-		return false;
-
-	dmaDescriptor.entryCount = PagingPrepareDma(buffer, length, dmaDescriptor.physicalAddresses, desccount, false);
-	if (dmaDescriptor.entryCount == 0)
-	{
-		nvmeFinishDma(dmaDescriptor);
-		return false;
-	}
-	dmaDescriptor.buffer = buffer;
-	dmaDescriptor.bufLength = length;
-	return true;
+	return *raw_offset<volatile uint64_le*>(m_mbar, reg);
 }
 
-void NVME::nvmeFinishDma(NVME_DMA_DESCRIPTOR & dmaDescriptor)
+uint32_t NVME::read_nvme_reg32(NVME_CONTROLLER_REGISTERS reg)
 {
-	PagingFinishDma(dmaDescriptor.buffer, dmaDescriptor.bufLength);
-	if (dmaDescriptor.physicalAddresses)
-	{
-		delete[] dmaDescriptor.physicalAddresses;
-		dmaDescriptor.physicalAddresses = nullptr;
-	}
+	return LE_TO_CPU32(*raw_offset<volatile uint32_le*>(m_mbar, reg));
+}
+uint64_t NVME::read_nvme_reg64(NVME_CONTROLLER_REGISTERS reg)
+{
+	return LE_TO_CPU64(*raw_offset<volatile uint64_le*>(m_mbar, reg));
+}
+void NVME::write_nvme_reg32(NVME_CONTROLLER_REGISTERS reg, uint32_t value)
+{
+	*raw_offset<volatile uint32_le*>(m_mbar, reg) = CPU_TO_LE32(value);
+}
+void NVME::write_nvme_reg64(NVME_CONTROLLER_REGISTERS reg, uint64_t value)
+{
+	*raw_offset<volatile uint64_le*>(m_mbar, reg) = CPU_TO_LE64(value);
 }
 
-pcommand_memory NVME::create_prp_list(void *__user buffer, size_t length, const PNVME_COMMAND command, NVME_DMA_DESCRIPTOR & dmaDescriptor)
+void* NVME::register_address(NVME_CONTROLLER_REGISTERS reg)
 {
-	/*size_t desccount = PagingPrepareDma(buffer, length, NULL, 0, false);
-	PPAGING_PHYADDR_DESC descriptors = new PAGING_PHYADDR_DESC[desccount];
-	size_t count = PagingPrepareDma(buffer, length, descriptors, desccount, false);*/
-
-	auto err_return = [&dmaDescriptor](pcommand_memory memory) -> pcommand_memory
-	{
-		nvmeFinishDma(dmaDescriptor);
-		if (memory)
-			free_command_memory(memory);
-		return nullptr;
-	};
-
-	pcommand_memory pMemoryTracker = new command_memory;
-	if (!pMemoryTracker)
-		return err_return(nullptr);
-	command_memory& MemoryTracker = *pMemoryTracker;
-
-	PPAGING_PHYADDR_DESC curdesc = &dmaDescriptor.physicalAddresses[0];
-	PPAGING_PHYADDR_DESC end = &dmaDescriptor.physicalAddresses[dmaDescriptor.entryCount];
-
-	size_t remaining_length = length;
-
-	//First PRP is dealt with directly, and may have an offset
-	command->data_ptr.prp1 = CPU_TO_LE64(curdesc->phyaddr);
-	size_t offset = curdesc->phyaddr & (PAGESIZE - 1);
-	size_t curlen = PAGESIZE - offset;
-	curdesc->length -= (remaining_length > curlen ? curlen : remaining_length);
-	if (curdesc->length == 0)
-		++curdesc;
-	remaining_length -= curlen;
-
-	//Check if PRP2 is direct
-	if (remaining_length < PAGESIZE)
-	{
-		if (remaining_length != 0)
-			command->data_ptr.prp2 = CPU_TO_LE64(curdesc->phyaddr);
-		else
-			command->data_ptr.prp2 = CPU_TO_LE64(0);
-		return pMemoryTracker;
-	}
-
-	//PRP2 is indirect. Build the structures
-	size_t entries = remaining_length / PAGESIZE;
-
-	curlen = PAGESIZE;		//We deal in pages for everything else
-
-	paddr_t pdpage = 0;
-	uint64_le* window = createPrpBuffer(MemoryTracker, pdpage);
-	if (!window)
-		return err_return(pMemoryTracker);
-	uint64_le* curent = window;
-	size_t page_length_remaining = PAGESIZE / sizeof(uint64_le);
-
-	while (curdesc != end)
-	{
-		while (curdesc->length > 0)
-		{
-			*curent++ = curdesc->phyaddr;
-			--page_length_remaining;
-			if (page_length_remaining == 1)
-			{
-				//Linked list time
-				paddr_t newpage = 0;
-				window = createPrpBuffer(MemoryTracker, newpage);
-				if (!window)
-					return err_return(pMemoryTracker);
-				*curent = newpage;
-
-				curent = window;
-			}
-			curdesc->phyaddr += PAGESIZE;
-			curdesc->length = (curdesc->length < PAGESIZE ? 0 : curdesc->length - PAGESIZE);
-		}
-		++curdesc;
-	}
-
-	command->data_ptr.prp2 = CPU_TO_LE64(pdpage);
-	paging_free(window, PAGESIZE, false);
-
-	return pMemoryTracker;
-	//kprintf_a("%d descriptors required to represent buffer %x (len %d)\n", desccount, buffer, length);
+	return raw_offset<void*>(m_mbar, reg);
 }
 
-pcommand_memory NVME::create_sgl_list(void *__user buffer, size_t length, const PNVME_COMMAND command, NVME_DMA_DESCRIPTOR & dmaDescriptor)
+void NVME::write_doorbell(bool completionqueue, uint16_t queue, uint16_t value)
 {
-	kprintf(u"WARNING: SGL Lists are currently untested\n");
-	/*size_t desccount = PagingPrepareDma(buffer, length, NULL, 0, false);
-	PPAGING_PHYADDR_DESC descriptors = new PAGING_PHYADDR_DESC[desccount];
-	size_t count = PagingPrepareDma(buffer, length, descriptors, desccount, false);*/
+	size_t offset = 0x1000 + (2 * queue + (completionqueue ? 1 : 0)) * (4 << m_dstrd);
+	*raw_offset<volatile uint32_le*>(m_mbar, offset) = CPU_TO_LE32(value);
+}
 
-	auto err_return = [&dmaDescriptor](pcommand_memory memory) -> pcommand_memory
-	{
-		nvmeFinishDma(dmaDescriptor);
-		if (memory)
-			free_command_memory(memory);
-		return nullptr;
-	};
+void NVME::reset_controller()
+{
+	uint32_t nvme_cc = read_nvme_reg32(NVME_REG_CC);
+	nvme_cc = (nvme_cc & ~(NVME_CC_EN_MASK)) | NVME_CC_DISABLE;
+	write_nvme_reg32(NVME_REG_CC, nvme_cc);
+}
 
-	pcommand_memory MemoryTracker = new command_memory;
-	if (!MemoryTracker)
-		return err_return(nullptr);
-	command_memory& AllocatedSegments = *MemoryTracker;
-
-	const size_t maxSegment = PAGESIZE / sizeof(NVME_SGL);
-
-	auto writeSglFromPhydesc = [](NVME_SGL& sgl, PAGING_PHYADDR_DESC& phydesc)
-	{
-		sgl.address = phydesc.phyaddr;
-		sgl.length = phydesc.length;
-		sgl.high = sgl.highb = 0;
-		sgl.sglid = sglid(SGL_DATA_BLOCK, SGL_ADDRESS);
-	};
-
-	auto calculateLength = [maxSegment](size_t len) -> size_t
-	{
-		return (len > maxSegment ? maxSegment : len) * sizeof(NVME_SGL);
-	};
-
-	PNVME_SGL sgl = &command->data_ptr.scatter_gather;
-	if (dmaDescriptor.entryCount == 1)
-	{
-		//Direct SGL
-		writeSglFromPhydesc(*sgl, dmaDescriptor.physicalAddresses[0]);
-	}
-	else
-	{
-		paddr_t Segment = 0;
-		PNVME_SGL mappedSegment;
-		size_t currentEntry = 0;
-
-		mappedSegment = createSegment(AllocatedSegments, Segment);
-		if (!mappedSegment)
-			return err_return(nullptr);
-
-		if ((dmaDescriptor.entryCount - currentEntry) > maxSegment)
-			sgl->sglid = sglid(SGL_SEGMENT, SGL_ADDRESS);
-		else
-			sgl->sglid = sglid(SGL_LAST_SEGMENT, SGL_ADDRESS);
-		sgl->length = calculateLength(dmaDescriptor.entryCount - currentEntry);
-		sgl->address = Segment;
-		sgl->high = sgl->highb = 0;
-
-		kprintf(u"Created SGL: %x, length %d, type %x, mapped %x\n", sgl->address, sgl->length, sgl->sglid, mappedSegment);
-
-		while (currentEntry < dmaDescriptor.entryCount)
-		{
-			sgl = mappedSegment;
-
-			for (unsigned i = 0; (currentEntry < dmaDescriptor.entryCount) && (i < maxSegment - 1); ++i)
-			{
-				writeSglFromPhydesc(sgl[i], dmaDescriptor.physicalAddresses[currentEntry]);
-				++currentEntry;
-				kprintf(u"  SGL entry: %x, length %d, type %x\n", sgl[i].address, sgl[i].length, sgl[i].sglid);
-			}
-
-			if (currentEntry == dmaDescriptor.entryCount - 1)
-			{
-				//Special case: we are the last segment completely full
-				writeSglFromPhydesc(sgl[maxSegment - 1], dmaDescriptor.physicalAddresses[currentEntry]);
-				kprintf(u"  SGL entry: %x, length %d\n", sgl[maxSegment - 1].address, sgl[maxSegment - 1].length);
-				++currentEntry;
-			}
-			else if (currentEntry < dmaDescriptor.entryCount)
-			{
-				mappedSegment = createSegment(AllocatedSegments, Segment);
-				if (!mappedSegment)
-					return err_return(MemoryTracker);
-
-				if ((dmaDescriptor.entryCount - currentEntry) > maxSegment)
-					sgl[maxSegment - 1].sglid = sglid(SGL_SEGMENT, SGL_ADDRESS);
-				else
-					sgl[maxSegment - 1].sglid = sglid(SGL_LAST_SEGMENT, SGL_ADDRESS);
-				sgl[maxSegment - 1].address = Segment;
-				sgl[maxSegment - 1].length = calculateLength(dmaDescriptor.entryCount - currentEntry);
-				sgl[maxSegment - 1].high = sgl[maxSegment - 1].highb = 0;
-				kprintf(u"  SGL entry: %x, length %d\n", sgl[maxSegment - 1].address, sgl[maxSegment - 1].length);
-			}
-		}
-
-	}
-	return MemoryTracker;
+NVME::CommandQueue* NVME::getIoSubmissionQueue()
+{
+	uint16_t subQueue = CpuCurrentLogicalId() + 1;
+	if (subQueue > m_countIoSubmission)
+		subQueue = m_countIoSubmission;
+	return m_IoSubmissionQueues[subQueue - 1];
+}
+NVME::CompletionQueue* NVME::getIoCompletionQueue(CommandQueue* subQueue)
+{
+	return m_IoCompletionQueues[subQueue->getCompletionQueueId() - 1];
 }

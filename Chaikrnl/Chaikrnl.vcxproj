@@ -261,6 +261,7 @@
     </ClCompile>
     <ClCompile Include="pciexpress.cpp" />
     <ClCompile Include="pmmngr.cpp" />
+    <ClCompile Include="ReaderWriterLock.cpp" />
     <ClCompile Include="scheduler.cpp" />
     <ClCompile Include="semaphore.cpp" />
     <ClCompile Include="spinlock.cpp" />
@@ -276,6 +277,7 @@
     <ClInclude Include="..\Include\endian.h" />
     <ClInclude Include="..\Include\kernelinfo.h" />
     <ClInclude Include="..\Include\kgraphics.h" />
+    <ClInclude Include="..\Include\ReadersWriterLock.h" />
     <ClInclude Include="..\Include\spinlock.h" />
     <ClInclude Include="..\Include\vfs.h" />
     <ClInclude Include="acpihelp.h" />

@@ -453,7 +453,7 @@ void pci_bus_scan(pci_scan_callback callback)
 
 #define PCI_msix_vctrl_mask	0x0002
 
-uint32_t pci_allocate_msi(uint16_t segment, uint16_t bus, uint16_t device, uint16_t function, uint32_t numintrs, dispatch_interrupt_handler handler, void* param)
+uint32_t PciAllocateMsi(uint16_t segment, uint16_t bus, uint16_t device, uint16_t function, uint32_t numintrs, dispatch_interrupt_handler handler, void* param)
 {
 	//Check device supports MSI
 	void* internalptr = nullptr;

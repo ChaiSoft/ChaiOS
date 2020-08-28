@@ -7,6 +7,7 @@
 #include <string.h>
 #include <endian.h>
 #include <guid.h>
+#include <ReadersWriterLock.h>
 
 static size_t handle_alloc = 1;
 
@@ -21,7 +22,7 @@ struct interested_filesystems {
 };
 
 static RedBlackTree<HDISK, internal_disk_info*> handle_translator;
-static spinlock_t treelock;
+static sharespinlock_t treelock;
 static LinkedList<interested_filesystems*> interestedFilesystems;
 
 static linked_list_node <interested_filesystems*>& get_node(interested_filesystems* node)
@@ -334,7 +335,7 @@ void init_vds()
 	if (inited)
 		return;
 	inited = true;
-	treelock = create_spinlock();
+	treelock = SharedSpinlockCreate();
 
 	interestedFilesystems.init(get_node);
 	VdsRegisterFilesystem(partitionManagerCallback);
@@ -352,17 +353,17 @@ EXTERN CHAIKRNL_FUNC HDISK RegisterVdsDisk(PCHAIOS_VDS_DISK diskInfo)
 		return NULL;
 	intinfo->publicinfo = diskInfo;
 	intinfo->isbound = false;
-	auto st = acquire_spinlock(treelock);
+	auto st = SharedSpinlockAcquire(treelock, TRUE);
 	handle_translator[handle] = intinfo;
-	release_spinlock(treelock, st);
+	SharedSpinlockRelease(treelock, st);
 
 	return handle;
 }
 EXTERN CHAIKRNL_FUNC vds_err_t VdsReadDisk(HDISK disk, lba_t block, vds_length_t count, void* buffer, semaphore_t* completionEvent)
 {
-	auto st = acquire_spinlock(treelock);
+	auto st = SharedSpinlockAcquire(treelock, FALSE);
 	auto it = handle_translator.find(disk);
-	release_spinlock(treelock, st);
+	SharedSpinlockRelease(treelock, st);
 	if (it == handle_translator.end())
 		return -1;
 	PCHAIOS_VDS_DISK diskinf = it->second->publicinfo;
@@ -372,9 +373,9 @@ EXTERN CHAIKRNL_FUNC vds_err_t VdsReadDisk(HDISK disk, lba_t block, vds_length_t
 }
 EXTERN CHAIKRNL_FUNC vds_err_t VdsWriteDisk(HDISK disk, lba_t block, vds_length_t count, void* buffer, semaphore_t* completionEvent)
 {
-	auto st = acquire_spinlock(treelock);
+	auto st = SharedSpinlockAcquire(treelock, FALSE);
 	auto it = handle_translator.find(disk);
-	release_spinlock(treelock, st);
+	SharedSpinlockRelease(treelock, st);
 	if (it == handle_translator.end())
 		return -1;
 	PCHAIOS_VDS_DISK diskinf = it->second->publicinfo;
@@ -384,9 +385,9 @@ EXTERN CHAIKRNL_FUNC vds_err_t VdsWriteDisk(HDISK disk, lba_t block, vds_length_
 }
 EXTERN CHAIKRNL_FUNC vds_err_t VdsFlushDisk(HDISK disk, semaphore_t* completionEvent)
 {
-	auto st = acquire_spinlock(treelock);
+	auto st = SharedSpinlockAcquire(treelock, FALSE);
 	auto it = handle_translator.find(disk);
-	release_spinlock(treelock, st);
+	SharedSpinlockRelease(treelock, st);
 	if (it == handle_translator.end())
 		return -1;
 	PCHAIOS_VDS_DISK diskinf = it->second->publicinfo;
@@ -396,9 +397,9 @@ EXTERN CHAIKRNL_FUNC vds_err_t VdsFlushDisk(HDISK disk, semaphore_t* completionE
 }
 EXTERN CHAIKRNL_FUNC vds_err_t VdsGetStatusAsync(HDISK disk, vds_err_t token, semaphore_t completionEvent)
 {
-	auto st = acquire_spinlock(treelock);
+	auto st = SharedSpinlockAcquire(treelock, FALSE);
 	auto it = handle_translator.find(disk);
-	release_spinlock(treelock, st);
+	SharedSpinlockRelease(treelock, st);
 	if (it == handle_translator.end())
 		return -1;
 	PCHAIOS_VDS_DISK diskinf = it->second->publicinfo;
@@ -408,9 +409,9 @@ EXTERN CHAIKRNL_FUNC vds_err_t VdsGetStatusAsync(HDISK disk, vds_err_t token, se
 }
 EXTERN CHAIKRNL_FUNC PCHAIOS_VDS_PARAMS VdsGetParams(HDISK disk)
 {
-	auto st = acquire_spinlock(treelock);
+	auto st = SharedSpinlockAcquire(treelock, FALSE);
 	auto it = handle_translator.find(disk);
-	release_spinlock(treelock, st);
+	SharedSpinlockRelease(treelock, st);
 	if (it == handle_translator.end())
 		return nullptr;
 	PCHAIOS_VDS_DISK diskinf = it->second->publicinfo;
@@ -419,14 +420,14 @@ EXTERN CHAIKRNL_FUNC PCHAIOS_VDS_PARAMS VdsGetParams(HDISK disk)
 
 EXTERN CHAIKRNL_FUNC void enumerate_disks(chaios_vds_enum_callback callback)
 {
-	//auto st = acquire_spinlock(treelock);
+	auto st = SharedSpinlockAcquire(treelock, FALSE);
 	auto it = handle_translator.begin();
 	while (it != handle_translator.end())
 	{
 		callback(it->first);
 		++it;
 	}
-	//release_spinlock(treelock, st);
+	SharedSpinlockRelease(treelock, st);
 }
 
 EXTERN CHAIKRNL_FUNC void VdsRegisterFilesystem(chaios_vds_enum_callback callback)

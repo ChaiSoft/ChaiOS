@@ -19,15 +19,8 @@ void NVME::NvmeNamespace::initialize()
 	void* nsbuf = new uint8_t[4096];
 	kprintf(u"  Active namespace %d\n", m_nsid);
 	auto cmd = m_parent->m_adminCommandQueue->get_entry();
-	cmd->opcode = IDENTIFY;		//IDENTIFY
-	cmd->NSID = m_nsid;
-	cmd->prp_fuse = NVME_PRP | NVME_NOTFUSED;
-	cmd->reserved = 0;
-	cmd->metadata_ptr = 0;
-	cmd->data_ptr.prp1 = get_physical_address(nsbuf);
-	cmd->data_ptr.prp2 = 0;
-	cmd->cdword_1x[0] = 0x0;		//CNS, namespace
-	memset(&cmd->cdword_1x[1], 0, 5 * sizeof(uint32_t));
+	//CNS, namespace
+	m_parent->createAdminCommand(cmd, IDENTIFY, m_nsid, get_physical_address(nsbuf), 0x0, 0x0);
 	uint16_t token = m_parent->m_adminCommandQueue->submit_entry(cmd);
 
 	m_parent->m_adminCompletionQueue->wait_event(1000, NVME_ADMIN_QUEUE_ID, token, nullptr, nullptr);
@@ -71,8 +64,8 @@ void NVME::NvmeNamespace::initialize()
 vds_err_t NVME::NvmeNamespace::issue_command(NVME_COMMAND_SET operation, lba_t blockaddr, vds_length_t count, void* __user buffer, semaphore_t* completionEvent)
 {
 	//kprintf(u"NVMe read: block %d, length %d\n", blockaddr, count);
-	uint16_t subQueue = 1;
-	auto cmd = m_parent->m_IoSubmissionQueues[subQueue - 1]->get_entry();
+	auto subQueue = m_parent->getIoSubmissionQueue();
+	auto cmd = subQueue->get_entry();
 	cmd->opcode = operation;
 	cmd->NSID = m_nsid;
 	pcommand_memory pCmdMem = nullptr;
@@ -121,18 +114,18 @@ vds_err_t NVME::NvmeNamespace::issue_command(NVME_COMMAND_SET operation, lba_t b
 
 	memset(&cmd->cdword_1x[3], 0, 3 * sizeof(uint32_t));
 
-	auto token = m_parent->m_IoSubmissionQueues[subQueue - 1]->submit_entry(cmd);
+	auto token = subQueue->submit_entry(cmd);
 
-	auto& completionQueue = m_parent->m_IoCompletionQueues[subQueue - 1];
+	auto completionQueue = m_parent->getIoCompletionQueue(subQueue);
 	if (!completionEvent)
 	{
-		auto Completion = completionQueue->wait_event(1000, subQueue, token, pCmdMem, &nvmeDmaDescriptor);
+		auto Completion = completionQueue->wait_event(1000, subQueue->getQueueId(), token, pCmdMem, &nvmeDmaDescriptor);
 		return Completion->status;
 	}
 	else
 	{
-		*completionEvent = completionQueue->async_event(subQueue, token, pCmdMem, &nvmeDmaDescriptor);
-		return completionTag(subQueue, token);
+		*completionEvent = completionQueue->async_event(subQueue->getQueueId(), token, pCmdMem, &nvmeDmaDescriptor);
+		return completionTag(subQueue->getQueueId(), token);
 	}
 }
 

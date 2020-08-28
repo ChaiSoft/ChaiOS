@@ -36,7 +36,7 @@ public:
 	{
 		take_bios_control();
 		//reset_controller();
-		uint32_t vect = pci_allocate_msi(m_busaddr.segment, m_busaddr.bus, m_busaddr.device, m_busaddr.function, 1, &ahci_interrupt, this);
+		uint32_t vect = PciAllocateMsi(m_busaddr.segment, m_busaddr.bus, m_busaddr.device, m_busaddr.function, 1, &ahci_interrupt, this);
 		//AHCI aware
 		write_ahci_register(GHC_GHC, read_ahci_register(GHC_GHC) | GHC_AHCI_ENABLE);
 

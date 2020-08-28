@@ -204,6 +204,10 @@ static void fill_cputree(ACPI_TABLE_MADT* madt)
 	}
 }
 
+static RedBlackTree<size_t, size_t> cpuArchToLogical;
+static RedBlackTree<size_t, size_t> cpuLogicalToArch;
+static size_t logicalIdentAllocator = 0;
+
 extern "C" size_t x64_read_cr3();
 
 void startup_multiprocessor()
@@ -238,6 +242,9 @@ void startup_multiprocessor()
 				continue;
 			}
 			sync_cpu(it->first, data);
+			size_t logicalIdent = logicalIdentAllocator++;
+			cpuArchToLogical[it->first] = logicalIdent;
+			cpuLogicalToArch[logicalIdent] = it->first;
 		}
 	}
 	
@@ -264,7 +271,21 @@ void iterate_aps(ap_callback callback)
 	}
 }
 
-size_t num_cpus()
+EXTERN size_t CpuCount()
 {
 	return cputree.size();
+}
+
+EXTERN CHAIKRNL_FUNC size_t CpuCurrentLogicalId()
+{
+	return CpuIdentLogical(arch_current_processor_id());
+}
+
+EXTERN CHAIKRNL_FUNC size_t CpuIdentLogical(size_t archIdent)
+{
+	return cpuArchToLogical[archIdent];
+}
+EXTERN CHAIKRNL_FUNC size_t CpuIdentArchitectural(size_t logicalIdent)
+{
+	return cpuLogicalToArch[logicalIdent];
 }

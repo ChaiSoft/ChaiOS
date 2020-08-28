@@ -15,59 +15,22 @@
 
 class NVME {
 public:
-	NVME(void* abar, size_t barsize, pci_address busaddr)
-		:m_mbar(abar), m_mbarsize(barsize), m_busaddr(busaddr)
-	{
-		m_countIoCompletion = 0;
-		m_countIoSubmission = 0;
-		m_completionReady = false;
-	}
-
+	NVME(void* abar, size_t barsize, pci_address busaddr);
 	void init();
 
 protected:
 
-	uint64_le read_rawnvme_reg64(NVME_CONTROLLER_REGISTERS reg)
-	{
-		return *raw_offset<volatile uint64_le*>(m_mbar, reg);
-	}
-
-	uint32_t read_nvme_reg32(NVME_CONTROLLER_REGISTERS reg)
-	{
-		return LE_TO_CPU32(*raw_offset<volatile uint32_le*>(m_mbar, reg));
-	}
-	uint64_t read_nvme_reg64(NVME_CONTROLLER_REGISTERS reg)
-	{
-		return LE_TO_CPU64(*raw_offset<volatile uint64_le*>(m_mbar, reg));
-	}
-	void write_nvme_reg32(NVME_CONTROLLER_REGISTERS reg, uint32_t value)
-	{
-		*raw_offset<volatile uint32_le*>(m_mbar, reg) = CPU_TO_LE32(value);
-	}
-	void write_nvme_reg64(NVME_CONTROLLER_REGISTERS reg, uint64_t value)
-	{
-		*raw_offset<volatile uint64_le*>(m_mbar, reg) = CPU_TO_LE64(value);
-	}
-
-	void* register_address(NVME_CONTROLLER_REGISTERS reg)
-	{
-		return raw_offset<void*>(m_mbar, reg);
-	}
-
-	void write_doorbell(bool completionqueue, uint16_t queue, uint16_t value)
-	{
-		size_t offset = 0x1000 + (2 * queue + (completionqueue ? 1 : 0)) * (4 << m_dstrd);
-		*raw_offset<volatile uint32_le*>(m_mbar, offset) = CPU_TO_LE32(value);
-	}
-
-	void reset_controller()
-	{
-		uint32_t nvme_cc = read_nvme_reg32(NVME_REG_CC);
-		nvme_cc = (nvme_cc & ~(NVME_CC_EN_MASK)) | NVME_CC_DISABLE;
-		write_nvme_reg32(NVME_REG_CC, nvme_cc);
-	}
+	uint64_le read_rawnvme_reg64(NVME_CONTROLLER_REGISTERS reg);
+	uint32_t read_nvme_reg32(NVME_CONTROLLER_REGISTERS reg);
+	uint64_t read_nvme_reg64(NVME_CONTROLLER_REGISTERS reg);
+	void write_nvme_reg32(NVME_CONTROLLER_REGISTERS reg, uint32_t value);
+	void write_nvme_reg64(NVME_CONTROLLER_REGISTERS reg, uint64_t value);
+	void* register_address(NVME_CONTROLLER_REGISTERS reg);
+	void write_doorbell(bool completionqueue, uint16_t queue, uint16_t value);
+	void reset_controller();
 
 	void* allocate_queue(size_t length, paddr_t& paddr);
+	void createAdminCommand(PNVME_COMMAND pCommand, NVME_ADMIN_COMMAND opcode, uint32_t namespaceId, paddr_t phyAddr, uint32_t cdword10, uint32_t cdword11);
 
 	bool timeout_check_reg_flags32(NVME_CONTROLLER_REGISTERS index, uint32_t mask, uint32_t value, uint32_t timeout);
 
@@ -93,18 +56,14 @@ protected:
 	class CommandQueue : public NvmeQueue
 	{
 	public:
-		CommandQueue(NVME* parent, paddr_t& pqueue, size_t length, size_t queueid)
-			:m_parent(parent), m_queuebase(parent->allocate_queue(length, m_addr)), m_entries(length / ENTRY_SIZE), m_queueid(queueid)
-		{
-			pqueue = m_addr;
-			list_tail = 0;
-			m_waiting_count = 0;
-			m_cmd_id = 0;
-		}
+		CommandQueue(NVME* parent, paddr_t& pqueue, size_t length, size_t queueid, size_t completionId);
 
 		PNVME_COMMAND get_entry();
 
 		uint16_t submit_entry(PNVME_COMMAND command);
+
+		size_t getCompletionQueueId();
+		size_t getQueueId();
 
 		virtual bool is_valid();
 
@@ -118,6 +77,7 @@ protected:
 		void* const m_queuebase;
 		const size_t m_entries;
 		const size_t m_queueid;
+		const size_t m_completionId;
 
 		static const size_t ENTRY_SIZE = 64;
 
@@ -131,16 +91,7 @@ protected:
 	class CompletionQueue : public NvmeQueue
 	{
 	public:
-		CompletionQueue(NVME* parent, paddr_t& pqueue, size_t length, size_t queueid)
-			:m_parent(parent), m_queuebase(parent->allocate_queue(length, m_addr)), m_entries(length / ENTRY_SIZE), m_queueid(queueid)
-		{
-			pqueue = m_addr;
-			m_list_head = 0;
-			m_flag = 1;
-			m_waiting = 0;
-			memset(m_queuebase, 0, length);
-			m_treelock = create_spinlock();
-		}
+		CompletionQueue(NVME* parent, paddr_t& pqueue, size_t length, size_t queueid);
 
 		void dispatch_events();
 		semaphore_t async_event(uint16_t subqId, uint16_t cmdid, pcommand_memory allocatedMem, PNVME_DMA_DESCRIPTOR dmaDesc);
@@ -157,12 +108,7 @@ protected:
 			NVME_DMA_DESCRIPTOR dmaDescriptor;
 		}WAITING_INFO, *PWAITING_INFO;
 
-		size_t next_after(size_t val, size_t& flag)
-		{
-			val = (val + 1) % m_entries;
-			flag = (val == 0 ? (!flag & 1) : flag);
-			return val;
-		}
+		size_t next_after(size_t val, size_t& flag);
 
 		NVME* const m_parent;
 		void* const m_queuebase;
@@ -188,6 +134,9 @@ protected:
 		else
 			return queue->is_valid();
 	};
+
+	CommandQueue* getIoSubmissionQueue();
+	CompletionQueue* getIoCompletionQueue(CommandQueue* subQueue);
 
 public:
 	class NvmeNamespace {
