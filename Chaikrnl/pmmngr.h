@@ -32,4 +32,6 @@ void initialize_pmmngr(PMMNGR_INFO& info);
 void startup_pmmngr(BootType mmaptype, void* memmap);
 CHAIKRNL_FUNC paddr_t pmmngr_allocate(size_t pages, uint8_t region = ARCH_PHY_REGION_NORMAL, numa_t numa_domain = NUMA_STRIPE, cache_colour colour = CACHE_COLOUR_NONE);
 CHAIKRNL_FUNC void pmmngr_free(paddr_t addr, size_t length);
+BOOL PmmngrLockPageDma(paddr_t page);
+void PmmngrUnlockPageDma(paddr_t page);
 #endif

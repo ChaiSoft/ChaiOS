@@ -59,9 +59,12 @@ pcommand_memory NVME::create_prp_list(void *__user buffer, size_t length, const 
 	command->data_ptr.prp1 = CPU_TO_LE64(curdesc->phyaddr);
 	size_t offset = curdesc->phyaddr & (PAGESIZE - 1);
 	size_t curlen = PAGESIZE - offset;
-	curdesc->length -= (remaining_length > curlen ? curlen : remaining_length);
+	curlen = (curdesc->length > curlen ? curlen : curdesc->length);
+	curdesc->length -= curlen;
 	if (curdesc->length == 0)
 		++curdesc;
+	else
+		curdesc->phyaddr += curlen;
 	remaining_length -= curlen;
 
 	//Check if PRP2 is direct
@@ -73,7 +76,6 @@ pcommand_memory NVME::create_prp_list(void *__user buffer, size_t length, const 
 			command->data_ptr.prp2 = CPU_TO_LE64(0);
 		return pMemoryTracker;
 	}
-
 	//PRP2 is indirect. Build the structures
 	size_t entries = remaining_length / PAGESIZE;
 
@@ -110,7 +112,6 @@ pcommand_memory NVME::create_prp_list(void *__user buffer, size_t length, const 
 	}
 
 	command->data_ptr.prp2 = CPU_TO_LE64(pdpage);
-	paging_free(window, PAGESIZE, false);
 
 	return pMemoryTracker;
 	//kprintf_a("%d descriptors required to represent buffer %x (len %d)\n", desccount, buffer, length);

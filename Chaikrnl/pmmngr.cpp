@@ -43,11 +43,18 @@ struct page {
 		struct {
 			uint32_t shared : 1;
 			uint32_t usable : 1;
-			uint32_t reserved : 30;
+			uint32_t dmaLocked : 1;
+			uint32_t reserved : 29;
 		}flag;
 	};
 };
 #pragma pack(push, pop)
+
+enum PAGE_FLAGS {
+	PAGE_FLAG_SHARED = 1,
+	PAGE_FLAG_USABLE = 2,
+	PAGE_FLAG_DMALOCKED = 4
+};
 
 struct MemoryRegionInfo {
 	paddr_t MemoryBase;
@@ -633,4 +640,23 @@ void pmmngr_free(paddr_t addr, size_t length)
 			regions_allocator[region][domain][col].insert(pg);
 		}
 	}
+}
+
+BOOL PmmngrLockPageDma(paddr_t paddr)
+{
+	page* pg = GetPFD(paddr);
+	volatile size_t* pgflags = (volatile size_t*)pgflags;
+	size_t val = *pgflags;
+	while (val & PAGE_FLAG_DMALOCKED == 0)
+	{
+		if (arch_cas(pgflags, val, val | PAGE_FLAG_DMALOCKED))
+			return true;
+		val = *pgflags;
+	}
+	return false;
+}
+void PmmngrUnlockPageDma(paddr_t paddr)
+{
+	page* pg = GetPFD(paddr);
+	pg->flag.dmaLocked = 0;
 }

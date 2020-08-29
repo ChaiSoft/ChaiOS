@@ -141,6 +141,7 @@ void NVME::init()
 	kprintf_a("  Scatter Gather support: %d\n", ctrlid->SglSupport);
 
 	m_maxTransferSize = ctrlid->MaximumTransferSize;
+	kprintf_a("  Maximum Transfer Size: %d\n", m_maxTransferSize);
 
 	//IDENTIFY namespaces
 	//CNS, namespaces

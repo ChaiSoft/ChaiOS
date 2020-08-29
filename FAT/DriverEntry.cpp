@@ -4,6 +4,7 @@
 #include <endian.h>
 
 #include <vds.h>
+#include <vfs.h>
 
 #pragma pack(push, 1)
 typedef struct _fat_bpb {
@@ -75,6 +76,446 @@ static bool match_fat_guid(GUID& guid)
 	return false;
 }
 
+struct _tag_file {
+	const char16_t* filename;
+	bool isDirectory;
+	uint64_t startCluster;
+};
+
+pfile fat_open(void* fsObject, pfile directory, const char16_t* name, uint32_t mode, semaphore_t* asyncSem);
+void fat_close(void* fsObject, pfile file);
+ssize_t fat_read(void* fsObject, pfile file, void* __user buffer, size_t requested, off_t offset, semaphore_t* asyncSem);
+ssize_t fat_write(void* fsObject, pfile file, void* __user buffer, size_t requested, off_t offset, semaphore_t* asyncSem);
+
+static bool print_callback(const char16_t* filename)
+{
+	kprintf(u"  %s\n", filename);
+	return false;
+}
+static const char16_t* testFilename = u"EFI";
+static const char16_t* testFilename2 = u"ChaiOS";
+static bool find_testdir(const char16_t* filename)
+{
+	unsigned i = 0;
+	for (; testFilename[i] && filename[i]; ++i)
+		if (testFilename[i] != filename[i])
+			return false;
+	return (testFilename[i] == filename[i]);		//Both NULL
+}
+static bool find_testdir2(const char16_t* filename)
+{
+	unsigned i = 0;
+	for (; testFilename2[i] && filename[i]; ++i)
+		if (testFilename2[i] != filename[i])
+			return false;
+	return (testFilename2[i] == filename[i]);		//Both NULL
+}
+
+class CFatVolume {
+public:
+	CFatVolume(HDISK disk, PFAT_BPB bpb)
+		:m_disk(disk), m_bpb(bpb)
+	{
+		m_SectorSize = VdsGetParams(disk)->sectorSize;
+	}
+	void init()
+	{
+		//Work out parameters from BPB
+		m_driverinfo.fsObject = this;
+
+		m_SectorsPerCluster = m_bpb->sectorsPerCluster;
+		size_t totalSectors = (m_bpb->totalSectorsShort == 0) ? m_bpb->largeSectorCount : m_bpb->totalSectorsShort;
+		size_t fatSize = (m_bpb->sectorsPerFat == 0) ? m_bpb->FAT32.sectorsPerFat : m_bpb->sectorsPerFat;
+		//Not valid for FAT32
+		m_rootDirSectors = ((m_bpb->numDirectoryEntries * 32) + m_bpb->bytesPerSector - 1) / m_bpb->bytesPerSector;
+		size_t dataSectors = totalSectors - (m_bpb->reservedSectors + m_bpb->numFats * fatSize + m_rootDirSectors);
+		size_t totalClusters = dataSectors / m_bpb->sectorsPerCluster;
+		m_firstDataSector = m_bpb->reservedSectors + m_bpb->numFats * fatSize + m_rootDirSectors;
+
+		m_FirstFatSector = m_bpb->reservedSectors;
+
+		if (dataSectors < 4085)
+			m_fatVer = FAT12;
+		else if (dataSectors < 65525)
+			m_fatVer = FAT16;
+		else if (totalClusters < 268435445)
+			m_fatVer = FAT32;
+
+		if (m_fatVer != FAT32)
+			m_FirstRootDirSector = m_firstDataSector - m_rootDirSectors;
+		else
+			m_FirstRootDirSector = m_bpb->FAT32.rootDirectoryCluster;
+
+		kprintf(u"FAT partition on disk %d, type: FAT%d\n", m_disk, readableFat(m_fatVer));
+		searchDirectory(nullptr, print_callback);
+		//readRootDirectory();
+		pfile testDir = searchDirectory(nullptr, find_testdir);
+		if (testDir)
+		{
+			kprintf(u"Directory of %s:\n", testFilename);
+			searchDirectory(testDir, print_callback);
+			testDir = searchDirectory(testDir, find_testdir2);
+			if (testDir)
+			{
+				kprintf(u"Directory of %s:\n", testFilename2);
+				searchDirectory(testDir, print_callback);
+			}
+		}
+		
+		VfsRegisterFilesystem(&m_driverinfo);
+	}
+protected:
+	void readRootDirectory()
+	{
+		uint64_t rootdirSector = m_FirstRootDirSector;
+		if (m_fatVer == FAT32)
+			rootdirSector = clusterToSector(rootdirSector);
+		PFAT_DIRECTORY_ENTRY buffer = (PFAT_DIRECTORY_ENTRY)new uint8_t[m_SectorSize];
+		VdsReadDisk(m_disk, rootdirSector, 1, buffer, nullptr);
+		for (int i = 0; (i < m_SectorSize / sizeof(FAT_DIRECTORY_ENTRY)) && (buffer[i].filename[0] != 0); ++i)
+		{
+			char16_t* filename = nullptr;
+			if (*(uint8_t*)&buffer[i] == 0xE5)
+				continue;
+			if (buffer[i].attributes & VOLUME_LABEL)
+			{
+				if (buffer[i].attributes != 0x0F)
+				{
+					filename = nullptr;
+					continue;
+				}
+				//LFN
+				PFAT_DIRECTORY_LFN lfn = (PFAT_DIRECTORY_LFN)&buffer[i];
+				size_t sequenceNumber = (lfn->sequenceNumber & 0x3F);
+				if ((lfn->sequenceNumber & 0x40) == 0)
+				{
+					kprintf(u"Error: unexpected LFN order\n");
+					filename = nullptr;
+					continue;
+				}
+				filename = new char16_t[sequenceNumber * 13 + 1];
+				filename[sequenceNumber * 13] = 0;
+
+				while (buffer[i].attributes == 0x0F)
+				{
+
+					memcpy(&filename[(sequenceNumber - 1) * 13 + 0], lfn->firstChars, sizeof(lfn->firstChars));
+					memcpy(&filename[(sequenceNumber - 1) * 13 + 5], lfn->secondChars, sizeof(lfn->secondChars));
+					memcpy(&filename[(sequenceNumber - 1) * 13 + 11], lfn->finalChars, sizeof(lfn->finalChars));
+					++i;
+					lfn = (PFAT_DIRECTORY_LFN)&buffer[i];
+					sequenceNumber = (lfn->sequenceNumber & 0x3F);
+				}
+			}
+			if (buffer[i].attributes & HIDDEN)
+				kprintf(u"  Hidden ");
+			else
+				kprintf(u"  ");
+			if (!filename)
+			{
+				filename = readClassicFilename(buffer[i]);
+			}
+
+			if (buffer[i].attributes & DIRECTORY)
+				kprintf(u"Directory %s\n", filename);
+			else
+				kprintf(u"File %s\n", filename);
+		}
+	}
+
+	typedef bool(*dir_search_callback)(const char16_t* filename);
+
+	vds_err_t ReadCluster(uint64_t cluster, void* buffer, semaphore_t* completionEvent)
+	{
+		return VdsReadDisk(m_disk, clusterToSector(cluster), m_SectorsPerCluster, buffer, completionEvent);
+	}
+
+	uint64_t readClusterChain(uint64_t current)
+	{
+		uint64_t fatOffset = 0;
+		size_t numSectors = 1;
+		size_t valueShift = 0;
+		size_t valueMask = 0xFFFF;
+		switch (m_fatVer)
+		{
+		case FAT12:
+			fatOffset = current + (current / 2);
+			numSectors = 2;		//Might span a sector boundary
+			break;
+		case FAT16:
+			fatOffset = current * 2;
+			break;
+		case FAT32:
+			fatOffset = current * 4;
+			valueMask = 0x0FFFFFFF;
+			break;
+		default:
+			return UINT64_MAX;
+		}
+		uint64_t fatSector = m_FirstFatSector + (fatOffset / m_SectorSize);
+		size_t entOffset = fatOffset % m_SectorSize;
+
+		uint32_le* fatBuf = new uint32_le[m_SectorSize*numSectors];
+		VdsReadDisk(m_disk, fatSector, numSectors, fatBuf, nullptr);
+		uint32_t fatValue;
+		if (m_fatVer <= FAT16)
+			fatValue = LE_TO_CPU16(((uint16_le*)fatBuf)[entOffset]);
+		else
+			fatValue = LE_TO_CPU32(fatBuf[entOffset]);
+
+		delete[] fatBuf;
+		return fatValue;
+	}
+
+	pfile searchDirectory(pfile directory, dir_search_callback callback)
+	{
+		size_t directoryEntries = (m_SectorSize * m_SectorsPerCluster) / sizeof(FAT_DIRECTORY_ENTRY);
+		file root_directory;
+		PFAT_DIRECTORY_ENTRY buffer;
+		uint64_t curCluster = 0;
+		if (!directory)
+		{
+			uint64_t rootdirSector = m_FirstRootDirSector;
+			//Root directory
+			if (m_fatVer == FAT32)
+			{
+				//This is like any other directory, rootdirSector is a cluster.
+				curCluster = root_directory.startCluster = rootdirSector;
+				root_directory.isDirectory = true;
+				//Now use standard directory handling code
+				directory = &root_directory;
+			}
+			else
+			{
+				//Read entire root directory
+				directoryEntries = (m_SectorSize * m_rootDirSectors) / sizeof(FAT_DIRECTORY_ENTRY);
+				buffer = (PFAT_DIRECTORY_ENTRY)new uint8_t[m_SectorSize * m_rootDirSectors];
+				auto status = VdsReadDisk(m_disk, rootdirSector, m_rootDirSectors, buffer, nullptr);
+			}
+		}
+		if (directory)
+		{
+			buffer = (PFAT_DIRECTORY_ENTRY)new uint8_t[m_SectorSize * m_SectorsPerCluster];
+			//Read first cluster
+			ReadCluster(directory->startCluster, buffer, nullptr);
+		}
+
+		uint8_t* buf = (uint8_t*)buffer;
+		//Generic code from here
+		for (int i = 0; buffer[i].filename[0] != 0; ++i)
+		{
+			if (i == directoryEntries)
+			{
+				//TODO: Load next cluster
+				auto newCluster = readClusterChain(curCluster);
+				if (newCluster == UINT64_MAX)
+					break;
+				ReadCluster(newCluster, buffer, nullptr);
+				i = 0;
+				curCluster = newCluster;
+			}
+			char16_t* filename = nullptr;
+			if (*(uint8_t*)&buffer[i] == 0xE5)
+				continue;
+			if (buffer[i].attributes & VOLUME_LABEL)
+			{
+				if (buffer[i].attributes != 0x0F)
+				{
+					filename = nullptr;
+					continue;
+				}
+				//LFN
+				PFAT_DIRECTORY_LFN lfn = (PFAT_DIRECTORY_LFN)&buffer[i];
+				size_t sequenceNumber = (lfn->sequenceNumber & 0x3F);
+				if ((lfn->sequenceNumber & 0x40) == 0)
+				{
+					kprintf(u"Error: unexpected LFN order\n");
+					filename = nullptr;
+					continue;
+				}
+				filename = new char16_t[sequenceNumber * 13 + 1];
+				filename[sequenceNumber * 13] = 0;
+
+				while (buffer[i].attributes == 0x0F)
+				{
+
+					memcpy(&filename[(sequenceNumber - 1) * 13 + 0], lfn->firstChars, sizeof(lfn->firstChars));
+					memcpy(&filename[(sequenceNumber - 1) * 13 + 5], lfn->secondChars, sizeof(lfn->secondChars));
+					memcpy(&filename[(sequenceNumber - 1) * 13 + 11], lfn->finalChars, sizeof(lfn->finalChars));
+					++i;
+					lfn = (PFAT_DIRECTORY_LFN)&buffer[i];
+					sequenceNumber = (lfn->sequenceNumber & 0x3F);
+				}
+			}
+			if (!filename)
+			{
+				filename = readClassicFilename(buffer[i]);
+			}
+			if (callback(filename))
+			{
+				//This is the file we want
+				pfile fileEntry = new file;
+				fileEntry->isDirectory = (buffer[i].attributes & DIRECTORY);
+				fileEntry->filename = filename;
+				fileEntry->startCluster = buffer[i].clusterLow | ((m_fatVer >= FAT32) ? (uint32_t)buffer[i].clusterHigh << 16 : 0);
+				return fileEntry;
+			}
+			else
+				delete[] filename;
+		}
+		return nullptr;
+	}
+
+	uint64_t clusterToSector(uint64_t cluster)
+	{
+		return (cluster - 2) * m_SectorsPerCluster + m_firstDataSector;
+	}
+private:
+	const PFAT_BPB m_bpb;
+	const HDISK m_disk;
+	CHAIOS_FILESYSTEM_DRIVER m_driverinfo;
+	enum FAT_VERSION {
+		FAT12,
+		FAT16,
+		FAT32
+	}m_fatVer;
+	uint8_t readableFat(FAT_VERSION ver)
+	{
+		switch (ver)
+		{
+		case FAT12:
+			return 12;
+		case FAT16:
+			return 16;
+		case FAT32:
+			return 32;
+		default:
+			return 0;
+		};
+	}
+
+	enum FAT_ATTRIBUTES {
+		READ_ONLY = 1,
+		HIDDEN = 2,
+		SYSTEM = 4,
+		VOLUME_LABEL = 8,
+		DIRECTORY = 16,
+		ARCHIVE = 32,
+		WEIRD0 = 64, // dunno the meaning for these (LFN ?)
+		WEIRD1 = 128, //ditto here.
+	};
+
+	typedef struct _tag_fat_directory {
+		char filename[11];		//8.3
+		uint8_t attributes;
+		uint8_t windowsNT;
+		uint8_t creationTenths;
+		uint16_le creationTime;
+		uint16_le creationDate;
+		uint16_le accessedDate;
+		uint16_le clusterHigh;
+		uint16_le modifiedTime;
+		uint16_le modifiedDate;
+		uint16_le clusterLow;
+		uint32_le fileSize;
+	}FAT_DIRECTORY_ENTRY, *PFAT_DIRECTORY_ENTRY;
+
+	typedef struct _tag_fat_lfn {
+		uint8_t sequenceNumber;
+		char16_t firstChars[5];
+		uint8_t attributes;		//0x0F
+		uint8_t longEntryType;
+		uint8_t sfnChecksum;
+		char16_t secondChars[6];
+		uint16_t reserved;
+		char16_t finalChars[2];
+	}FAT_DIRECTORY_LFN, *PFAT_DIRECTORY_LFN;
+
+	char16_t* readClassicFilename(FAT_DIRECTORY_ENTRY& entry)
+	{
+		char16_t* filename = new char16_t[13];
+		size_t spacePaddingOffset = 0;
+		for (int ci = 0; ci < 8; ++ci)
+		{
+			filename[ci] = entry.filename[ci];
+			if (filename[ci] != ' ')
+				spacePaddingOffset = ci + 1;
+		}
+		filename[spacePaddingOffset] = '.';
+		++spacePaddingOffset;
+		for (int ci = 0; ci < 3; ++ci)
+		{
+			filename[spacePaddingOffset] = entry.filename[8 + ci];
+			char16_t test[2];
+			test[1] = 0;
+			test[0] = filename[spacePaddingOffset];
+			if (filename[spacePaddingOffset] == ' ')
+			{
+				//Remove the . if empty extension
+				if (ci == 0)
+					filename[spacePaddingOffset - 1] = '\0';
+				break;
+			}
+			++spacePaddingOffset;
+		}
+		filename[spacePaddingOffset] = '\0';
+
+		return filename;
+	}
+
+	size_t m_SectorSize;
+	size_t m_SectorsPerCluster;
+	size_t m_firstDataSector;
+	size_t m_FirstFatSector;
+	//Root cluster on FAT32
+	size_t m_FirstRootDirSector;
+	size_t m_rootDirSectors;
+
+protected:
+	pfile open(pfile directory, const char16_t* name, uint32_t mode, semaphore_t* asyncSem)
+	{
+		if (!directory)
+		{
+
+		}
+		return nullptr;
+	}
+	void close(pfile file)
+	{
+		
+	}
+	ssize_t read(pfile file, void* __user buffer, size_t requested, off_t offset, semaphore_t* asyncSem)
+	{
+		return 0;
+	}
+	ssize_t write(pfile file, void* __user buffer, size_t requested, off_t offset, semaphore_t* asyncSem)
+	{
+		return 0;
+	}
+
+	friend pfile fat_open(void* fsObject, pfile directory, const char16_t* name, uint32_t mode, semaphore_t* asyncSem);
+	friend void fat_close(void* fsObject, pfile file);
+	friend ssize_t fat_read(void* fsObject, pfile file, void* __user buffer, size_t requested, off_t offset, semaphore_t* asyncSem);
+	friend ssize_t fat_write(void* fsObject, pfile file, void* __user buffer, size_t requested, off_t offset, semaphore_t* asyncSem);
+};
+
+pfile fat_open(void* fsObject, pfile directory, const char16_t* name, uint32_t mode, semaphore_t* asyncSem)
+{
+	((CFatVolume*)fsObject)->open(directory, name, mode, asyncSem);
+}
+void fat_close(void* fsObject, pfile file)
+{
+	((CFatVolume*)fsObject)->close(file);
+}
+ssize_t fat_read(void* fsObject, pfile file, void* __user buffer, size_t requested, off_t offset, semaphore_t* asyncSem)
+{
+	return ((CFatVolume*)fsObject)->read(file, buffer, requested, offset, asyncSem);
+}
+ssize_t fat_write(void* fsObject, pfile file, void* __user buffer, size_t requested, off_t offset, semaphore_t* asyncSem)
+{
+	return ((CFatVolume*)fsObject)->write(file, buffer, requested, offset, asyncSem);
+}
+
 static vds_enum_result FatVdsCallback(HDISK disk)
 {
 	auto params = VdsGetParams(disk);
@@ -134,7 +575,8 @@ static vds_enum_result FatVdsCallback(HDISK disk)
 	if(bpb->totalSectorsShort == 0 && bpb->largeSectorCount == 0)
 		return RESULT_NOTBOUND;
 
-	kprintf(u"FAT partition on disk %d\n", disk);
+	CFatVolume* volume = new CFatVolume(disk, bpb);
+	volume->init();
 
 	return RESULT_BOUND;
 }
