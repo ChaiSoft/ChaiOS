@@ -464,6 +464,7 @@ void x64_init_apic()
 		write_apic_register(LAPIC_REGISTER_LVT_TIMER + n, read_apic_register(LAPIC_REGISTER_LVT_TIMER + n) | IA32_APIC_LVT_MASK);
 	}
 	//Enable LAPIC timer
+#if 1
 	write_apic_register(LAPIC_REGISTER_TMRDIV, 0b1010);		//Divide by 128
 	size_t timer_vector = 0x40;
 	arch_register_interrupt_handler(INTERRUPT_SUBSYSTEM_DISPATCH, timer_vector, INTERRUPT_CURRENTCPU, &apic_timer_interrupt, nullptr);
@@ -471,6 +472,7 @@ void x64_init_apic()
 	size_t tmrreg = (0b01 << 17) | timer_vector;
 	write_apic_register(LAPIC_REGISTER_LVT_TIMER, tmrreg);
 	write_apic_register(LAPIC_REGISTER_TMRINITCNT, 0x10);
+#endif
 	//
 	if (arch_is_bsp())
 	{

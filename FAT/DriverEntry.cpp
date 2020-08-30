@@ -80,35 +80,36 @@ struct _tag_file {
 	const char16_t* filename;
 	bool isDirectory;
 	uint64_t startCluster;
+	uint32_t vfsAttributes;
 };
 
 pfile fat_open(void* fsObject, pfile directory, const char16_t* name, uint32_t mode, semaphore_t* asyncSem);
 void fat_close(void* fsObject, pfile file);
 ssize_t fat_read(void* fsObject, pfile file, void* __user buffer, size_t requested, off_t offset, semaphore_t* asyncSem);
 ssize_t fat_write(void* fsObject, pfile file, void* __user buffer, size_t requested, off_t offset, semaphore_t* asyncSem);
+uint32_t fat_attributes(void* fsObject, pfile file);
 
-static bool print_callback(const char16_t* filename)
+static bool print_callback(const char16_t* filename, const void* noParam)
 {
 	kprintf(u"  %s\n", filename);
 	return false;
 }
 static const char16_t* testFilename = u"EFI";
 static const char16_t* testFilename2 = u"ChaiOS";
-static bool find_testdir(const char16_t* filename)
+static bool find_by_name(const char16_t* filename, size_t index, const void* param)
 {
+	const char16_t* nameToMatch = (const char16_t*)param;
 	unsigned i = 0;
-	for (; testFilename[i] && filename[i]; ++i)
-		if (testFilename[i] != filename[i])
+	for (; nameToMatch[i] && filename[i]; ++i)
+		if (nameToMatch[i] != filename[i])
 			return false;
-	return (testFilename[i] == filename[i]);		//Both NULL
+	return (nameToMatch[i] == filename[i]);		//Both NULL
 }
-static bool find_testdir2(const char16_t* filename)
+
+static bool find_by_index(const char16_t* filename, size_t index, const void* param)
 {
-	unsigned i = 0;
-	for (; testFilename2[i] && filename[i]; ++i)
-		if (testFilename2[i] != filename[i])
-			return false;
-	return (testFilename2[i] == filename[i]);		//Both NULL
+	size_t target = (size_t)param;
+	return (index == target);
 }
 
 class CFatVolume {
@@ -120,8 +121,13 @@ public:
 	}
 	void init()
 	{
-		//Work out parameters from BPB
 		m_driverinfo.fsObject = this;
+		m_driverinfo.read = fat_read;
+		m_driverinfo.write = fat_write;
+		m_driverinfo.open = fat_open;
+		m_driverinfo.close = fat_close;
+		m_driverinfo.getAttributes = fat_attributes;
+		//Work out parameters from BPB
 
 		m_SectorsPerCluster = m_bpb->sectorsPerCluster;
 		size_t totalSectors = (m_bpb->totalSectorsShort == 0) ? m_bpb->largeSectorCount : m_bpb->totalSectorsShort;
@@ -145,85 +151,28 @@ public:
 			m_FirstRootDirSector = m_firstDataSector - m_rootDirSectors;
 		else
 			m_FirstRootDirSector = m_bpb->FAT32.rootDirectoryCluster;
-
+#if 0
 		kprintf(u"FAT partition on disk %d, type: FAT%d\n", m_disk, readableFat(m_fatVer));
-		searchDirectory(nullptr, print_callback);
+		searchDirectory(nullptr, print_callback , nullptr);
 		//readRootDirectory();
-		pfile testDir = searchDirectory(nullptr, find_testdir);
+		pfile testDir = searchDirectory(nullptr, find_by_name, testFilename);
 		if (testDir)
 		{
 			kprintf(u"Directory of %s:\n", testFilename);
-			searchDirectory(testDir, print_callback);
-			testDir = searchDirectory(testDir, find_testdir2);
+			searchDirectory(testDir, print_callback, nullptr);
+			testDir = searchDirectory(testDir, find_by_name, testFilename2);
 			if (testDir)
 			{
 				kprintf(u"Directory of %s:\n", testFilename2);
-				searchDirectory(testDir, print_callback);
+				searchDirectory(testDir, print_callback, nullptr);
 			}
 		}
-		
+#endif		
 		VfsRegisterFilesystem(&m_driverinfo);
 	}
 protected:
-	void readRootDirectory()
-	{
-		uint64_t rootdirSector = m_FirstRootDirSector;
-		if (m_fatVer == FAT32)
-			rootdirSector = clusterToSector(rootdirSector);
-		PFAT_DIRECTORY_ENTRY buffer = (PFAT_DIRECTORY_ENTRY)new uint8_t[m_SectorSize];
-		VdsReadDisk(m_disk, rootdirSector, 1, buffer, nullptr);
-		for (int i = 0; (i < m_SectorSize / sizeof(FAT_DIRECTORY_ENTRY)) && (buffer[i].filename[0] != 0); ++i)
-		{
-			char16_t* filename = nullptr;
-			if (*(uint8_t*)&buffer[i] == 0xE5)
-				continue;
-			if (buffer[i].attributes & VOLUME_LABEL)
-			{
-				if (buffer[i].attributes != 0x0F)
-				{
-					filename = nullptr;
-					continue;
-				}
-				//LFN
-				PFAT_DIRECTORY_LFN lfn = (PFAT_DIRECTORY_LFN)&buffer[i];
-				size_t sequenceNumber = (lfn->sequenceNumber & 0x3F);
-				if ((lfn->sequenceNumber & 0x40) == 0)
-				{
-					kprintf(u"Error: unexpected LFN order\n");
-					filename = nullptr;
-					continue;
-				}
-				filename = new char16_t[sequenceNumber * 13 + 1];
-				filename[sequenceNumber * 13] = 0;
 
-				while (buffer[i].attributes == 0x0F)
-				{
-
-					memcpy(&filename[(sequenceNumber - 1) * 13 + 0], lfn->firstChars, sizeof(lfn->firstChars));
-					memcpy(&filename[(sequenceNumber - 1) * 13 + 5], lfn->secondChars, sizeof(lfn->secondChars));
-					memcpy(&filename[(sequenceNumber - 1) * 13 + 11], lfn->finalChars, sizeof(lfn->finalChars));
-					++i;
-					lfn = (PFAT_DIRECTORY_LFN)&buffer[i];
-					sequenceNumber = (lfn->sequenceNumber & 0x3F);
-				}
-			}
-			if (buffer[i].attributes & HIDDEN)
-				kprintf(u"  Hidden ");
-			else
-				kprintf(u"  ");
-			if (!filename)
-			{
-				filename = readClassicFilename(buffer[i]);
-			}
-
-			if (buffer[i].attributes & DIRECTORY)
-				kprintf(u"Directory %s\n", filename);
-			else
-				kprintf(u"File %s\n", filename);
-		}
-	}
-
-	typedef bool(*dir_search_callback)(const char16_t* filename);
+	typedef bool(*dir_search_callback)(const char16_t* filename, size_t index, const void* param);
 
 	vds_err_t ReadCluster(uint64_t cluster, void* buffer, semaphore_t* completionEvent)
 	{
@@ -267,7 +216,21 @@ protected:
 		return fatValue;
 	}
 
-	pfile searchDirectory(pfile directory, dir_search_callback callback)
+	uint32_t convertFatAttributes(uint8_t nativeFat)
+	{
+		uint32_t result = 0;
+		if (nativeFat & HIDDEN)
+			result |= VFS_ATTR_HIDDEN;
+		if (nativeFat & READ_ONLY)
+			result |= VFS_ATTR_READONLY;
+		if (nativeFat & SYSTEM)
+			result |= VFS_ATTR_SYSTEM;
+		if (nativeFat & DIRECTORY)
+			result |= VFS_ATTR_DIRECTORY;
+		return result;
+	}
+
+	pfile searchDirectory(pfile directory, dir_search_callback callback, const void* callbackParam)
 	{
 		size_t directoryEntries = (m_SectorSize * m_SectorsPerCluster) / sizeof(FAT_DIRECTORY_ENTRY);
 		file root_directory;
@@ -301,6 +264,7 @@ protected:
 		}
 
 		uint8_t* buf = (uint8_t*)buffer;
+		size_t fileIndex = 0;
 		//Generic code from here
 		for (int i = 0; buffer[i].filename[0] != 0; ++i)
 		{
@@ -351,17 +315,21 @@ protected:
 			{
 				filename = readClassicFilename(buffer[i]);
 			}
-			if (callback(filename))
+			if (filename[0] == '.')
+				continue;
+			if (callback(filename, fileIndex, callbackParam))
 			{
 				//This is the file we want
 				pfile fileEntry = new file;
 				fileEntry->isDirectory = (buffer[i].attributes & DIRECTORY);
 				fileEntry->filename = filename;
 				fileEntry->startCluster = buffer[i].clusterLow | ((m_fatVer >= FAT32) ? (uint32_t)buffer[i].clusterHigh << 16 : 0);
+				fileEntry->vfsAttributes = convertFatAttributes(buffer[i].attributes);
 				return fileEntry;
 			}
 			else
 				delete[] filename;
+			++fileIndex;
 		}
 		return nullptr;
 	}
@@ -474,11 +442,16 @@ private:
 protected:
 	pfile open(pfile directory, const char16_t* name, uint32_t mode, semaphore_t* asyncSem)
 	{
-		if (!directory)
+		if(directory && !directory->isDirectory)
+			return nullptr;
+		pfile curFile = searchDirectory(directory, find_by_name, name);
+		if (!curFile)
 		{
-
+			//TODO: check creation modes
+			return nullptr;
 		}
-		return nullptr;
+		//File exists
+		return curFile;
 	}
 	void close(pfile file)
 	{
@@ -486,6 +459,34 @@ protected:
 	}
 	ssize_t read(pfile file, void* __user buffer, size_t requested, off_t offset, semaphore_t* asyncSem)
 	{
+		auto wstrlen = [](const char16_t* str)
+		{
+			size_t sz = 0;
+			for (; str[sz]; ++sz);
+			return sz;
+		};
+		//Read file or directory
+		if (file && !file->isDirectory)
+		{
+			return 0;
+		}
+		else
+		{
+			PVFS_DIRECTORY_ENTRY entry = (PVFS_DIRECTORY_ENTRY)buffer;
+			size_t idx = 0;
+			for (; (idx + 1) * sizeof(VFS_DIRECTORY_ENTRY) <= requested; ++idx)
+			{
+				pfile result = searchDirectory(file, find_by_index, (const void*)(offset + idx));
+				if (!result)
+					break;
+				size_t filenameLen = wstrlen(result->filename);
+				memcpy(entry[idx].filename, result->filename, (filenameLen >= 255 ? 255 : filenameLen + 1) * 2);
+				entry[idx].filename[255] = 0;
+				entry[idx].attributes = result->vfsAttributes;
+			}
+			return -(idx);
+
+		}
 		return 0;
 	}
 	ssize_t write(pfile file, void* __user buffer, size_t requested, off_t offset, semaphore_t* asyncSem)
@@ -493,15 +494,23 @@ protected:
 		return 0;
 	}
 
+	uint32_t attributes(pfile file)
+	{
+		if (!file)
+			return 0;
+		return file->vfsAttributes;
+	}
+
 	friend pfile fat_open(void* fsObject, pfile directory, const char16_t* name, uint32_t mode, semaphore_t* asyncSem);
 	friend void fat_close(void* fsObject, pfile file);
 	friend ssize_t fat_read(void* fsObject, pfile file, void* __user buffer, size_t requested, off_t offset, semaphore_t* asyncSem);
 	friend ssize_t fat_write(void* fsObject, pfile file, void* __user buffer, size_t requested, off_t offset, semaphore_t* asyncSem);
+	friend uint32_t fat_attributes(void* fsObject, pfile file);
 };
 
 pfile fat_open(void* fsObject, pfile directory, const char16_t* name, uint32_t mode, semaphore_t* asyncSem)
 {
-	((CFatVolume*)fsObject)->open(directory, name, mode, asyncSem);
+	return ((CFatVolume*)fsObject)->open(directory, name, mode, asyncSem);
 }
 void fat_close(void* fsObject, pfile file)
 {
@@ -514,6 +523,10 @@ ssize_t fat_read(void* fsObject, pfile file, void* __user buffer, size_t request
 ssize_t fat_write(void* fsObject, pfile file, void* __user buffer, size_t requested, off_t offset, semaphore_t* asyncSem)
 {
 	return ((CFatVolume*)fsObject)->write(file, buffer, requested, offset, asyncSem);
+}
+uint32_t fat_attributes(void* fsObject, pfile file)
+{
+	return ((CFatVolume*)fsObject)->attributes(file);
 }
 
 static vds_enum_result FatVdsCallback(HDISK disk)

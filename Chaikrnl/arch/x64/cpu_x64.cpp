@@ -516,11 +516,13 @@ cpu_status_t arch_enable_interrupts()
 
 void arch_set_breakpoint(void* addr, size_t length, size_t type)
 {
+	return;
 	x64_set_breakpoint(addr, length, type);
 }
 
 void arch_enable_breakpoint(size_t enabled)
 {
+	return;
 	x64_enable_breakpoint(enabled);
 }
 

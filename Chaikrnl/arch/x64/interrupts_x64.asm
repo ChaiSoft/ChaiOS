@@ -12,6 +12,18 @@ push r10
 push r11
 jmp rax
 
+save_fpu_registers:
+pop rax
+;stack is aligned
+sub rsp, 16*6
+movdqa [rsp], xmm0
+movdqa [rsp+16], xmm1
+movdqa [rsp+32], xmm2
+movdqa [rsp+48], xmm3
+movdqa [rsp+64], xmm4
+movdqa [rsp+80], xmm5
+jmp rax
+
 restore_interrupt_registers:
 pop rax
 pop r11
@@ -20,6 +32,18 @@ pop r9
 pop r8
 pop rdx
 pop rcx
+jmp rax
+
+restore_fpu_registers:
+pop rax
+;stack is aligned
+movdqa xmm0, [rsp]
+movdqa xmm1, [rsp+16]
+movdqa xmm2, [rsp+32]
+movdqa xmm3, [rsp+48]
+movdqa xmm4, [rsp+64]
+movdqa xmm5, [rsp+80]
+add rsp, 16*6
 jmp rax
 
 swap_gs_ifpriv:
@@ -202,7 +226,17 @@ mov rbp, rsp
 SAVE_VOLATILE_REGISTERS
 ;Per CPU information
 call swap_gs_ifpriv
-call save_fpu_interrupt
+
+;Align the stack
+mov rcx, rsp
+and sp, 0xFFF0
+push rcx
+push rcx
+
+;Save volatile FPU registers
+call save_fpu_registers
+
+;call save_fpu_interrupt
 
 ;Now we pass the stack interrupt stack and vector
 mov rcx, %2
@@ -213,13 +247,19 @@ sub rsp, 32
 call x64_interrupt_dispatcher
 add rsp, 32
 
-call restore_fpu_interrupt
-call swap_gs_ifpriv
+call restore_fpu_registers
 
+;Restore the stack
+pop rcx
+mov rsp, rcx
+
+;call restore_fpu_interrupt
+call swap_gs_ifpriv
 
 RESTORE_VOLATILE_REGISTERS
 pop rbp
 add rsp, 8		;Get rid of error code
+
 iretq
 %endmacro
 

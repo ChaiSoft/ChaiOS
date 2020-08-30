@@ -17,6 +17,7 @@
 #include <lwip/netifapi.h>
 #include <lwip/api.h>
 #include <vds.h>
+#include <vfs.h>
 
 #define CHAIOS_KERNEL_VERSION_MAJOR 0
 #define CHAIOS_KERNEL_VERSION_MINOR 9
@@ -167,6 +168,38 @@ EXTERN PKERNEL_BOOT_INFO getBootInfo()
 
 EXTERN void user_function();
 
+void dfsTree(size_t indent, HFILE curdir)
+{
+	size_t offset = 0;
+	VFS_DIRECTORY_ENTRY direntry;
+	for (;; ++offset)
+	{
+		ssize_t count = VfsReadFile(curdir, &direntry, sizeof(direntry), offset, nullptr);
+		if (count > 0)
+		{
+			kprintf(u"Error reading directory\n");
+			continue;
+		}
+		else if (count == 0)
+			break;		//End of directory
+
+		for (unsigned i = 0; i < indent; ++i)
+			kprintf(u"  ");
+		if (direntry.attributes & VFS_ATTR_DIRECTORY)
+		{
+			kprintf(u"Directory %s\n", direntry.filename);
+			if (direntry.filename[0] == 'M')
+				continue;
+			HFILE dir = VfsOpenFile(curdir, direntry.filename, OPEN_MODE_READ, nullptr);
+			dfsTree(indent + 1, dir);
+		}
+		else
+		{
+			kprintf(u"File %s\n", direntry.filename);
+		}
+	}
+};
+
 extern bool CallConstructors();
 void _kentry(PKERNEL_BOOT_INFO bootinfo)
 {
@@ -265,10 +298,22 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 	
 	initialize_pci_drivers();
 	//usb_run();
-
+	vfsInit();
 	vds_start_filesystem_matching();
 	kprintf(u"VDS Information:\n");
 	enumerate_disks(&vds_enum);
+
+	kprintf(u"VFS Information:\n");
+	char16_t drive[] = u"\0:\\";
+	while (drive[0] = VfsListRootVolumes(drive[0]))		//Yes, assignment
+	{
+		kprintf(u"Drive %s\n", drive);
+#if 0
+		HFILE root = VfsOpenFile(NULL, drive, VFS_OPEN_MODES::OPEN_MODE_READ, nullptr);
+		if(root)
+			dfsTree(1, root);
+#endif
+	}
 
 	kputs(u"System timer: ");
 	//Test usermode
