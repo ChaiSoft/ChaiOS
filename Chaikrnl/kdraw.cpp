@@ -284,7 +284,6 @@ void* CreateStdioWindow(size_t width, size_t height, size_t xpos, size_t ypos)
 	if (KstdioTlsSlot == -1)
 		KstdioTlsSlot = AllocateKernelTls();
 	SetWindowPostion(wnd, xpos, ypos);
-	kputs(u"1");
 	if (WindowArray == NULL)
 	{
 		WindowArraySize = 8;
@@ -292,10 +291,8 @@ void* CreateStdioWindow(size_t width, size_t height, size_t xpos, size_t ypos)
 		WindowArray = new void* [WindowArraySize];
 		memset(WindowArray, 0, WindowArraySize * sizeof(void*));
 	}
-	kputs(u"2");
 	WindowArray[WindowArrayPos++] = wnd;
 	WriteKernelTls(KstdioTlsSlot, (tls_data_t)wnd);
-	kputs(u"3");
 	return wnd;
 }
 

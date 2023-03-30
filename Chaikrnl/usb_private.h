@@ -67,18 +67,36 @@ typedef uint32_t usb_status_t;
 
 #define USB_FAILED(st) (st != USB_SUCCESS)
 
+//Opaque class
+class UsbPortInfo {
+
+};
+
 class USBHub {
 public:
 	virtual usb_status_t Reset(uint8_t port) = 0;
 	virtual bool PortConnected(uint8_t port) = 0;
-	virtual usb_status_t AssignSlot(uint32_t routestring, uint32_t& slot) = 0;
+	virtual uint8_t NumberPorts() = 0;
+	virtual usb_status_t AssignSlot(uint32_t routestring, uint8_t port, UsbPortInfo*& slot) = 0;
+	virtual size_t OperatingPacketSize(UsbPortInfo*& slot) = 0;
+	virtual usb_status_t ConfigureHub(UsbPortInfo*& slot, uint8_t downstreamports) = 0;
+	virtual usb_status_t RequestData(UsbPortInfo*& slot, REQUEST_PACKET& device_packet, void** resultData) = 0;
 };
 
 class USBHostController {
 public:
 	virtual void init(size_t handle) = 0;
+	virtual USBHub& RootHub() = 0;
 };
 
 void RegisterHostController(USBHostController* hc);
+
+static inline size_t pow2(size_t p)
+{
+	size_t result = 1;
+	while (p--)
+		result *= 2;
+	return result;
+}
 
 #endif

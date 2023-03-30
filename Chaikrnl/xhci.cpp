@@ -110,13 +110,7 @@ struct xhci_port_info_data {
 (((MaxESITLo & 0xFFFF) << 16) | (AverageTRBLen & 0xFFFF))
 
 
-static size_t pow2(size_t p)
-{
-	size_t result = 1;
-	while (p--)
-		result *= 2;
-	return result;
-}
+
 
 static size_t get_trb_completion_code(void* trb)
 {
@@ -138,7 +132,8 @@ public:
 		:cmdring(this, XHCI_DOORBELL_HOST, XHCI_DOORBELL_HOST_COMMAND),
 		Capabilities(baseaddr),
 		Operational(oppbase),
-		Runtime(runbase)
+		Runtime(runbase),
+		pRootHub(*this)
 	{
 		baseaddr = basea;
 		event_available = 0;
@@ -198,8 +193,10 @@ public:
 		Operational.USBCMD.RunStop = 1;		//Start USB!
 		while (Operational.USBSTS.HcHalted != 0);
 		//Just make sure we don't miss interrupts
+		
 		//Work on ports
 		kprintf(u"XHCI controller enabled, %d ports\n", getMaxPorts());
+#if 0
 		for (size_t n = 1; n <= getMaxPorts(); ++n)
 		{
 			xhci_thread_port_startup* sup = new xhci_thread_port_startup;
@@ -208,6 +205,7 @@ public:
 			//create_thread(&xhci_port_startup, sup);
 			xhci_port_startup(sup);
 		}
+#endif
 	}
 
 	void halt()
@@ -253,31 +251,68 @@ private:
 			XhciPortRegisterBlock portregs = m_Parent.Operational.Port(port);
 			return (portregs.PORTSC.CCS == 1);
 		}
-		virtual usb_status_t AssignSlot(uint32_t routestring, uint32_t& slot)
+
+		virtual uint8_t NumberPorts()
+		{
+			return m_Parent.getMaxPorts();
+		}
+
+		virtual usb_status_t AssignSlot(uint32_t routestring, uint8_t port, UsbPortInfo*& slot)
+		{
+			XhciPortRegisterBlock portregs = m_Parent.Operational.Port(port);
+			uint8_t portspeed = portregs.PORTSC.PortSpeed;
+			//Enable slot command
+			void* last_command = nullptr;
+			last_command = m_Parent.cmdring.enqueue(create_enableslot_command(m_Parent.protocol_speeds[portspeed].slottype));
+			//Now get a command completion event from the event ring
+			uint64_t* curevt = (uint64_t*)m_Parent.waitComplete(last_command, 1000);
+			if (get_trb_completion_code(curevt) != XHCI_COMPLETION_SUCCESS)
+			{
+				kprintf(u"Error enabling slot: %x!\n", get_trb_completion_code(curevt));
+				return USB_FAIL;
+			}
+			uint8_t slotid = curevt[1] >> 56;
+			if (slotid == 0)
+				return USB_FAIL;
+
+			xhci_port_info* port_info = new xhci_port_info(&m_Parent, slotid);
+			port_info->controller = &m_Parent;
+			port_info->portindex = port;
+			port_info->slotid = slotid;
+			if (!m_Parent.createSlotContext(portspeed, port_info, routestring))
+				return USB_FAIL;
+
+			slot = port_info;
+			return USB_SUCCESS;
+		}
+		virtual usb_status_t ConfigureHub(UsbPortInfo*& slot, uint8_t downstreamports)
 		{
 			return USB_FAIL;
+		}
+		virtual size_t OperatingPacketSize(UsbPortInfo*& slot)
+		{
+			auto sltctxt = raw_offset<uint32_t*>(((xhci_port_info*)slot)->device_context, 0x24);
+			return  (*sltctxt >> 16) & 0xFFFF;
+		}
+		virtual usb_status_t RequestData(UsbPortInfo*& slot, REQUEST_PACKET& device_packet, void** resultData)
+		{
+			usb_status_t status = USB_FAIL;
+			void* ptr = kmalloc(device_packet.length);
+
+			set_paging_attributes(ptr, device_packet.length, PAGE_ATTRIBUTE_NO_CACHING, 0);
+			if (size_t res = m_Parent.xhci_control_in((xhci_port_info*)slot, &device_packet, ptr, device_packet.length))
+			{
+				kprintf(u"Error getting device descriptor: %d\n", res);
+			}
+			else
+				status = USB_SUCCESS;
+			set_paging_attributes(ptr, device_packet.length,0, PAGE_ATTRIBUTE_NO_CACHING);
+			*resultData = ptr;
+			return status;
 		}
 	private:
 		XHCI& m_Parent;
 	};
-
-	bool port_power(size_t portindex)
-	{
-		static const uint32_t PortPower = (1 << 9);
-		uint32_t HCPortStatusOff = XHCI_OPREG_PORTSC(portindex);
-		if ((readOperationalRegister(HCPortStatusOff, 32) & PortPower) == 0)
-		{
-			kprintf(u"Powering Port %d\n", portindex);
-			writeOperationalRegister(HCPortStatusOff, PortPower, 32);
-			Stall(20);
-			if ((readOperationalRegister(HCPortStatusOff, 32) & PortPower) == 0)
-			{
-				kprintf(u"Failed to power Port %d\n", portindex);
-				return false;
-			}
-		}
-		return true;
-	}
 
 	bool port_reset(size_t portindex)
 	{
@@ -567,129 +602,6 @@ private:
 		XHCI* cinfo;
 		size_t port;
 	};
-	void xhci_port_startup(void* pinf)
-	{
-		XHCI* cinfo = ((xhci_thread_port_startup*)pinf)->cinfo;
-		size_t n = ((xhci_thread_port_startup*)pinf)->port;
-
-		auto& PortInfo = pPortInfo[n];
-		auto proto = PortInfo.flags & PORTINF_USB3;
-
-		XhciPortRegisterBlock portregs = Operational.Port(n);
-		if (portregs.PORTSC.CCS == 1)
-		{
-			if (!port_reset(n))
-				return;
-			//Port successfully reset
-			uint8_t portspeed = portregs.PORTSC.PortSpeed;
-			kprintf(u" Device attatched on port %d, %d Kbps (%s)\n", n, calculatePortSpeed(portspeed) / 1000, ReadablePortSpeed(portSpeed(portspeed)));
-			Stall(100);
-			//Enable slot command
-			void* last_command = nullptr;
-			last_command = cmdring.enqueue(create_enableslot_command(protocol_speeds[portspeed].slottype));
-			//Now get a command completion event from the event ring
-			//liballoc_dump();
-			uint64_t* curevt = (uint64_t*)waitComplete(last_command, 1000);
-			if (get_trb_completion_code(curevt) != XHCI_COMPLETION_SUCCESS)
-			{
-				kprintf(u"Error enabling slot: %x!\n", get_trb_completion_code(curevt));
-				return;
-			}
-			uint8_t slotid = curevt[1] >> 56;
-			if (slotid == 0)
-				return;
-			//kprintf(u"  DSE command complete: %d\n", slotid);
-			xhci_port_info* port_info = new xhci_port_info(this, slotid);
-			port_info->controller = cinfo;
-			port_info->portindex = n;
-			port_info->slotid = slotid;
-			if (!createSlotContext(portspeed, port_info))
-				return;
-#if 1
-			paddr_t desc_buffer = pmmngr_allocate(1);
-			void* mappdev = find_free_paging(PAGESIZE);
-			volatile usb_device_descriptor* devdesc = reinterpret_cast<volatile usb_device_descriptor*>(mappdev);
-			paging_map(mappdev, desc_buffer, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING);
-			//Now we get device descriptor
-			REQUEST_PACKET device_packet;
-			device_packet.request_type = USB_BM_REQUEST_INPUT | USB_BM_REQUEST_STANDARD | USB_BM_REQUEST_DEVICE;
-			device_packet.request = USB_BREQUEST_GET_DESCRIPTOR;
-			device_packet.value = USB_DESCRIPTOR_WVALUE(USB_DESCRIPTOR_DEVICE, 0);
-			device_packet.index = 0;
-			device_packet.length = 8;
-
-			if (size_t res = xhci_control_in(port_info, &device_packet, (void*)devdesc, 8))
-			{
-				kprintf(u"Error getting device descriptor: %d\n", res);
-				return;
-			}
-
-			size_t exp = devdesc->bMaxPacketSize0;
-			size_t def = max_packet_size(portspeed);
-			size_t pktsz = proto == PORTINF_USB3 ? pow2(exp) : exp;
-
-
-			
-			if (pktsz != def)
-			{
-				kprintf(u"Max packet size %d does not match default %d (exp:%d)\n", pktsz, def, exp);
-			}
-
-
-			if (devdesc->bDeviceClass == 0x09)
-				kprintf(u"USB Hub\n");
-
-#if 0
-			if (!port_reset(n))
-				return;
-
-			if (!AddressDevice(port_info->phy_context, port_info->slotid))
-				return;
-#endif
-
-			device_packet.length = devdesc->bLength;
-			kprintf(u"Device descriptor length %d\n", device_packet.length);
-
-			if (size_t res = xhci_control_in(port_info, &device_packet, (void*)devdesc, device_packet.length))
-			{
-				kprintf(u"Error getting device descriptor: %d\n", res);
-				return;
-			}
-
-			volatile wchar_t* devstr = reinterpret_cast<volatile wchar_t*>(mappdev) + 256;
-			if (devdesc->iManufacturer != 0)
-			{
-				//Get device string
-				device_packet.value = USB_DESCRIPTOR_WVALUE(USB_DESCRIPTOR_STRING, devdesc->iManufacturer);
-				device_packet.length = 256;
-				
-
-				if (size_t res = xhci_control_in(port_info, &device_packet, (void*)devstr, 256))
-				{
-					kprintf(u"Error getting device manufacturer: %d\n", res);
-				}
-				else
-					kprintf(u"   Device vendor %s\n", ++devstr);				
-			}
-			if (devdesc->iProduct != 0)
-			{
-				//Get device string
-				device_packet.value = USB_DESCRIPTOR_WVALUE(USB_DESCRIPTOR_STRING, devdesc->iProduct);
-				device_packet.length = 256;
-
-				if (size_t res = xhci_control_in(port_info, &device_packet, (void*)devstr, 256))
-				{
-					kprintf(u"Error getting device product: %d\n", res);
-				}
-				else
-					kprintf(u"   %s\n", ++devstr);
-				
-			}
-			kprintf_a("   Device %x:%x class %x:%x:%x USB version %x\n", devdesc->idVendor, devdesc->idProduct, devdesc->bDeviceClass, devdesc->bDeviceSublass, devdesc->bDeviceProtocol, devdesc->bcdUSB);
-			//devdesc = raw_offset<volatile usb_device_descriptor*>(devdesc, 64);
-#endif
-		}
-	}
 
 	class CommandRing {
 	public:
@@ -773,7 +685,7 @@ private:
 		uint64_t slotbit;
 	};
 
-	class xhci_port_info {
+	class xhci_port_info : public UsbPortInfo {
 	public:
 		xhci_port_info(XHCI* parent, size_t slot)
 			:cmdring(parent, slot, XHCI_DOORBELL_ENPOINT0)
@@ -1228,7 +1140,7 @@ private:
 		return true;
 	}
 
-	bool createSlotContext(size_t portspeed, xhci_port_info* pinfo)
+	bool createSlotContext(size_t portspeed, xhci_port_info* pinfo, uint32_t routeString)
 	{
 		//Allocate device context
 		paddr_t dctxt = pmmngr_allocate(1);
@@ -1246,8 +1158,9 @@ private:
 		//Set input control context
 		volatile uint32_t* aflags = raw_offset<volatile uint32_t*>(mapincontxt, 4);
 		*aflags = 3;
+
 		//Setup slot context
-		*raw_offset<volatile uint32_t*>(mapincontxt, 0x20) = MK_SLOT_CONTEXT_DWORD0(1, 0, 0, portspeed, 0);
+		*raw_offset<volatile uint32_t*>(mapincontxt, 0x20) = MK_SLOT_CONTEXT_DWORD0(1, 0, 0, portspeed, routeString);
 		*raw_offset<volatile uint32_t*>(mapincontxt, 0x20 + 4) = MK_SLOT_CONTEXT_DWORD1(0, pinfo->portindex, 0); //Root hub port number	
 		//Initialise endpoint 0 context
 		//Control endpoint, CErr = 3
@@ -1266,7 +1179,7 @@ private:
 
 		Stall(100);
 		pinfo->device_context = mapdctxt;
-		pinfo->phy_context = incontext;
+		pinfo->phy_context = dctxt;
 		/*last_command = cmdring.enqueue(create_address_command(false, incontext, pinfo->slotid));
 		curevt = (uint64_t*)waitComplete(last_command, 1000);
 		if (get_trb_completion_code(curevt) != XHCI_COMPLETION_SUCCESS)
@@ -1278,9 +1191,13 @@ private:
 		return true;
 	}
 
+	virtual USBHub& RootHub()
+	{
+		return pRootHub;
+	}
+
 	size_t xhci_control_in(xhci_port_info* pinfo, const REQUEST_PACKET* request, void* dest, const size_t len)
 	{
-		__declspec(align(16)) size_t status;
 		xhci_command** devcmds = new xhci_command*[5];
 		devcmds[0] = create_setup_stage_trb(request->request_type, request->request, request->value, request->index, request->length, 3);		//IN data stage
 		devcmds[1] = create_data_stage_trb(get_physical_address(dest), len, true);
@@ -1321,6 +1238,7 @@ private:
 	xhci_port_info_data* pPortInfo;
 	HTHREAD evtthread;
 	bool interrupt_msi;
+	XhciRootHub pRootHub;
 };
 
 static uint8_t xhci_interrupt(size_t vector, void* info)
