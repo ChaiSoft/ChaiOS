@@ -18,17 +18,25 @@ enum THREAD_STATE {
 
 static bool scheduler_ready = false;
 
+static const int INITTLSSIZE = 16;
+
 typedef struct _thread_local {
 	struct _thread_local* selfptr;
 	size_t tls_size;
 	uint32_t free_slot;
+	tls_data_t initTls[INITTLSSIZE];
 }TLSBLOCK,*PTLSBLOCK;
 
 static PTLSBLOCK tls_block_factory()
 {
 	PTLSBLOCK block = new TLSBLOCK;
 	block->selfptr = block;
-	block->tls_size = 0;
+	block->tls_size = INITTLSSIZE;
+	for (int i = 0; i < INITTLSSIZE; ++i)
+	{
+		block->initTls[i] = i - 1;
+	}
+	block->free_slot = INITTLSSIZE - 1;
 	block->free_slot = -1;
 	return block;
 }
@@ -270,6 +278,7 @@ void scheduler_init(void(*eoi)())
 	kthread->priority = THREAD_PRIORITY_NORMAL;
 	kthread->threadtype = KERNEL_MAIN;
 	kthread->threadlocal = tls_block_factory();
+	arch_write_tls_base(kthread->threadlocal, 0);
 	all_threads[kthread->handle] = kthread;
 	allthreads_lock = create_spinlock();
 	//arch_set_breakpoint(allthreads_lock, 4, BREAKPOINT_WRITE);
@@ -444,6 +453,7 @@ EXTERN CHAIKRNL_FUNC tls_slot_t AllocateKernelTls()
 		{
 			tls = (PTLSBLOCK)tlsn;
 			tls->selfptr = tls;
+			CURRENT_THREAD()->threadlocal = tls;
 			arch_write_tls_base(tls, 0);
 		}
 		auto freeblocks = raw_offset<tls_data_t*>(tls, sizeof(TLSBLOCK) + tls->tls_size * sizeof(tls_data_t));

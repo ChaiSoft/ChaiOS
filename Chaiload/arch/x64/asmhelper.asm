@@ -231,3 +231,29 @@ sub rsp, 32
 call rdx
 jmp $
 ret
+
+extern liballoc_memset
+global memset
+memset:
+push rdi
+mov r9, rcx
+mov rax, rdx
+mov rdi, rcx
+mov rcx, r8
+rep stosb
+pop rdi
+mov rax, r9
+ret
+
+global memcpy
+memcpy:
+push rdi
+push rsi
+mov rax, rcx
+mov rdi, rcx
+mov rsi, rdx
+mov rcx, r8
+rep movsb
+pop rsi
+pop rdi
+ret

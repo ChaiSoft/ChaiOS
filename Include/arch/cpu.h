@@ -174,6 +174,8 @@ size_t iterate_cpu_caches(cpu_cache_callback callback);
 void cpu_print_information();
 CHAIKRNL_FUNC uint64_t arch_get_system_timer();
 
+CHAIKRNL_FUNC uint64_t arch_get_cpu_ticks();
+
 #ifdef __cplusplus
 }
 #endif

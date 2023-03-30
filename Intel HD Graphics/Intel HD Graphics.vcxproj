@@ -20,9 +20,10 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
-    <ProjectGuid>{6c63fcfe-15b4-4f9e-87bf-7d011eedf5e2}</ProjectGuid>
-    <RootNamespace>Ahci</RootNamespace>
+    <ProjectGuid>{560e6e0f-e675-4134-8186-f3be84aaf6fa}</ProjectGuid>
+    <RootNamespace>Intel_HD_Graphics</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>IntelHD</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -101,7 +102,6 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>netstack.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <BaseAddress>0xFFFFC00080000000</BaseAddress>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -116,7 +116,6 @@
     </ClCompile>
     <Link>
       <AdditionalDependencies>netstack.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <BaseAddress>0xFFFFC00090000000</BaseAddress>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -131,7 +130,6 @@
     </ClCompile>
     <Link>
       <AdditionalDependencies>netstack.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <BaseAddress>0xFFFFC00080000000</BaseAddress>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -150,10 +148,10 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>netstack.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <BaseAddress>0xFFFFC00090000000</BaseAddress>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="CommandQueue.cpp" />
     <ClCompile Include="DriverEntry.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -40,6 +40,9 @@ size_t read_cr0();
 void write_cr0(size_t);
 void call_kernel(void* param, void* entry, void* stack, size_t stacksz);
 
+void* memcpy(void* dest, const void* src, size_t n);
+void* memset(void* str, int c, size_t n);
+
 #ifdef __cplusplus
 }
 #endif

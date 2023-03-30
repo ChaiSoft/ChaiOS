@@ -2,6 +2,7 @@
 #include "uefilib.h"
 #include "kterm.h"
 #include "arch_paging.h"
+#include "assembly.h"
 
 #pragma pack(push, 1)
 typedef struct _IMAGE_DOS_HEADER {  // DOS .EXE header
@@ -256,20 +257,22 @@ static const PeMachineType MACHINE_NATIVE = IMAGE_FILE_MACHINE_AMD64;
 #error "Unknown machine architecture"
 #endif
 
-static void copy_mem(void* dst, void* src, size_t length)
-{
-	uint8_t* dstp = (uint8_t*)dst;
-	uint8_t* srcp = (uint8_t*)src;
-	while (length--)
-		*dstp++ = *srcp++;
-}
-
-static void zero_mem(void* dst, size_t length)
-{
-	uint8_t* dstp = (uint8_t*)dst;
-	while (length--)
-		*dstp++ = 0;
-}
+#define copy_mem memcpy
+#define zero_mem(dst, length) memset(dst, 0, length)
+//static void copy_mem(void* dst, void* src, size_t length)
+//{
+//	uint8_t* dstp = (uint8_t*)dst;
+//	uint8_t* srcp = (uint8_t*)src;
+//	while (length--)
+//		*dstp++ = *srcp++;
+//}
+//
+//static void zero_mem(void* dst, size_t length)
+//{
+//	uint8_t* dstp = (uint8_t*)dst;
+//	while (length--)
+//		*dstp++ = 0;
+//}
 
 static PIMAGE_DESCRIPTOR loaded_images = nullptr;
 
@@ -533,6 +536,7 @@ KLOAD_HANDLE LoadImage(void* filebuf, const char16_t* filename, ChaiosBootType i
 	void* ImBase = (void*)ImageBase;
 	intptr_t relocDiff = 0;
 	//Check if we need to relocate
+	puts("1");
 	if (!check_free(ImBase, ntHeaders->OptionalHeader.SizeOfImage))
 	{
 		void* new_base = find_free_paging(ntHeaders->OptionalHeader.SizeOfImage);
@@ -547,6 +551,7 @@ KLOAD_HANDLE LoadImage(void* filebuf, const char16_t* filename, ChaiosBootType i
 		printf(u"Error: cannot load image %s, mapping headers failed\n", filename);
 		return NULL;
 	}
+	printf(u"%x <- %x, length %x\n", ImBase, filebuf, ntHeaders->OptionalHeader.SizeOfHeaders);
 	copy_mem(ImBase, filebuf, ntHeaders->OptionalHeader.SizeOfHeaders);
 
 	for (size_t i = 0; i < ntHeaders->FileHeader.NumberOfSections; ++i)

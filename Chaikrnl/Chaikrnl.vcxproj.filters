@@ -81,6 +81,9 @@
     <ClCompile Include="ReaderWriterLock.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="PerformanceTest.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Include\kernelinfo.h">
@@ -156,6 +159,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\Include\ReadersWriterLock.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PerformanceTest.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

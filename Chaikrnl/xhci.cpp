@@ -76,6 +76,18 @@ struct protocol_speed {
 
 };
 
+struct xhci_port_info_data {
+	uint8_t flags;
+	uint8_t PairedPortNum;
+	uint8_t ProtoOffset;
+	uint8_t Reserved;
+};
+
+#define PORTINF_USB3 (1<<0)
+#define PORTINF_HIGHSPEED_ONLY (1<<1)
+#define PORTINF_HAS_PAIR (1<<2)
+#define PORTINF_ACTIVE (1<<3)
+
 #define MK_SLOT_CONTEXT_DWORD0(entries, hub, MultiTT, Speed, RouteString) \
 (((entries & 0x1F) << 27) | ((hub & 1) << 26) | ((MultiTT & 1) << 25) | ((Speed & 0xF) << 20) | (RouteString & ((1<<20) - 1)))
 
@@ -152,6 +164,7 @@ public:
 		//Create device context array
 		createDeviceContextBuffer();
 		//XHCI knows that we're loaded, and has device slots available
+		pPortInfo = new xhci_port_info_data[getMaxPorts()];
 		//Look up protocols
 		xhci_protocol_speeds();
 
@@ -222,30 +235,127 @@ private:
 		while (Operational.USBCMD.HcReset != 0);
 	}
 
-	void port_reset(size_t portindex)
+	class XhciRootHub : public USBHub
+	{
+	public:
+		XhciRootHub(XHCI& parent)
+			:m_Parent(parent)
+		{
+		}
+		virtual usb_status_t Reset(uint8_t port)
+		{
+			if (!m_Parent.port_reset(port))
+				return USB_FAIL;
+			return USB_SUCCESS;
+		}
+		virtual bool PortConnected(uint8_t port)
+		{
+			XhciPortRegisterBlock portregs = m_Parent.Operational.Port(port);
+			return (portregs.PORTSC.CCS == 1);
+		}
+		virtual usb_status_t AssignSlot(uint32_t routestring, uint32_t& slot)
+		{
+			return USB_FAIL;
+		}
+	private:
+		XHCI& m_Parent;
+	};
+
+	bool port_power(size_t portindex)
+	{
+		static const uint32_t PortPower = (1 << 9);
+		uint32_t HCPortStatusOff = XHCI_OPREG_PORTSC(portindex);
+		if ((readOperationalRegister(HCPortStatusOff, 32) & PortPower) == 0)
+		{
+			kprintf(u"Powering Port %d\n", portindex);
+			writeOperationalRegister(HCPortStatusOff, PortPower, 32);
+			Stall(20);
+			if ((readOperationalRegister(HCPortStatusOff, 32) & PortPower) == 0)
+			{
+				kprintf(u"Failed to power Port %d\n", portindex);
+				return false;
+			}
+		}
+		return true;
+	}
+
+	bool port_reset(size_t portindex)
 	{
 		static const uint32_t xHC_PortUSB_CHANGE_BITS = ((1 << 17) | (1 << 18) | (1 << 20) | (1 << 21) | (1 << 22));
+		static const uint32_t PortPower = (1 << 9);
 		XhciPortRegisterBlock portregs = Operational.Port(portindex);
 
 		//Clear change bits
 		uint32_t HCPortStatusOff = XHCI_OPREG_PORTSC(portindex);
-		writeOperationalRegister(HCPortStatusOff, xHC_PortUSB_CHANGE_BITS | (1 << 9), 32);
-
-		if (portregs.PORTSC.CCS == 1)
+		if ((readOperationalRegister(HCPortStatusOff, 32) & PortPower) == 0)
 		{
-			if (portregs.PORTSC.PED == 0)
+			kprintf(u"Powering Port %d\n", portindex);
+			writeOperationalRegister(HCPortStatusOff, PortPower, 32);
+			Stall(20);
+			if ((readOperationalRegister(HCPortStatusOff, 32) & PortPower) == 0)
 			{
-				kprintf(u"Resetting Port %d\n", portindex);
-				//Reset port
-				portregs.PORTSC.PortReset = 1;
-				while (portregs.PORTSC.PortReset != 0);
-
-				if (((uint32_t)portregs.PORTSC) & (1 << 1))
-				{
-					writeOperationalRegister(HCPortStatusOff, xHC_PortUSB_CHANGE_BITS | (1 << 9), 32);
-				}
+				kprintf(u"Failed to reset Port %d\n", portindex);
+				return false;
 			}
 		}
+		writeOperationalRegister(HCPortStatusOff, PortPower | xHC_PortUSB_CHANGE_BITS, 32);
+
+		auto& PortInfo = pPortInfo[portindex];
+		auto proto = PortInfo.flags & PORTINF_USB3;
+
+		if (portregs.PORTSC.PED == 0 || true)
+		{
+
+			uint32_t resetBit = (proto != 0) ? (1 << 31) : (1 << 4);
+			uint32_t resetChange = (proto != 0) ? (1 << 19) : (1 << 21);
+			writeOperationalRegister(HCPortStatusOff, PortPower | resetBit, 32);
+			int timeout = 500;
+			while (timeout > 0)
+			{
+				if (readOperationalRegister(HCPortStatusOff, 32) & resetChange)
+					break;
+				Stall(1);
+			}
+			if (timeout == 0)
+			{
+				//kprintf(u"Reset Port %d timed out\n", portindex);
+				return false;
+			}
+			Stall(20);
+			//kprintf(u"Reset Port %d\n", portindex);
+		}
+		else
+		{
+			//kprintf(u"Reset Port %d skipped\n", portindex);
+		}
+		
+		if (portregs.PORTSC.PED != 0)
+		{
+			//Port enabled
+			//clear status
+			writeOperationalRegister(HCPortStatusOff, PortPower | xHC_PortUSB_CHANGE_BITS, 32);
+			if (proto == 0)
+			{
+				//USB2 reset
+				PortInfo.flags |= PORTINF_ACTIVE;
+				if (PortInfo.flags & PORTINF_HAS_PAIR)
+				{
+					pPortInfo[PortInfo.PairedPortNum].flags &= ~PORTINF_ACTIVE;
+				}
+			}
+			return true;
+		}
+		else if(proto != 0)
+		{
+			//Disable this port and enable paired USB2
+			if (PortInfo.flags & PORTINF_HAS_PAIR)
+			{
+				pPortInfo[PortInfo.PairedPortNum].flags |= PORTINF_ACTIVE;
+			}
+		}
+		return false;
+		//
+		
 	}
 
 	uint64_t readCapabilityRegister(size_t reg, size_t width)
@@ -368,9 +478,27 @@ private:
 				u.namestr = readCapabilityRegister(supportp + 4, 32);
 				u.usb_str[4] = 0;
 				uint16_t revision = supreg >> 16;
-				uint32_t psic = readCapabilityRegister(supportp + 8, 32) >> 28;
+				uint32_t PortProtocol = readCapabilityRegister(supportp + 8, 32);
+				uint32_t psic = PortProtocol >> 28;
+				uint32_t CompatPortOffset = PortProtocol & 0xFF;
+				uint32_t CompatPortCount = (PortProtocol >> 8) & 0xFF;
+				uint32_t ProtoDefined = (PortProtocol >> 16) & 0x0FFF;
 				uint32_t slott = readCapabilityRegister(supportp + 0xC, 32) & 0x1F;
-				//kprintf_a("%s%x.%02x, %d descriptors, slot type %d\n", u.usb_str, revision >> 8, revision & 0xFF, psic, slott);
+				for (int i = 0; i < CompatPortCount; ++i)
+				{
+					auto& portInf = pPortInfo[i + CompatPortOffset - 1];
+					portInf.ProtoOffset = i;
+					if ((revision >> 8) == 2)
+					{
+						if (ProtoDefined & 2)
+							portInf.flags |= PORTINF_HIGHSPEED_ONLY;
+					}
+					else
+					{
+						portInf.flags |= PORTINF_USB3;
+					}
+				}
+				//kprintf_a("%s%x.%02x, %d descriptors, offset %d, count %d, slot type %d\n", u.usb_str, revision >> 8, revision & 0xFF, psic, CompatPortOffset, CompatPortCount, slott);
 				for (size_t i = 0; i < psic; ++i)
 				{
 					uint32_t data = readCapabilityRegister(supportp + 0x10 + i * 4, 32);
@@ -402,7 +530,31 @@ private:
 				}
 			}
 		} while (supportp != 0);
-		kprintf(u"XHCI supported protocols loaded\n");
+		//Pair up ports
+		auto numPorts = getMaxPorts();
+		for (int i = 0; i < numPorts; ++i)
+		{
+			auto& lhsPort = pPortInfo[i];
+			for (int j = 0; j < numPorts; ++j)
+			{
+				auto& rhsPort = pPortInfo[j];
+				if (lhsPort.ProtoOffset == rhsPort.ProtoOffset && (lhsPort.flags & PORTINF_USB3) != (rhsPort.flags & PORTINF_USB3))
+				{
+					lhsPort.PairedPortNum = j;
+					rhsPort.PairedPortNum = i;
+					lhsPort.flags |= PORTINF_HAS_PAIR;
+					rhsPort.flags |= PORTINF_HAS_PAIR;
+				}
+			}
+		}
+		for (int j = 0; j < numPorts; ++j)
+		{
+			auto& Port = pPortInfo[j];
+			auto shouldBeActive = !(Port.flags & PORTINF_HAS_PAIR) || (Port.flags & PORTINF_USB3);
+			if (shouldBeActive)
+				Port.flags |= PORTINF_ACTIVE;
+		}
+		//kprintf(u"XHCI supported protocols loaded\n");
 	}
 
 	static void Stall(uint32_t milliseconds)
@@ -420,10 +572,14 @@ private:
 		XHCI* cinfo = ((xhci_thread_port_startup*)pinf)->cinfo;
 		size_t n = ((xhci_thread_port_startup*)pinf)->port;
 
+		auto& PortInfo = pPortInfo[n];
+		auto proto = PortInfo.flags & PORTINF_USB3;
+
 		XhciPortRegisterBlock portregs = Operational.Port(n);
 		if (portregs.PORTSC.CCS == 1)
 		{
-			port_reset(n);
+			if (!port_reset(n))
+				return;
 			//Port successfully reset
 			uint8_t portspeed = portregs.PORTSC.PortSpeed;
 			kprintf(u" Device attatched on port %d, %d Kbps (%s)\n", n, calculatePortSpeed(portspeed) / 1000, ReadablePortSpeed(portSpeed(portspeed)));
@@ -436,7 +592,7 @@ private:
 			uint64_t* curevt = (uint64_t*)waitComplete(last_command, 1000);
 			if (get_trb_completion_code(curevt) != XHCI_COMPLETION_SUCCESS)
 			{
-				kprintf(u"Error enabling slot!\n");
+				kprintf(u"Error enabling slot: %x!\n", get_trb_completion_code(curevt));
 				return;
 			}
 			uint8_t slotid = curevt[1] >> 56;
@@ -450,52 +606,86 @@ private:
 			if (!createSlotContext(portspeed, port_info))
 				return;
 #if 1
+			paddr_t desc_buffer = pmmngr_allocate(1);
+			void* mappdev = find_free_paging(PAGESIZE);
+			volatile usb_device_descriptor* devdesc = reinterpret_cast<volatile usb_device_descriptor*>(mappdev);
+			paging_map(mappdev, desc_buffer, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING);
 			//Now we get device descriptor
-			xhci_command** devcmds = new xhci_command*[4];
-			devcmds[0] = create_setup_stage_trb(USB_BM_REQUEST_INPUT | USB_BM_REQUEST_STANDARD | USB_BM_REQUEST_DEVICE,
-				USB_BREQUEST_GET_DESCRIPTOR, USB_DESCRIPTOR_WVALUE(USB_DESCRIPTOR_DEVICE, 0), 0, 18, 3);
-			volatile usb_device_descriptor* devdesc = (usb_device_descriptor*)new uint8_t[64];
-			devcmds[1] = create_data_stage_trb(get_physical_address((void*)devdesc), 18, true);
-			devcmds[2] = create_status_stage_trb(true);
-			devcmds[3] = nullptr;
-			//port_info->cmdring.enqueue(devcmds[0]);
-			void* statusevt = port_info->cmdring.enqueue_commands(devcmds);
-			void* resulttrb = waitComplete(statusevt, 1000);
-			if (get_trb_completion_code(resulttrb) != XHCI_COMPLETION_SUCCESS)
+			REQUEST_PACKET device_packet;
+			device_packet.request_type = USB_BM_REQUEST_INPUT | USB_BM_REQUEST_STANDARD | USB_BM_REQUEST_DEVICE;
+			device_packet.request = USB_BREQUEST_GET_DESCRIPTOR;
+			device_packet.value = USB_DESCRIPTOR_WVALUE(USB_DESCRIPTOR_DEVICE, 0);
+			device_packet.index = 0;
+			device_packet.length = 8;
+
+			if (size_t res = xhci_control_in(port_info, &device_packet, (void*)devdesc, 8))
 			{
-				kprintf(u"Error getting device descriptor (code %d)\n", get_trb_completion_code(resulttrb));
+				kprintf(u"Error getting device descriptor: %d\n", res);
 				return;
 			}
+
+			size_t exp = devdesc->bMaxPacketSize0;
+			size_t def = max_packet_size(portspeed);
+			size_t pktsz = proto == PORTINF_USB3 ? pow2(exp) : exp;
+
+
+			
+			if (pktsz != def)
+			{
+				kprintf(u"Max packet size %d does not match default %d (exp:%d)\n", pktsz, def, exp);
+			}
+
+
+			if (devdesc->bDeviceClass == 0x09)
+				kprintf(u"USB Hub\n");
+
+#if 0
+			if (!port_reset(n))
+				return;
+
+			if (!AddressDevice(port_info->phy_context, port_info->slotid))
+				return;
+#endif
+
+			device_packet.length = devdesc->bLength;
+			kprintf(u"Device descriptor length %d\n", device_packet.length);
+
+			if (size_t res = xhci_control_in(port_info, &device_packet, (void*)devdesc, device_packet.length))
+			{
+				kprintf(u"Error getting device descriptor: %d\n", res);
+				return;
+			}
+
+			volatile wchar_t* devstr = reinterpret_cast<volatile wchar_t*>(mappdev) + 256;
 			if (devdesc->iManufacturer != 0)
 			{
 				//Get device string
-				devcmds[0] = create_setup_stage_trb(USB_BM_REQUEST_INPUT | USB_BM_REQUEST_STANDARD | USB_BM_REQUEST_DEVICE, 
-					USB_BREQUEST_GET_DESCRIPTOR, USB_DESCRIPTOR_WVALUE(USB_DESCRIPTOR_STRING, devdesc->iManufacturer), 0, 256, 3);
-				volatile wchar_t* devstr = new wchar_t[256];
-				devcmds[1] = create_data_stage_trb(get_physical_address((void*)devstr), 256, true);
-				devcmds[2] = create_status_stage_trb(true);
-				devcmds[3] = nullptr;
-				statusevt = port_info->cmdring.enqueue_commands(devcmds);
-				resulttrb = waitComplete(statusevt, 1000);
-				kprintf(u"   Device vendor %s\n", ++devstr);
+				device_packet.value = USB_DESCRIPTOR_WVALUE(USB_DESCRIPTOR_STRING, devdesc->iManufacturer);
+				device_packet.length = 256;
+				
+
+				if (size_t res = xhci_control_in(port_info, &device_packet, (void*)devstr, 256))
+				{
+					kprintf(u"Error getting device manufacturer: %d\n", res);
+				}
+				else
+					kprintf(u"   Device vendor %s\n", ++devstr);				
 			}
 			if (devdesc->iProduct != 0)
 			{
 				//Get device string
-				devcmds[0] = create_setup_stage_trb(USB_BM_REQUEST_INPUT | USB_BM_REQUEST_STANDARD | USB_BM_REQUEST_DEVICE,
-					USB_BREQUEST_GET_DESCRIPTOR, USB_DESCRIPTOR_WVALUE(USB_DESCRIPTOR_STRING, devdesc->iProduct), 0, 256, 3);
-				volatile wchar_t* devstr = new wchar_t[256];
-				devcmds[1] = create_data_stage_trb(get_physical_address((void*)devstr), 256, true);
-				devcmds[2] = create_status_stage_trb(true);
-				devcmds[3] = nullptr;
-				statusevt = port_info->cmdring.enqueue_commands(devcmds);
-				resulttrb = waitComplete(statusevt, 1000);
-				kprintf(u"   %s\n", ++devstr);
+				device_packet.value = USB_DESCRIPTOR_WVALUE(USB_DESCRIPTOR_STRING, devdesc->iProduct);
+				device_packet.length = 256;
+
+				if (size_t res = xhci_control_in(port_info, &device_packet, (void*)devstr, 256))
+				{
+					kprintf(u"Error getting device product: %d\n", res);
+				}
+				else
+					kprintf(u"   %s\n", ++devstr);
+				
 			}
-			
-			{
-				kprintf_a("   Device %x:%x class %x:%x:%x USB version %x\n", devdesc->idVendor, devdesc->idProduct, devdesc->bDeviceClass, devdesc->bDeviceSublass, devdesc->bDeviceProtocol, devdesc->bcdUSB);
-			}
+			kprintf_a("   Device %x:%x class %x:%x:%x USB version %x\n", devdesc->idVendor, devdesc->idProduct, devdesc->bDeviceClass, devdesc->bDeviceSublass, devdesc->bDeviceProtocol, devdesc->bcdUSB);
 			//devdesc = raw_offset<volatile usb_device_descriptor*>(devdesc, 64);
 #endif
 		}
@@ -596,6 +786,7 @@ private:
 		uint32_t slotid;
 		CommandRing cmdring;
 		void* device_context;
+		paddr_t phy_context;
 		spinlock_t command_lock;
 	};
 
@@ -604,21 +795,24 @@ private:
 	bool update_packet_size_fs(xhci_port_info* port)
 	{
 		uint8_t* buffer = new uint8_t[8];
-		xhci_command** devcmds = new xhci_command*[4];
-		devcmds[0] = create_setup_stage_trb(0x80, 6, 0x100, 0, 8, 3);
-		devcmds[1] = create_data_stage_trb(get_physical_address(buffer), 8, true);
-		devcmds[2] = create_status_stage_trb(true);
-		devcmds[3] = nullptr;
-		void* statusevt = port->cmdring.enqueue_commands(devcmds);
-		void* res = waitComplete(statusevt, 1000);
-		if (get_trb_completion_code(res) != XHCI_COMPLETION_SUCCESS)
+		REQUEST_PACKET device_packet;
+		device_packet.request_type = USB_BM_REQUEST_INPUT | USB_BM_REQUEST_STANDARD | USB_BM_REQUEST_DEVICE;
+		device_packet.request = USB_BREQUEST_GET_DESCRIPTOR;
+		device_packet.value = USB_DESCRIPTOR_WVALUE(USB_DESCRIPTOR_DEVICE, 0);
+		device_packet.index = 0;
+		device_packet.length = 8;
+
+		if (size_t res = xhci_control_in(port, &device_packet, buffer, 8))
 		{
-			kprintf(u"Error getting FullSpeed packet size: %d\n", get_trb_completion_code(res));
+			kprintf(u"Error getting FullSpeed packet size: %d\n", res);
 			return false;
 		}
-		//Update information
+
 		usb_device_descriptor* devdes = (usb_device_descriptor*)buffer;
-		if (devdes->bMaxPacketSize0 != 8)
+		if (devdes->bDeviceClass == 0x09)
+			kprintf(u"USB Hub\n");
+		//Update information
+		if (devdes->bMaxPacketSize0 != 64)
 		{
 			//Create input context
 			//Allocate input context
@@ -634,7 +828,7 @@ private:
 			*raw_offset<uint16_t*>(mapincontxt, 0x40 + 0x6) = devdes->bMaxPacketSize0;
 			//Notify xHCI
 			void* lastcmd = cmdring.enqueue(create_evaluate_command(incontext, port->slotid));
-			res = waitComplete(lastcmd, 1000);
+			void* res = waitComplete(lastcmd, 1000);
 			if (get_trb_completion_code(res) != XHCI_COMPLETION_SUCCESS)
 			{
 				kprintf(u"Error updating device context\n");
@@ -861,6 +1055,7 @@ private:
 		paddr_t spad = pmmngr_allocate(1);
 		*reinterpret_cast<volatile uint64_t*>(devctxt) = spad;
 		Operational.CONFIG.EnabledDeviceSlots = Capabilities.HCSPARAMS1.MaxSlots;
+		writeOperationalRegister(XHCI_OPREG_DNCTRL, 1 << 1, 32);
 		void* mappedspa = find_free_paging(PAGESIZE);
 		paging_map(mappedspa, spad, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING);
 		for (size_t n = 0; n < scratchsize && n < 512; ++n)
@@ -882,8 +1077,8 @@ private:
 		switch (sp)
 		{
 		case LOW_SPEED:
-		case FULL_SPEED:
 			return 8;
+		case FULL_SPEED:
 		case HIGH_SPEED:
 			return 64;
 		case SUPER_SPEED:
@@ -1020,6 +1215,19 @@ private:
 		return result;
 	}
 
+	bool AddressDevice(paddr_t incontext, uint16_t slotid, bool bsr = false)
+	{
+		//Issue address device command
+		void* last_command = cmdring.enqueue(create_address_command(bsr, incontext, slotid));
+		uint64_t* curevt = (uint64_t*)waitComplete(last_command, 1000);
+		if (get_trb_completion_code(curevt) != XHCI_COMPLETION_SUCCESS)
+		{
+			kprintf(u"Error addressing device (BSR1): %x\n", get_trb_completion_code(curevt));
+			return false;
+		}
+		return true;
+	}
+
 	bool createSlotContext(size_t portspeed, xhci_port_info* pinfo)
 	{
 		//Allocate device context
@@ -1053,75 +1261,53 @@ private:
 		//Apparently we write these to the device context
 		memcpy(mapdctxt, raw_offset<void*>(mapincontxt, 0x20), 0x40);
 
-		//Issue address device command
-		void* last_command = cmdring.enqueue(create_address_command(false, incontext, pinfo->slotid));
-		uint64_t* curevt = (uint64_t*)waitComplete(last_command, 1000);
-		if (get_trb_completion_code(curevt) != XHCI_COMPLETION_SUCCESS)
-		{
-			kprintf(u"Error addressing device\n");
+		if (!AddressDevice(incontext, pinfo->slotid))
 			return false;
-		}
+
 		Stall(100);
 		pinfo->device_context = mapdctxt;
-
-		//Device address
-		uint8_t dev_addr = (*raw_offset<volatile uint32_t*>(mapdctxt, 0x0C)) & 0xFF;
-
-		uint8_t* buffer = new uint8_t[8];
-
-		REQUEST_PACKET device_packet;
-		device_packet.request_type = USB_BM_REQUEST_INPUT | USB_BM_REQUEST_STANDARD | USB_BM_REQUEST_DEVICE;
-		device_packet.request = USB_BREQUEST_GET_DESCRIPTOR;
-		device_packet.value = USB_DESCRIPTOR_WVALUE(USB_DESCRIPTOR_DEVICE, 0);
-		device_packet.index = 0;
-		device_packet.length = 8;
-
-		if (size_t res = xhci_control_in(pinfo, &device_packet, buffer, 8))
-		{
-			kprintf(u"Error getting FullSpeed packet size: %d\n", res);
-			return false;
-		}
-
-		usb_device_descriptor* devdesc_small = (usb_device_descriptor*)buffer;
-		if (devdesc_small->bDeviceClass == 0x09)
-			kprintf(u"USB Hub\n");
-
-#if 0
-		//If the device is full speed, we need to work out the correct packet size
-		if (portSpeed(portspeed) == FULL_SPEED)
-		{
-			//kprintf(u"Full speed device, calculating packet size\n");
-			if (!update_packet_size_fs(pinfo))
-				return false;
-		}
-#endif
-
-#if 0
-		last_command = cmdring.enqueue(create_address_command(false, incontext, pinfo->slotid));
+		pinfo->phy_context = incontext;
+		/*last_command = cmdring.enqueue(create_address_command(false, incontext, pinfo->slotid));
 		curevt = (uint64_t*)waitComplete(last_command, 1000);
 		if (get_trb_completion_code(curevt) != XHCI_COMPLETION_SUCCESS)
 		{
-			kprintf(u"Error addressing device\n");
+			kprintf(u"Error addressing device (NO BSR): %x\n", get_trb_completion_code(curevt));
 			return false;
 		}
-#endif
+		Stall(100);*/
 		return true;
 	}
 
 	size_t xhci_control_in(xhci_port_info* pinfo, const REQUEST_PACKET* request, void* dest, const size_t len)
 	{
-		xhci_command** devcmds = new xhci_command*[4];
+		__declspec(align(16)) size_t status;
+		xhci_command** devcmds = new xhci_command*[5];
 		devcmds[0] = create_setup_stage_trb(request->request_type, request->request, request->value, request->index, request->length, 3);		//IN data stage
 		devcmds[1] = create_data_stage_trb(get_physical_address(dest), len, true);
+		//devcmds[2] = create_event_data_trb(get_physical_address(dest));
 		devcmds[2] = create_status_stage_trb(true);
 		devcmds[3] = nullptr;
+
 		void* statusevt = pinfo->cmdring.enqueue_commands(devcmds);
 		void* res = waitComplete(statusevt, 1000);
+
 		size_t result = get_trb_completion_code(res);
 		if (result != XHCI_COMPLETION_SUCCESS)
 		{
 			return (result == 0 ? 0x100 : result);
 		}
+
+		/*devcmds[0] = create_status_stage_trb(true);
+		devcmds[1] = nullptr;
+		statusevt = pinfo->cmdring.enqueue_commands(devcmds);
+		res = waitComplete(statusevt, 1000);
+		result = get_trb_completion_code(res);
+		if (result != XHCI_COMPLETION_SUCCESS)
+		{
+			return (result == 0 ? 0x100 : result);
+		}
+		delete[] devcmds;*/
+
 		return 0;
 	}
 private:
@@ -1132,6 +1318,7 @@ private:
 	void* devctxt;
 	CommandRing cmdring;
 	xhci_evtring_info primaryevt;
+	xhci_port_info_data* pPortInfo;
 	HTHREAD evtthread;
 	bool interrupt_msi;
 };

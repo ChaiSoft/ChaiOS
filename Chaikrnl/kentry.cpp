@@ -8,6 +8,7 @@
 #include <acpihelp.h>
 #include <acpi.h>
 #include <multiprocessor.h>
+#include <PerformanceTest.h>
 #include <string.h>
 #include <kdraw.h>
 #include <pciexpress.h>
@@ -111,23 +112,6 @@ bool pci_print(uint16_t segment, uint16_t bus, uint16_t device)
 	return false;
 }
 
-static netif* testnif;
-
-EXTERN CHAIKRNL_FUNC void test_netif(netif* ptr)
-{
-	testnif = ptr;
-}
-
-static netconn* connout;
-void kputs_net(const char16_t* str)
-{
-	netbuf* buf = netbuf_new();
-	size_t len = 0;
-	for (; str[len]; ++len);
-	netbuf_ref(buf, str, len + 1);
-	netconn_send(connout, buf);
-}
-
 static void print_guid(GUID& id)
 {
 	uint64_t part5 = 0;
@@ -158,6 +142,32 @@ static vds_enum_result vds_enum(HDISK disk)
 	kprintf(u"\n");
 
 	return RESULT_NOTBOUND;
+}
+
+static void network_outputter(void* param)
+{
+	semaphore_t sleepysem = create_semaphore(0, u"Network Output Wait Sem");
+
+	auto connout = netconn_new(NETCONN_UDP);
+	
+	const ip_addr_t broadcast = IPADDR4_INIT(IPADDR_BROADCAST);
+	//err_t err = netconn_connect(connout, &broadcast, 3120);
+
+	const char* teststr = "ChaiOS";
+	netbuf* buf = netbuf_new();
+	size_t len = 0;
+	for (; teststr[len]; ++len);
+	//netbuf_ref(buf, teststr, len + 1);
+	while (true)
+	{
+		void* buff = netbuf_alloc(buf, len + 1);
+		memcpy(buff, teststr, len + 1);
+		netconn_sendto(connout, buf, &broadcast, 3120);
+		wait_semaphore(sleepysem, 1, 1000);
+
+		netbuf_free(buf);
+	}
+	netbuf_delete(buf);
 }
 
 static PKERNEL_BOOT_INFO bootinf = nullptr;
@@ -200,10 +210,25 @@ void dfsTree(size_t indent, HFILE curdir)
 	}
 };
 
+extern PerformanceElement gputs_performance;
+extern PerformanceElement copyWindow_performance;
+
+static void DisplayPerf(PerformanceElement& perfel, uint64_t elapsed)
+{
+	double InGputs = ((double)perfel.Counter / (double)elapsed) * 100;
+	int Percent = (int)InGputs;
+	int Fraction = (int)((InGputs - Percent) * 100);
+	kprintf(u"%s Perfomance: %d.%d2%%\n", perfel.Name, Percent, Fraction);
+}
+
 extern bool CallConstructors();
+
+
+
 void _kentry(PKERNEL_BOOT_INFO bootinfo)
 {
-	set_stdio_puts(bootinfo->puts_proc);
+
+	set_stdio_puts((chaios_stdio_puts_proc)bootinfo->puts_proc, NULL);
 	setLiballocAllocator(&safe_early, nullptr);
 	kputs(u"CHAIOS KERNEL 0.09\n");
 	//Begin hardware initialization
@@ -225,11 +250,10 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 	kputs(u"complete\nGraphics init: ");
 	setLiballocAllocator(&early_page_allocate, &early_free_pages);
 	InitialiseGraphics(*bootinfo->fbinfo, bootinfo->kterm_status);
-	set_stdio_puts(&gputs_k);
-	bootinf = bootinfo = copyBootInfo(bootinfo);
 	SetBackgroundColour(RGB(0, 0, 0xFF));
-	void* wnd = CreateWindow(900, 700);
-	SetKoutWindow(wnd);
+	//STDIO now uses internal graphics
+	PerformanceTest::GetPerformance().StartTiming();
+	bootinf = bootinfo = copyBootInfo(bootinfo);
 	kputs(u"complete\nACPI init: ");
 	//Copy boot information
 	bootinfo = copyBootInfo(bootinfo);
@@ -243,11 +267,17 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 	//Set up the VMMNGR
 	//paging_boot_free();
 	//We're now fully in the higher half and standalone
+	kputs(u"mulitprocessor init\n");
 	arch_setup_interrupts();
+	//Scheduler is now running
+	//startup_acpi();
+	
 	startup_multiprocessor();
 	//Welcome to the thunderdome
+	StartupGraphics();
+	void* wnd = CreateStdioWindow(900, 700);		//Double buffer the entire screen
 	//startup_acpi();
-	//setup_usb();
+	setup_usb();
 	//Start Virtual Disk System
 	init_vds();
 
@@ -287,19 +317,13 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 	kprintf(u"Heap Usage: %d KiB\n", heap_usage / (1024));
 	kprintf(u"Current CPU ID: %x\n", pcpu_data.cpuid);
 
-	connout = netconn_new(NETCONN_UDP);
-	const ip_addr_t broadcast = IPADDR4_INIT(IPADDR_BROADCAST);
-	err_t err = netconn_connect(connout, &broadcast, 3120);
-
-	if (err == 0)
-	{
-		kputs_net(u"ChaiOS: Testing network output\n");
-	}
+	//create_thread(network_outputter, nullptr, THREAD_PRIORITY_NORMAL, KERNEL_TASK);
 	
 	initialize_pci_drivers();
-	//usb_run();
+	usb_run();
 	vfsInit();
 	vds_start_filesystem_matching();
+#if 0
 	kprintf(u"VDS Information:\n");
 	enumerate_disks(&vds_enum);
 
@@ -314,6 +338,10 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 			dfsTree(1, root);
 #endif
 	}
+#endif
+	auto elapsed = PerformanceTest::GetPerformance().StopTiming();
+	DisplayPerf(gputs_performance, elapsed);
+	DisplayPerf(copyWindow_performance, elapsed);
 
 	kputs(u"System timer: ");
 	//Test usermode

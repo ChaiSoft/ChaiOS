@@ -89,6 +89,7 @@ void putpixel(size_t x, size_t y, COLORREF col)
 	*pixelloc = pixel;
 }
 
+
 void gputs_k(const char16_t* str)
 {
 	while (*str)

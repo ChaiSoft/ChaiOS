@@ -104,7 +104,7 @@ static long long l_possibleOverruns = 0;	///< Number of possible overruns
 
 // ***********   HELPER FUNCTIONS  *******************************
 
-static void *liballoc_memset(void* s, int c, size_t n)
+void *liballoc_memset(void* s, int c, size_t n)
 {
 	unsigned int i;
 	for ( i = 0; i < n ; i++)
@@ -112,6 +112,7 @@ static void *liballoc_memset(void* s, int c, size_t n)
 	
 	return s;
 }
+
 static void* liballoc_memcpy(void* s1, const void* s2, size_t n)
 {
   char *cdest;

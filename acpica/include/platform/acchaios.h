@@ -167,7 +167,7 @@
 
 #define ACPI_REDUCED_HARDWARE 0
 
-#define ACPI_DEBUG_OUTPUT
+//#define ACPI_DEBUG_OUTPUT
 
 
 /* Host-dependent types and defines for user- and kernel-space ACPICA */

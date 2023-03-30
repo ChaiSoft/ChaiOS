@@ -83,6 +83,8 @@ extern "C" void x64_syscall_entry();
 extern "C" void x64_syscall_entry_compat();
 extern "C" void x64_sysenter_entry_compat();
 
+extern "C" uint64_t x64_rdtsc();
+
 extern "C" uint16_t x64_bswapw(uint16_t);
 extern "C" uint32_t x64_bswapd(uint32_t);
 extern "C" uint64_t x64_bswapq(uint64_t);
@@ -215,6 +217,8 @@ static uint16_t oldsregs[8];
 #define MSR_IA32_GS_BASE 0xC0000101
 #define MSR_IA32_KERNELGS_BASE 0xC0000102
 
+#define MSR_IA32_PAT 0x277
+
 static void set_gdt_entry(gdt_entry& entry, size_t base, size_t limit, uint8_t access, uint8_t flags)
 {
 	entry.base_low = base & 0xFFFF;
@@ -342,6 +346,8 @@ static void x64_performance_features()
 	x64_wrmsr(MSR_IA32_MISC_ENABLE, misc_enable);
 }
 
+extern uint64_t x64paging_get_PAT_value();
+
 extern "C" void arch_cpu_init()
 {
 	size_t cr0 = x64_read_cr0();
@@ -443,6 +449,9 @@ extern "C" void arch_cpu_init()
 		}
 		x64_write_cr4(cr4);
 	}
+	//Set up PAT
+	uint64_t patvalue = x64paging_get_PAT_value();
+	x64_wrmsr(MSR_IA32_PAT, patvalue);
 	//EFER stuff
 	size_t efer = x64_rdmsr(IA32_EFER);
 	efer |= (1 << 11);		//NXE
@@ -1351,6 +1360,12 @@ void arch_go_usermode(void* userstack, void(*ufunc)(void*), size_t bitness)
 	arch_write_per_cpu_data(0x20, 64, (size_t)stackptr);
 
 	x64_go_usermode(userstack, ufunc, code_selector, data_selector, tss, SEGVAL(GDT_ENTRY_TSS, 3));
+}
+
+
+uint64_t arch_get_cpu_ticks()
+{
+	return x64_rdtsc();
 }
 
 void cpu_print_information()

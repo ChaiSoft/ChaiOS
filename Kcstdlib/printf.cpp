@@ -2,16 +2,21 @@
 #include <vaargs.h>
 
 static chaios_stdio_puts_proc puts_s;
+static chaios_read_stdio_handle puts_handle;
 void kputs(const char* s);
 
-EXTERN KCSTDLIB_FUNC void set_stdio_puts(chaios_stdio_puts_proc putsp)
+EXTERN KCSTDLIB_FUNC void set_stdio_puts(chaios_stdio_puts_proc putsp, chaios_read_stdio_handle stdhandle)
 {
 	puts_s = putsp;
+	puts_handle = stdhandle;
 }
 
 EXTERN KCSTDLIB_FUNC void kputs(const char16_t* str)
 {
-	puts_s(str);
+	void* hnd = NULL;
+	if(puts_handle)
+		hnd = puts_handle();
+	puts_s(str, hnd);
 }
 
 static size_t strlen(const char* str)

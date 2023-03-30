@@ -18,9 +18,60 @@ typedef size_t PTAB_ENTRY;
 #define PAGING_USER 0x4
 #define PAGING_WRITETHROUGH 0x8
 #define PAGING_NOCACHE 0x10
+#define PAGING_PATPAGE 0x80
 #define PAGING_CHAIOS_NOSWAP 0x200
 #define PAGING_SIZEBIT 0x80
 #define PAGING_NXE 0x8000000000000000
+
+typedef enum {
+	Uncacheable,
+	WriteCombining,
+	Reserved2,
+	Reserved3,
+	WriteThrough,
+	WriteProtected,
+	WriteBack,
+	Uncached
+}PAT_VALUE;
+
+constexpr uint64_t PAT_ENTRY(unsigned short x, PAT_VALUE value)
+{
+	return ((uint64_t)value << (x*8));
+}
+
+static const int PAT_LENGTH = 8;
+static PAT_VALUE Pat[PAT_LENGTH]
+{
+	WriteBack,
+	WriteThrough,
+	Uncached,
+	Uncacheable,
+	WriteBack,
+	WriteCombining,
+	WriteProtected,
+	Uncached
+};
+
+uint64_t x64paging_get_PAT_value()
+{
+	uint64_t result = 0;
+	for (int i = 0; i < PAT_LENGTH; ++i)
+	{
+		uint64_t patent = PAT_ENTRY(i, Pat[i]);
+		//kprintf(u"PAT ENTRY(%d): %d, %x\n", i, Pat[i], patent);
+		result |= patent;
+	}
+	//kprintf(u"PAT value: %x", result);
+	//while (1);
+	return result;
+}
+
+static short PatIndex(PAT_VALUE val)
+{
+	for (int i = 0; i < PAT_LENGTH; ++i)
+		if (Pat[i] == val) return i;
+	return -1;
+}
 
 spinlock_t paging_lock;
 
@@ -128,10 +179,29 @@ static size_t get_arch_paging_attributes(size_t attributes, bool present = true)
 		result |= PAGING_USER;
 	if (attributes & PAGE_ATTRIBUTE_NO_EXECUTE)
 		result |= PAGING_NXE;
-	if (attributes & PAGE_ATTRIBUTE_WRITE_THROUGH)
+
+	/*if (attributes & PAGE_ATTRIBUTE_WRITE_THROUGH)
 		result |= PAGING_WRITETHROUGH;
 	if (attributes & PAGE_ATTRIBUTE_NO_CACHING)
-		result |= PAGING_NOCACHE;
+		result |= PAGING_NOCACHE;*/
+	PAT_VALUE caching;
+	if (attributes & PAGE_ATTRIBUTE_WRITE_THROUGH)
+		caching = PAT_VALUE::WriteThrough;
+	else if (attributes & PAGE_ATTRIBUTE_WRITE_COMBINING)
+		caching = PAT_VALUE::WriteCombining;
+	else if (attributes & PAGE_ATTRIBUTE_NO_CACHING)
+		caching = PAT_VALUE::Uncacheable;
+	else
+		caching = PAT_VALUE::WriteBack;
+
+	short patVal = PatIndex(caching);
+	if (patVal >= 0)
+	{
+		if (patVal & 1) result |= PAGING_WRITETHROUGH;
+		if (patVal & 2) result |= PAGING_NOCACHE;
+		if (patVal & 4) result |= PAGING_PATPAGE;
+	}
+
 	if (attributes & PAGE_ATTRIBUTE_NO_PAGING)
 		result |= PAGING_CHAIOS_NOSWAP;
 	return result;
@@ -430,17 +500,12 @@ EXTERN CHAIKRNL_FUNC void PagingFinishDma(void* __user vaddr, size_t length)
 
 }
 
-#define MSR_IA32_PAT 0x277
-extern "C" void x64_wrmsr(size_t msr, uint64_t);
 
 void paging_initialize(void*& info)
 {
 	paging_info* pinfo = (paging_info*)info;
 	recursive_slot = pinfo->recursive_slot;
 	pml4ptr = pinfo->pml4ptr;
-	//Set up PAT
-	uint64_t patvalue = 0x0007040600070406;
-	x64_wrmsr(MSR_IA32_PAT, patvalue);
 
 	paging_lock = create_spinlock();
 }

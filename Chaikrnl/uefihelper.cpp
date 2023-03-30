@@ -125,6 +125,8 @@ static uint64_t AcpiSystemTimer() {
 	timer += time.Second;
 	timer *= 10000000;	//100 n intervals
 	timer += time.Nanosecond / 100;
+
+	timer /= 10000;
 	return timer;
 }
 

@@ -472,12 +472,12 @@ uint32_t PciAllocateMsi(uint16_t segment, uint16_t bus, uint16_t device, uint16_
 			if ((capreg & 0xFF) == PCI_CAP_ID_MSIX)
 			{
 				msireg = capptr;
-				break;
+				//break;
 			}
 			else if ((capreg & 0xFF) == PCI_CAP_ID_MSI)
 			{
 				msireg = capptr;
-				//break;
+				break;
 			}
 			capptr = ((capreg >> 8) & 0xFF) / 4;
 		}

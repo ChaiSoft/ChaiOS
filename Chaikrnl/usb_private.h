@@ -60,12 +60,23 @@ typedef struct _usb_device_descriptor {
 }usb_device_descriptor;
 #pragma pack(pop)
 
+typedef uint32_t usb_status_t;
+
+#define USB_SUCCESS 0
+#define USB_FAIL 1
+
+#define USB_FAILED(st) (st != USB_SUCCESS)
+
+class USBHub {
+public:
+	virtual usb_status_t Reset(uint8_t port) = 0;
+	virtual bool PortConnected(uint8_t port) = 0;
+	virtual usb_status_t AssignSlot(uint32_t routestring, uint32_t& slot) = 0;
+};
+
 class USBHostController {
 public:
-	virtual void init(size_t handle)
-	{
-
-	}
+	virtual void init(size_t handle) = 0;
 };
 
 void RegisterHostController(USBHostController* hc);

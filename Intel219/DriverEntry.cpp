@@ -3,12 +3,15 @@
 #include <kstdio.h>
 #include <string.h>
 #include <endian.h>
+#include <kdraw.h>
 
 #include <lwip/netifapi.h>
 #include <lwip/etharp.h>
 #include <lwip/ethip6.h>
 
 #define USE_DHCP 0
+
+static bool OwnStdio = false;
 
 /* Registers */
 typedef enum
@@ -357,8 +360,20 @@ struct i219_driver_info {
 	uint32_t rxCur = 0;
 };
 
+struct PacketInfoBuf {
+	uint16_t type;
+	uint16_t length;
+	uint8_t status;
+};
+
+static semaphore_t printf_sem;
+static const int BUFFER_PACKETINF_SIZE = 128;
+static volatile int BufferPacketInfPtr = 0;
+static PacketInfoBuf BufferPacketInf[BUFFER_PACKETINF_SIZE];
+
 static uint8_t ethernet_interrupt(size_t vector, void* param)
 {
+	//kprintf(u"Ethernet Interrupt\n");
 	i219_driver_info* dinfo = (i219_driver_info*)param;
 	I219Registers devregs(dinfo->mapped_controller);
 	uint32_t status = devregs.read(E1000_REG_ICR);
@@ -391,7 +406,13 @@ static uint8_t ethernet_interrupt(size_t vector, void* param)
 			else if(tp == 0x8100)
 				type = raw_offset<uint16_be*>(type, 4);
 			tp = BE_TO_CPU16((*type));
-			//kprintf(u" Received a packet: type %x, length %d, status %d\n", tp, len, dinfo->maprxdescs[dinfo->rxCur].status);
+			auto ptr = BufferPacketInfPtr++;
+			if (BufferPacketInfPtr == BUFFER_PACKETINF_SIZE)
+				BufferPacketInfPtr = 0;
+			BufferPacketInf[BufferPacketInfPtr].type = tp;
+			BufferPacketInf[BufferPacketInfPtr].length = len;
+			BufferPacketInf[BufferPacketInfPtr].status = dinfo->maprxdescs[dinfo->rxCur].status;
+			signal_semaphore(printf_sem, 1);
 
 			// Here you should inject the received packet into your network stack
 			pbuf* p = pbuf_alloc(PBUF_RAW, len, PBUF_POOL);
@@ -477,6 +498,26 @@ err_t i219_tx(struct netif *netif, struct pbuf *p)
 	devregs.write(E1000_REG_TDT, next);
 
 	return ERR_OK;
+}
+
+void i219_kprintf_thread(void* param)
+{
+	static int dequeuePtr = 0;
+	void* WndHandle = CreateStdioWindow(700, 700, 1000);
+	kprintf(u"Window Handle: %x\n", WndHandle);
+	while (true)
+	{
+		wait_semaphore(printf_sem, 1, TIMEOUT_INFINITY);
+		while (dequeuePtr != BufferPacketInfPtr)
+		{
+			dequeuePtr++;
+			if (dequeuePtr == BUFFER_PACKETINF_SIZE)
+				dequeuePtr = 0;
+			auto& inf = BufferPacketInf[dequeuePtr];
+			kprintf(u" Received a packet: type %x, length %d, status %d\n", inf.type, inf.length, inf.status);
+		}
+	}
+
 }
 
 err_t i219_init(struct netif *netif)
@@ -617,6 +658,8 @@ err_t i219_init(struct netif *netif)
 	PciAllocateMsi(dinfo->address.segment, dinfo->address.bus, dinfo->address.device, dinfo->address.function, 1, &ethernet_interrupt, dinfo);
 
 	//Allocate PBUFs for receiving
+	printf_sem = create_semaphore(0, u"I219InterruptSem");
+	create_thread(&i219_kprintf_thread, NULL);
 
 	// Enable transmitter
 	uint32_t tctl = devregs.read(E1000_REG_TCTL);
@@ -640,8 +683,8 @@ err_t i219_init(struct netif *netif)
 
 	//Enable interrupts
 	devregs.write(E1000_REG_IAM, 0);
-	devregs.write(E1000_REG_IMS, E1000_IMS_RXT0 | E1000_IMS_LSC);
-	//devregs.write(E1000_REG_IMS, UINT32_MAX);
+	//devregs.write(E1000_REG_IMS, E1000_IMS_RXT0 | E1000_IMS_LSC);
+	devregs.write(E1000_REG_IMS, UINT32_MAX);
 
 	netif->flags |= NETIF_FLAG_ETHARP | NETIF_FLAG_ETHERNET | NETIF_FLAG_BROADCAST;
 	netif->linkoutput = &i219_tx;
@@ -689,6 +732,7 @@ bool Intel219Finder(uint16_t segment, uint16_t bus, uint16_t device, uint8_t fun
 	netif* netdev = new netif;
 	memset(netdev, 0, sizeof(netif));
 	state->netif = netdev;
+
 	//netdev->hwaddr
 	char16_t iptest = 'ח';		//Chet
 	IP4_ADDR(&testing_ip, 172, 16, iptest >> 8, iptest & 0xFF);
@@ -703,6 +747,7 @@ bool Intel219Finder(uint16_t segment, uint16_t bus, uint16_t device, uint8_t fun
 #if USE_DHCP
 	netifapi_dhcp_start(netdev);
 #endif
+	netifapi_netif_set_default(netdev);
 	return false;
 }
 

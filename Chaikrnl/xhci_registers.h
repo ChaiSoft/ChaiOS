@@ -76,6 +76,7 @@
 #define XHCI_TRB_TYPE_SETUP_STAGE 2
 #define XHCI_TRB_TYPE_DATA_STAGE 3
 #define XHCI_TRB_TYPE_STATUS_STAGE 4
+#define XHCI_TRB_TYPE_EVENT_DATA_STAGE 7
 
 #define XHCI_TRB_TYPE(x) ((uint64_t)x << 42)
 #define XHCI_TRB_SLOTID(x) ((uint64_t)x << 56)
@@ -87,6 +88,7 @@
 #define XHCI_TRB_ENABLED 0x100000000
 #define XHCI_TRB_ENT 0x200000000
 #define XHCI_TRB_ISP 0x400000000
+#define XHCI_TRB_CN 0x1000000000
 #define XHCI_TRB_IOC 0x2000000000
 #define XHCI_TRB_IDT 0x4000000000
 #define XHCI_TRB_TRT(x) ((uint64_t)x << 48)
@@ -634,7 +636,7 @@ static xhci_command* create_resetendpoint_command(uint16_t slot, uint16_t endpoi
 {
 	xhci_command* ret = new xhci_command;
 	uint64_t lowval = 0, highval = 0;
-	highval = XHCI_TRB_ENABLED | XHCI_TRB_TYPE(XHCI_TRB_TYPE_RESET_ENDPOINT) | XHCI_TRB_SLOTID(slot) | (endpoint << 16);
+	highval = XHCI_TRB_ENABLED | XHCI_TRB_TYPE(XHCI_TRB_TYPE_RESET_ENDPOINT) | XHCI_TRB_SLOTID(slot) | ((uint64_t)endpoint << 16);
 
 	ret->lowval = lowval;
 	ret->highval = highval;
@@ -657,7 +659,7 @@ static xhci_command* create_enableslot_command(uint8_t slottype)
 {
 	xhci_command* ret = new xhci_command;
 	ret->lowval = 0;
-	ret->highval = XHCI_TRB_TYPE(XHCI_TRB_TYPE_ENABLE_SLOT) | (slottype << 16);
+	ret->highval = XHCI_TRB_TYPE(XHCI_TRB_TYPE_ENABLE_SLOT) | ((uint64_t)slottype << 16);
 	return ret;
 }
 
@@ -669,11 +671,19 @@ static xhci_command* create_setup_stage_trb(uint8_t rType, uint8_t bRequest, uin
 	return ret;
 }
 
-static xhci_command* create_data_stage_trb(paddr_t buffer, uint16_t size, bool indirection)
+static xhci_command* create_data_stage_trb(paddr_t buffer, uint16_t size, bool indirection, bool chain = false)
 {
 	xhci_command* ret = new xhci_command;
 	ret->lowval = buffer;
-	ret->highval = XHCI_TRB_ENT | (indirection ? XHCI_TRB_DIR_IN : 0) | XHCI_TRB_TYPE(XHCI_TRB_TYPE_DATA_STAGE) | size;
+	ret->highval = XHCI_TRB_ENT | (indirection ? XHCI_TRB_DIR_IN : 0) | XHCI_TRB_TYPE(XHCI_TRB_TYPE_DATA_STAGE) |(chain ? XHCI_TRB_CN : 0) | size;
+	return ret;
+}
+
+static xhci_command* create_event_data_trb(paddr_t buffer)
+{
+	xhci_command* ret = new xhci_command;
+	ret->lowval = buffer;
+	ret->highval = XHCI_TRB_IOC | XHCI_TRB_TYPE(XHCI_TRB_TYPE_EVENT_DATA_STAGE);
 	return ret;
 }
 
@@ -681,7 +691,7 @@ static xhci_command* create_status_stage_trb(bool indirection)
 {
 	xhci_command* ret = new xhci_command;
 	ret->lowval = 0;
-	ret->highval = XHCI_TRB_ENT | (indirection ? XHCI_TRB_DIR_IN : 0) | XHCI_TRB_TYPE(XHCI_TRB_TYPE_STATUS_STAGE) | XHCI_TRB_IOC;
+	ret->highval = XHCI_TRB_ENT | (indirection ? 0 : XHCI_TRB_DIR_IN) | XHCI_TRB_TYPE(XHCI_TRB_TYPE_STATUS_STAGE) | XHCI_TRB_IOC;
 	return ret;
 }
 

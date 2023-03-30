@@ -595,6 +595,13 @@ x64_hlt:
 hlt
 ret
 
+global x64_rdtsc
+x64_rdtsc:
+rdtsc
+shl rdx, 32
+or rax, rdx
+ret
+
 global x64_set_breakpoint
 x64_set_breakpoint:
 mov dr0, rcx
@@ -628,3 +635,7 @@ jmp short user_function
 section .data
 global x64_context_size
 x64_context_size: dq CONTEXT.end
+
+global _fltused
+_fltused:
+ret

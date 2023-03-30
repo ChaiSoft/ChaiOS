@@ -115,39 +115,43 @@ static long long l_possibleOverruns = 0;	///< Number of possible overruns
 
 
 // ***********   HELPER FUNCTIONS  *******************************
+extern void* memcpy(void* dest, const void* src, size_t n);
+extern void* memset(void* str, int c, size_t n);
+#define liballoc_memset memset
+#define liballoc_memcpy memcpy
 
-static void *liballoc_memset(void* s, int c, size_t n)
-{
-	unsigned int i;
-	for ( i = 0; i < n ; i++)
-		((char*)s)[i] = (char)c;
-	
-	return s;
-}
-static void* liballoc_memcpy(void* s1, const void* s2, size_t n)
-{
-  char *cdest;
-  char *csrc;
-  unsigned int *ldest = (unsigned int*)s1;
-  unsigned int *lsrc  = (unsigned int*)s2;
-
-  while ( n >= sizeof(unsigned int) )
-  {
-      *ldest++ = *lsrc++;
-	  n -= sizeof(unsigned int);
-  }
-
-  cdest = (char*)ldest;
-  csrc  = (char*)lsrc;
-  
-  while ( n > 0 )
-  {
-      *cdest++ = *csrc++;
-	  n -= 1;
-  }
-  
-  return s1;
-}
+//static void *liballoc_memset(void* s, int c, size_t n)
+//{
+//	unsigned int i;
+//	for ( i = 0; i < n ; i++)
+//		((char*)s)[i] = (char)c;
+//	
+//	return s;
+//}
+//static void* liballoc_memcpy(void* s1, const void* s2, size_t n)
+//{
+//  char *cdest;
+//  char *csrc;
+//  unsigned int *ldest = (unsigned int*)s1;
+//  unsigned int *lsrc  = (unsigned int*)s2;
+//
+//  while ( n >= sizeof(unsigned int) )
+//  {
+//      *ldest++ = *lsrc++;
+//	  n -= sizeof(unsigned int);
+//  }
+//
+//  cdest = (char*)ldest;
+//  csrc  = (char*)lsrc;
+//  
+//  while ( n > 0 )
+//  {
+//      *cdest++ = *csrc++;
+//	  n -= 1;
+//  }
+//  
+//  return s1;
+//}
  
 
 #if defined DEBUG || defined INFO
