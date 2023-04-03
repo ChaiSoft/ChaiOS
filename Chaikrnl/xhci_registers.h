@@ -68,6 +68,7 @@
 #define XHCI_TRB_TYPE_NOOP 8
 #define XHCI_TRB_TYPE_ENABLE_SLOT 9
 #define XHCI_TRB_TYPE_ADDRESS_DEVICE 11
+#define XHCI_TRB_TYPE_CONFIGURE_ENDPOINT 12
 #define XHCI_TRB_TYPE_EVALUATE_CONTEXT 13
 #define XHCI_TRB_TYPE_RESET_ENDPOINT 14
 #define XHCI_TRB_TYPE_TRANSFER_EVENT 32
@@ -85,6 +86,7 @@
 ((x >> 42) & 0x3F)
 
 #define XHCI_TRB_ADDRESS_BSR ((uint64_t)1<<41)
+#define XHCI_TRB_CONFIGUREEP_DECONF ((uint64_t)1<<41)
 #define XHCI_TRB_ENABLED 0x100000000
 #define XHCI_TRB_ENT 0x200000000
 #define XHCI_TRB_ISP 0x400000000
@@ -259,12 +261,14 @@ public:
 	XhciHccparams1(void*& baseaddr)
 		:XhciRegister(baseaddr, XHCI_CAPREG_HCCPARAMS1),
 		AC64(*this),
+		CSZ(*this),
 		EcapPtr(*this)
 	{
 
 	}
 	//TODO: Other fields
 	RegisterField<uint8_t, 0, 0> AC64;
+	RegisterField<uint8_t, 2, 2> CSZ;
 	RegisterField<uint16_t, 16, 31> EcapPtr;
 };
 
@@ -626,6 +630,19 @@ static xhci_command* create_address_command(bool bsr, paddr_t context, uint16_t 
 	lowval = context;
 	highval = XHCI_TRB_ENABLED | XHCI_TRB_TYPE(XHCI_TRB_TYPE_ADDRESS_DEVICE) | XHCI_TRB_SLOTID(slot);
 	highval |= bsr ? XHCI_TRB_ADDRESS_BSR : 0;
+
+	ret->lowval = lowval;
+	ret->highval = highval;
+	return ret;
+}
+
+static xhci_command* create_configureendpoint_command(paddr_t context, uint16_t slot, bool deconfigure)
+{
+	xhci_command* ret = new xhci_command;
+	uint64_t lowval = 0, highval = 0;
+	lowval = context;
+	highval = XHCI_TRB_ENABLED | XHCI_TRB_TYPE(XHCI_TRB_TYPE_CONFIGURE_ENDPOINT) | XHCI_TRB_SLOTID(slot);
+	highval |= deconfigure ? XHCI_TRB_CONFIGUREEP_DECONF : 0;
 
 	ret->lowval = lowval;
 	ret->highval = highval;

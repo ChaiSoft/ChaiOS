@@ -13,6 +13,58 @@
 
 class XHCI;
 
+#pragma pack(push, 1)
+typedef struct _xhci_slot_context {
+	uint32_t RouteString : 20;
+	uint32_t Speed : 4;
+	uint32_t RZ : 1;
+	uint32_t MTT : 1;
+	uint32_t Hub : 1;
+	uint32_t ContextEntries : 5;
+	uint16_t MaxExitLatency;
+	uint8_t RootHubPortNum;
+	uint8_t NumberPorts;
+	uint8_t TTHubSlotId;
+	uint8_t TTPortNum;
+	uint16_t TTT:2;
+	uint16_t RsvdZ:4;
+	uint16_t InterruptTarget:10;
+	uint32_t DeviceAddress : 8;
+	uint32_t RsvdZ2 : 19;
+	uint32_t SlotState : 5;
+}xhci_slot_context;
+
+typedef struct _xhci_endpoint_context {
+	//DWORD 0
+	uint8_t EpState : 3;
+	uint8_t RsvdZ : 5;
+	uint8_t Mult : 2;
+	uint8_t MaxPrimaryStreams : 5;
+	uint8_t LSA : 1;
+	uint8_t Interval;
+	uint8_t MaxEsitHigh;
+	//DWORD 1
+	uint8_t RZ : 1;
+	uint8_t CErr : 2;
+	uint8_t EpType : 3;
+	uint8_t R : 1;
+	uint8_t HID : 1;
+	uint8_t MaxBurstSize;
+	uint16_t MaxPacketSize;
+	//DWORD 2-3
+	uint64_t TRDequeuePtr;
+	//DWORD 4
+	uint16_t AverageTrbLength;
+	uint16_t MaxEsitLow;
+	//DWORD 5-7
+	uint32_t RsvdP[3];
+}xhci_endpoint_context;
+
+typedef struct _xhci_device_context {
+	xhci_slot_context slot;
+}xhci_device_context;
+#pragma pack(pop)
+
 
 typedef RedBlackTree<size_t, pci_address*> XhciPci;
 
@@ -88,6 +140,8 @@ struct xhci_port_info_data {
 #define PORTINF_HAS_PAIR (1<<2)
 #define PORTINF_ACTIVE (1<<3)
 
+
+
 #define MK_SLOT_CONTEXT_DWORD0(entries, hub, MultiTT, Speed, RouteString) \
 (((entries & 0x1F) << 27) | ((hub & 1) << 26) | ((MultiTT & 1) << 25) | ((Speed & 0xF) << 20) | (RouteString & ((1<<20) - 1)))
 
@@ -141,9 +195,13 @@ public:
 		port_tree_lock = 0;
 		interrupt_msi = false;
 	}
-	virtual void init(size_t handle)
+	virtual char16_t* ControllerType()
 	{
-		kprintf_a("Initalizing XHCI controller %x\n", handle);
+		return u"XHCI";
+	}
+private:
+	usb_status_t init()
+	{
 		if (Capabilities.HCCPARAMS1.AC64 == 0)
 		{
 			kprintf(u"XHCI: Warning - not a 64 bit controller!\n");
@@ -196,6 +254,7 @@ public:
 		
 		//Work on ports
 		kprintf(u"XHCI controller enabled, %d ports\n", getMaxPorts());
+		return USB_SUCCESS;
 #if 0
 		for (size_t n = 1; n <= getMaxPorts(); ++n)
 		{
@@ -233,12 +292,16 @@ private:
 		while (Operational.USBCMD.HcReset != 0);
 	}
 
-	class XhciRootHub : public USBHub
+	class XhciRootHub : public USBRootHub
 	{
 	public:
 		XhciRootHub(XHCI& parent)
 			:m_Parent(parent)
 		{
+		}
+		virtual usb_status_t Init()
+		{
+			return m_Parent.init();
 		}
 		virtual usb_status_t Reset(uint8_t port)
 		{
@@ -257,13 +320,14 @@ private:
 			return m_Parent.getMaxPorts();
 		}
 
-		virtual usb_status_t AssignSlot(uint32_t routestring, uint8_t port, UsbPortInfo*& slot)
+		virtual usb_status_t AssignSlot(uint8_t port, UsbDeviceInfo*& slot, uint32_t PortSpeed, UsbDeviceInfo* parent, uint32_t routestring = 0)
 		{
 			XhciPortRegisterBlock portregs = m_Parent.Operational.Port(port);
-			uint8_t portspeed = portregs.PORTSC.PortSpeed;
+			if(PortSpeed == USB_DEVICE_INVALIDSPEED)
+				PortSpeed = portregs.PORTSC.PortSpeed;
 			//Enable slot command
 			void* last_command = nullptr;
-			last_command = m_Parent.cmdring.enqueue(create_enableslot_command(m_Parent.protocol_speeds[portspeed].slottype));
+			last_command = m_Parent.cmdring.enqueue(create_enableslot_command(m_Parent.protocol_speeds[PortSpeed].slottype));
 			//Now get a command completion event from the event ring
 			uint64_t* curevt = (uint64_t*)m_Parent.waitComplete(last_command, 1000);
 			if (get_trb_completion_code(curevt) != XHCI_COMPLETION_SUCCESS)
@@ -275,40 +339,15 @@ private:
 			if (slotid == 0)
 				return USB_FAIL;
 
-			xhci_port_info* port_info = new xhci_port_info(&m_Parent, slotid);
+			xhci_device_info* port_info = new xhci_device_info(&m_Parent, slotid, port);
 			port_info->controller = &m_Parent;
 			port_info->portindex = port;
 			port_info->slotid = slotid;
-			if (!m_Parent.createSlotContext(portspeed, port_info, routestring))
+			if (!m_Parent.createSlotContext(PortSpeed, port_info, parent, routestring))
 				return USB_FAIL;
 
 			slot = port_info;
 			return USB_SUCCESS;
-		}
-		virtual usb_status_t ConfigureHub(UsbPortInfo*& slot, uint8_t downstreamports)
-		{
-			return USB_FAIL;
-		}
-		virtual size_t OperatingPacketSize(UsbPortInfo*& slot)
-		{
-			auto sltctxt = raw_offset<uint32_t*>(((xhci_port_info*)slot)->device_context, 0x24);
-			return  (*sltctxt >> 16) & 0xFFFF;
-		}
-		virtual usb_status_t RequestData(UsbPortInfo*& slot, REQUEST_PACKET& device_packet, void** resultData)
-		{
-			usb_status_t status = USB_FAIL;
-			void* ptr = kmalloc(device_packet.length);
-
-			set_paging_attributes(ptr, device_packet.length, PAGE_ATTRIBUTE_NO_CACHING, 0);
-			if (size_t res = m_Parent.xhci_control_in((xhci_port_info*)slot, &device_packet, ptr, device_packet.length))
-			{
-				kprintf(u"Error getting device descriptor: %d\n", res);
-			}
-			else
-				status = USB_SUCCESS;
-			set_paging_attributes(ptr, device_packet.length,0, PAGE_ATTRIBUTE_NO_CACHING);
-			*resultData = ptr;
-			return status;
 		}
 	private:
 		XHCI& m_Parent;
@@ -685,10 +724,11 @@ private:
 		uint64_t slotbit;
 	};
 
-	class xhci_port_info : public UsbPortInfo {
+	class xhci_device_info : public UsbDeviceInfo {
 	public:
-		xhci_port_info(XHCI* parent, size_t slot)
-			:cmdring(parent, slot, XHCI_DOORBELL_ENPOINT0)
+		xhci_device_info(XHCI* parent, size_t slot, uint8_t port)
+			:UsbDeviceInfo(parent->pRootHub, port),
+			cmdring(parent, slot, XHCI_DOORBELL_ENPOINT0)
 		{
 			controller = parent;
 			command_lock = create_spinlock();
@@ -697,14 +737,145 @@ private:
 		uint32_t portindex;
 		uint32_t slotid;
 		CommandRing cmdring;
-		void* device_context;
+		xhci_device_context* device_context;
 		paddr_t phy_context;
 		spinlock_t command_lock;
+
+		virtual size_t OperatingPacketSize()
+		{
+			return controller->GetEndpointContext(device_context, 0, 0)->MaxPacketSize;
+		}
+		virtual usb_status_t UpdatePacketSize(size_t size)
+		{
+			paddr_t inContext;
+			auto devctxt = controller->CreateInputContext(inContext, 1 << 1, 0, 0, 0, 0);
+			auto epdef = controller->GetEndpointContext(devctxt, 0, 1);
+			epdef->MaxPacketSize = size;
+			auto cmd = create_evaluate_command(inContext, slotid);
+			void* last_command = controller->cmdring.enqueue(cmd);
+			uint64_t* curevt = (uint64_t*)controller->waitComplete(last_command, 1000);
+			if (get_trb_completion_code(curevt) != XHCI_COMPLETION_SUCCESS)
+			{
+				kprintf(u"Error reconfiguring max packet size: %x\n", get_trb_completion_code(curevt));
+				return USB_FAIL;
+			}
+			Stall(USB_DELAY_PORT_RESET);
+			return USB_SUCCESS;
+		}
+		virtual usb_status_t RequestData(REQUEST_PACKET& device_packet, void** resultData)
+		{
+			usb_status_t status = USB_FAIL;
+			void* ptr = kmalloc(device_packet.length);
+
+			set_paging_attributes(ptr, device_packet.length, PAGE_ATTRIBUTE_NO_CACHING, 0);
+			if (size_t res = controller->xhci_control_in(this, &device_packet, ptr, device_packet.length))
+			{
+				kprintf(u"Error getting device descriptor: %d\n", res);
+			}
+			else
+				status = USB_SUCCESS;
+			set_paging_attributes(ptr, device_packet.length, 0, PAGE_ATTRIBUTE_NO_CACHING);
+			*resultData = ptr;
+			return status;
+		}
+
+		virtual usb_status_t ConfigureEndpoint(usb_endpoint_descriptor** pEndpoints, uint8_t config, uint8_t iface, uint8_t alternate, uint8_t downstreamports)
+		{
+			paddr_t incontxt;
+			size_t epAdd = 1;
+			size_t highbit = 0;
+
+			auto parseep = [](usb_endpoint_descriptor* ep, uint8_t& addr, uint8_t& dirIn)
+			{
+				addr = ep->bEndpointAddress & 0xF;
+				dirIn = ep->bEndpointAddress >> 7;
+			};
+			
+			auto BitToSet = [&](usb_endpoint_descriptor* ep)
+			{
+				uint8_t addr, dirIn;
+				parseep(ep, addr, dirIn);
+				return 2 * addr + dirIn;
+			};
+
+			for (int n = 0; pEndpoints[n]; ++n)
+			{
+				auto bitset = BitToSet(pEndpoints[n]);
+				epAdd |= (1 << bitset);
+				highbit = bitset > highbit ? bitset : highbit;
+			}
+			auto mapin = controller->CreateInputContext(incontxt, epAdd, 0, config, iface, alternate);
+			mapin->slot.ContextEntries = highbit;
+			if (downstreamports > 0)
+			{
+				mapin->slot.Hub = 1;
+				mapin->slot.NumberPorts = downstreamports;
+			}
+
+			for (int n = 0; pEndpoints[n]; ++n)
+			{
+				auto ep = pEndpoints[n];
+				uint8_t addr, dirIn;
+				parseep(ep, addr, dirIn);
+				auto epct = controller->GetEndpointContext(mapin, addr, dirIn);
+				epct->MaxPacketSize = ep->wMaxPacketSize & 0x7FF;
+
+				auto usbtyp = ep->bmAttributes & USB_EP_ATTR_TYPE_MASK;
+				epct->EpType = usbtyp | (dirIn << 2);
+
+				if (dirIn)
+				{
+					auto ring = controller->MakeEventRing(1);
+					epct->TRDequeuePtr = (uint64_t)get_physical_address(ring->dequeueptr) | 1;
+				}
+
+				auto MaxEsit = epct->MaxPacketSize * (epct->MaxBurstSize + 1);
+				epct->HID = 1;
+
+				switch (usbtyp)
+				{
+				case USB_EP_ATTR_TYPE_CONTROL:
+					break;
+				case USB_EP_ATTR_TYPE_BULK:
+					break;
+				case USB_EP_ATTR_TYPE_INTERRUPT:
+					epct->CErr = 3;
+					epct->MaxEsitLow = MaxEsit & 0xFFFF;
+					epct->MaxEsitHigh = MaxEsit >> 16;
+					epct->Interval = 11;
+					epct->AverageTrbLength = 0x400;
+					break;
+				case USB_EP_ATTR_TYPE_ISOCHRONOUS:
+					break;
+				default:
+					break;
+				}
+			}
+
+			//while (1);
+
+			//Issue address device command
+			void* last_command = controller->cmdring.enqueue(create_configureendpoint_command(incontxt, slotid, false));
+			uint64_t* curevt = (uint64_t*)controller->waitComplete(last_command, 1000);
+			if (get_trb_completion_code(curevt) != XHCI_COMPLETION_SUCCESS)
+			{
+				kprintf(u"Error configuring endpoint: %x\n", get_trb_completion_code(curevt));
+				return USB_FAIL;
+			}
+
+			return USB_SUCCESS;
+		}
 	};
 
-	
+	volatile xhci_endpoint_context* GetEndpointContext(volatile xhci_device_context* devct, uint8_t epNum, uint8_t dirIn)
+	{
+		auto stride = 0x20 * (1 + Capabilities.HCCPARAMS1.CSZ);
+		if (epNum == 0)
+			dirIn = 1;
+		return raw_offset<volatile xhci_endpoint_context*>(devct, stride * (epNum * 2 + dirIn));
+	}
 
-	bool update_packet_size_fs(xhci_port_info* port)
+	bool update_packet_size_fs(xhci_device_info* port)
 	{
 		uint8_t* buffer = new uint8_t[8];
 		REQUEST_PACKET device_packet;
@@ -925,6 +1096,35 @@ private:
 		writeCapabilityRegister(legacy + 4, legctlsts, 32);
 	}
 
+	xhci_evtring_info* MakeEventRing(uint8_t interrupter)
+	{
+		xhci_evtring_info* pinf = new xhci_evtring_info;
+		paddr_t evtseg = pmmngr_allocate(1);
+		void* evtringseg = find_free_paging(PAGESIZE);
+		paging_map(evtringseg, evtseg, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING);
+		memset(evtringseg, 0, PAGESIZE);
+		//Create one event ring segment
+		paddr_t evt = pmmngr_allocate(1);
+		void* evtring = find_free_paging(PAGESIZE);
+		void* evtdp = evtring;
+		paging_map(evtring, evt, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING);
+		memset(evtring, 0, PAGESIZE);
+		//Write it to the segment table
+		*raw_offset<volatile uint64_t*>(evtringseg, 0) = evt;
+		*raw_offset<volatile uint64_t*>(evtringseg, 8) = PAGESIZE / 0x10;
+		//Write the event ring info
+		pinf->dequeueptr = evtdp;
+		pinf->ringbase = evtring;
+		//Set segment table size
+		Runtime.Interrupter(interrupter).ERSTSZ.Size = 1;
+		//Set dequeue pointer
+		Runtime.Interrupter(interrupter).ERDP.update(evt, false);
+		//Enable event ring
+		Runtime.Interrupter(interrupter).ERSTBA.SegTableBase = evtseg;
+		Runtime.Interrupter(interrupter).IMAN = Runtime.Interrupter(0).IMAN;
+		return pinf;
+	}
+
 	void createPrimaryEventRing()
 	{
 		paddr_t evtseg = pmmngr_allocate(1);
@@ -951,6 +1151,8 @@ private:
 		Runtime.Interrupter(0).ERSTBA.SegTableBase = evtseg;
 		Runtime.Interrupter(0).IMAN = Runtime.Interrupter(0).IMAN;
 	}
+
+
 
 	void createDeviceContextBuffer()
 	{
@@ -1140,7 +1342,32 @@ private:
 		return true;
 	}
 
-	bool createSlotContext(size_t portspeed, xhci_port_info* pinfo, uint32_t routeString)
+	void* AllocateSlotContext(paddr_t& paddr)
+	{
+		//Allocate input context
+		paddr = pmmngr_allocate(1);
+		void* mapincontxt = find_free_paging(PAGESIZE);
+		paging_map(mapincontxt, paddr, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING);
+		memset(mapincontxt, 0, PAGESIZE);
+		return mapincontxt;
+	}
+
+	volatile xhci_device_context* CreateInputContext(paddr_t& paddr, uint32_t add, uint32_t drop, uint8_t config, uint8_t iface, uint8_t alternate)
+	{
+		void* mapincontxt = AllocateSlotContext(paddr);
+		volatile uint32_t* dflags = raw_offset<volatile uint32_t*>(mapincontxt, 0);
+		volatile uint32_t* aflags = raw_offset<volatile uint32_t*>(mapincontxt, 4);
+		*aflags = add;
+		*dflags = drop;
+
+		volatile uint32_t* confep = raw_offset<volatile uint32_t*>(mapincontxt, 0x1C);
+		*confep = config | (iface << 8) | (alternate << 16);
+
+		uint16_t offset = 0x20 * (1 + Capabilities.HCCPARAMS1.CSZ);
+		return raw_offset<volatile xhci_device_context*>(mapincontxt, offset);
+	}
+
+	bool createSlotContextOld(size_t portspeed, xhci_device_info* pinfo, uint32_t routeString)
 	{
 		//Allocate device context
 		paddr_t dctxt = pmmngr_allocate(1);
@@ -1178,7 +1405,63 @@ private:
 			return false;
 
 		Stall(100);
-		pinfo->device_context = mapdctxt;
+		pinfo->device_context = (xhci_device_context*)mapdctxt;
+		pinfo->phy_context = dctxt;
+
+		/*last_command = cmdring.enqueue(create_address_command(false, incontext, pinfo->slotid));
+		curevt = (uint64_t*)waitComplete(last_command, 1000);
+		if (get_trb_completion_code(curevt) != XHCI_COMPLETION_SUCCESS)
+		{
+			kprintf(u"Error addressing device (NO BSR): %x\n", get_trb_completion_code(curevt));
+			return false;
+		}
+		Stall(100);*/
+		return true;
+	}
+
+
+	bool createSlotContext(size_t portspeed, xhci_device_info* pinfo, UsbDeviceInfo* parent, uint32_t routeString)
+	{
+		//Allocate device context
+		paddr_t dctxt, incontext;
+		void* mapdctxt = AllocateSlotContext(dctxt);
+		//Write to device context array slot
+		*raw_offset<volatile uint64_t*>(devctxt, pinfo->slotid * 8) = dctxt;
+
+		//Allocate input context
+		auto inctxt = CreateInputContext(incontext, 3, 0, 0, 0, 0);
+
+		//Setup slot context
+		*raw_offset<volatile uint32_t*>(inctxt, 0) = MK_SLOT_CONTEXT_DWORD0(1, 0, 0, portspeed, routeString);
+		*raw_offset<volatile uint32_t*>(inctxt, 4) = MK_SLOT_CONTEXT_DWORD1(0, pinfo->portindex, 0); //Root hub port number	
+
+		if (parent && portspeed < USB_DEVICE_HIGHSPEED)
+		{
+			//TT 
+			auto xhdev = (xhci_device_info*)parent;
+			inctxt->slot.TTHubSlotId = xhdev->slotid;
+			inctxt->slot.TTPortNum = routeString & 0xF;
+			inctxt->slot.TTT = 0;
+		}
+		//Initialise endpoint 0 context
+		//Control endpoint, CErr = 3
+
+		auto epdesc = GetEndpointContext(inctxt, 0, 0);
+		*raw_offset<volatile uint32_t*>(epdesc, 0) = MK_ENDPOINT_CONTEXT_DWORD0(0, 0, 0, 0, 0, 0);
+		*raw_offset<volatile uint32_t*>(epdesc, 4) = MK_ENDPOINT_CONTEXT_DWORD1(max_packet_size(portspeed), 0, 0, 4, 3);
+		paddr_t dtrb = pinfo->cmdring.getBaseAddress();
+		*raw_offset<volatile uint32_t*>(epdesc, 8) = MK_ENDPOINT_CONTEXT_DWORD2(dtrb, 1);
+		*raw_offset<volatile uint32_t*>(epdesc,  12) = MK_ENDPOINT_CONTEXT_DWORD3(dtrb);
+		*raw_offset<volatile uint32_t*>(epdesc, 0x10) = MK_ENDPOINT_CONTEXT_DWORD4(0, 8);		//Average TRB length 8 for control
+
+		//Apparently we write these to the device context
+		memcpy(mapdctxt, inctxt, 0x40);
+
+		if (!AddressDevice(incontext, pinfo->slotid))
+			return false;
+
+		Stall(100);
+		pinfo->device_context = (xhci_device_context*)mapdctxt;
 		pinfo->phy_context = dctxt;
 		/*last_command = cmdring.enqueue(create_address_command(false, incontext, pinfo->slotid));
 		curevt = (uint64_t*)waitComplete(last_command, 1000);
@@ -1196,7 +1479,7 @@ private:
 		return pRootHub;
 	}
 
-	size_t xhci_control_in(xhci_port_info* pinfo, const REQUEST_PACKET* request, void* dest, const size_t len)
+	size_t xhci_control_in(xhci_device_info* pinfo, const REQUEST_PACKET* request, void* dest, const size_t len)
 	{
 		xhci_command** devcmds = new xhci_command*[5];
 		devcmds[0] = create_setup_stage_trb(request->request_type, request->request, request->value, request->index, request->length, 3);		//IN data stage
@@ -1204,6 +1487,12 @@ private:
 		//devcmds[2] = create_event_data_trb(get_physical_address(dest));
 		devcmds[2] = create_status_stage_trb(true);
 		devcmds[3] = nullptr;
+
+		if (len == 0)
+		{
+			devcmds[1] = devcmds[2];
+			devcmds[2] = nullptr;
+		}
 
 		void* statusevt = pinfo->cmdring.enqueue_commands(devcmds);
 		void* res = waitComplete(statusevt, 1000);
@@ -1239,6 +1528,8 @@ private:
 	HTHREAD evtthread;
 	bool interrupt_msi;
 	XhciRootHub pRootHub;
+
+	friend static void xhci_pci_baseaddr(pci_address* addr, XHCI*& cinfo);
 };
 
 static uint8_t xhci_interrupt(size_t vector, void* info)
