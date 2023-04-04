@@ -268,6 +268,7 @@
     <ClCompile Include="spinlock.cpp" />
     <ClCompile Include="uefihelper.cpp" />
     <ClCompile Include="usb.cpp" />
+    <ClCompile Include="UsbHub.cpp" />
     <ClCompile Include="vds.cpp" />
     <ClCompile Include="vfs.cpp" />
     <ClCompile Include="xhci.cpp" />
@@ -296,6 +297,7 @@
     <ClInclude Include="semaphore.h" />
     <ClInclude Include="uefihelper.h" />
     <ClInclude Include="usb.h" />
+    <ClInclude Include="UsbHub.h" />
     <ClInclude Include="usb_private.h" />
     <ClInclude Include="vds.h" />
     <ClInclude Include="xhci_registers.h" />

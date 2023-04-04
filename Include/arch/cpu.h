@@ -176,6 +176,8 @@ CHAIKRNL_FUNC uint64_t arch_get_system_timer();
 
 CHAIKRNL_FUNC uint64_t arch_get_cpu_ticks();
 
+void Stall(uint32_t milliseconds);
+
 #ifdef __cplusplus
 }
 #endif

@@ -78,6 +78,17 @@ static pci_device_declaration xhci_devs[] = {
 	PCI_DEVICE_END
 };
 
+static int_fast8_t high_set_bit(size_t sz)
+{
+	int_fast8_t count = -1;
+	while (sz)
+	{
+		sz >>= 1;
+		count += 1;
+	}
+	return count;
+}
+
 static void xhci_pci_baseaddr(pci_address* addr, XHCI*& cinfo);
 
 static bool xhci_pci_scan(uint16_t segment, uint16_t bus, uint16_t device, uint8_t function)
@@ -169,7 +180,7 @@ struct xhci_port_info_data {
 static size_t get_trb_completion_code(void* trb)
 {
 	if (!trb)
-		return 0;
+		return 0x100;
 	return (((uint64_t*)trb)[1] >> 24) & 0xFF;
 }
 
@@ -315,6 +326,11 @@ private:
 			return (portregs.PORTSC.CCS == 1);
 		}
 
+		virtual uint8_t HubDepth()
+		{
+			return 0;
+		}
+
 		virtual uint8_t NumberPorts()
 		{
 			return m_Parent.getMaxPorts();
@@ -333,7 +349,7 @@ private:
 			if (get_trb_completion_code(curevt) != XHCI_COMPLETION_SUCCESS)
 			{
 				kprintf(u"Error enabling slot: %x!\n", get_trb_completion_code(curevt));
-				return USB_FAIL;
+				return USB_XHCI_TRB_ERR(get_trb_completion_code(curevt));
 			}
 			uint8_t slotid = curevt[1] >> 56;
 			if (slotid == 0)
@@ -757,7 +773,7 @@ private:
 			if (get_trb_completion_code(curevt) != XHCI_COMPLETION_SUCCESS)
 			{
 				kprintf(u"Error reconfiguring max packet size: %x\n", get_trb_completion_code(curevt));
-				return USB_FAIL;
+				return USB_XHCI_TRB_ERR(get_trb_completion_code(curevt));
 			}
 			Stall(USB_DELAY_PORT_RESET);
 			return USB_SUCCESS;
@@ -768,99 +784,126 @@ private:
 			void* ptr = kmalloc(device_packet.length);
 
 			set_paging_attributes(ptr, device_packet.length, PAGE_ATTRIBUTE_NO_CACHING, 0);
-			if (size_t res = controller->xhci_control_in(this, &device_packet, ptr, device_packet.length))
-			{
-				kprintf(u"Error getting device descriptor: %d\n", res);
-			}
-			else
-				status = USB_SUCCESS;
+			status = controller->xhci_control_in(this, &device_packet, ptr, device_packet.length);
+			if (USB_FAILED(status))
+				return status;
 			set_paging_attributes(ptr, device_packet.length, 0, PAGE_ATTRIBUTE_NO_CACHING);
 			*resultData = ptr;
-			return status;
+			return USB_SUCCESS;
 		}
 
-		virtual usb_status_t ConfigureEndpoint(usb_endpoint_descriptor** pEndpoints, uint8_t config, uint8_t iface, uint8_t alternate, uint8_t downstreamports)
+		virtual usb_status_t ConfigureEndpoint(UsbEndpointDesc* pEndpoints, uint8_t config, uint8_t iface, uint8_t alternate, uint8_t downstreamports, bool clearold = false)
 		{
 			paddr_t incontxt;
 			size_t epAdd = 1;
 			size_t highbit = 0;
-
-			auto parseep = [](usb_endpoint_descriptor* ep, uint8_t& addr, uint8_t& dirIn)
+			void* last_command = nullptr;
+			if (config == 0)
 			{
-				addr = ep->bEndpointAddress & 0xF;
-				dirIn = ep->bEndpointAddress >> 7;
-			};
-			
-			auto BitToSet = [&](usb_endpoint_descriptor* ep)
-			{
-				uint8_t addr, dirIn;
-				parseep(ep, addr, dirIn);
-				return 2 * addr + dirIn;
-			};
-
-			for (int n = 0; pEndpoints[n]; ++n)
-			{
-				auto bitset = BitToSet(pEndpoints[n]);
-				epAdd |= (1 << bitset);
-				highbit = bitset > highbit ? bitset : highbit;
+				last_command = controller->cmdring.enqueue(create_configureendpoint_command(NULL, slotid, true));
 			}
-			auto mapin = controller->CreateInputContext(incontxt, epAdd, 0, config, iface, alternate);
-			mapin->slot.ContextEntries = highbit;
-			if (downstreamports > 0)
+			else
 			{
-				mapin->slot.Hub = 1;
-				mapin->slot.NumberPorts = downstreamports;
-			}
 
-			for (int n = 0; pEndpoints[n]; ++n)
-			{
-				auto ep = pEndpoints[n];
-				uint8_t addr, dirIn;
-				parseep(ep, addr, dirIn);
-				auto epct = controller->GetEndpointContext(mapin, addr, dirIn);
-				epct->MaxPacketSize = ep->wMaxPacketSize & 0x7FF;
-
-				auto usbtyp = ep->bmAttributes & USB_EP_ATTR_TYPE_MASK;
-				epct->EpType = usbtyp | (dirIn << 2);
-
-				if (dirIn)
+				auto parseep = [](usb_endpoint_descriptor* ep, uint8_t& addr, uint8_t& dirIn)
 				{
-					auto ring = controller->MakeEventRing(1);
-					epct->TRDequeuePtr = (uint64_t)get_physical_address(ring->dequeueptr) | 1;
+					addr = ep->bEndpointAddress & 0xF;
+					dirIn = ep->bEndpointAddress >> 7;
+				};
+
+				auto BitToSet = [&](usb_endpoint_descriptor* ep)
+				{
+					uint8_t addr, dirIn;
+					parseep(ep, addr, dirIn);
+					return 2 * addr + dirIn;
+				};
+
+				for (int n = 0; pEndpoints[n].epDesc; ++n)
+				{
+					auto bitset = BitToSet(pEndpoints[n].epDesc);
+					epAdd |= (1 << bitset);
+					highbit = bitset > highbit ? bitset : highbit;
 				}
 
-				auto MaxEsit = epct->MaxPacketSize * (epct->MaxBurstSize + 1);
-				epct->HID = 1;
-
-				switch (usbtyp)
+				if (clearold)
 				{
-				case USB_EP_ATTR_TYPE_CONTROL:
-					break;
-				case USB_EP_ATTR_TYPE_BULK:
-					break;
-				case USB_EP_ATTR_TYPE_INTERRUPT:
-					epct->CErr = 3;
-					epct->MaxEsitLow = MaxEsit & 0xFFFF;
-					epct->MaxEsitHigh = MaxEsit >> 16;
-					epct->Interval = 11;
-					epct->AverageTrbLength = 0x400;
-					break;
-				case USB_EP_ATTR_TYPE_ISOCHRONOUS:
-					break;
-				default:
-					break;
+					epAdd = epAdd & (~(size_t)1);
+					auto mapclear = controller->CreateInputContext(incontxt, 0, epAdd, config, iface, alternate);
+					void* last_command = controller->cmdring.enqueue(create_configureendpoint_command(incontxt, slotid, true));
+					uint64_t* curevt = (uint64_t*)controller->waitComplete(last_command, 1000);
+					if (get_trb_completion_code(curevt) != XHCI_COMPLETION_SUCCESS)
+					{
+						kprintf(u"Error configuring endpoint: %x\n", get_trb_completion_code(curevt));
+						return USB_XHCI_TRB_ERR(get_trb_completion_code(curevt));
+					}
 				}
+
+				auto mapin = controller->CreateInputContext(incontxt, epAdd, 0, config, iface, alternate);
+				mapin->slot.ContextEntries = highbit;
+				if (downstreamports > 0)
+				{
+					mapin->slot.Hub = 1;
+					mapin->slot.NumberPorts = downstreamports;
+				}
+
+				for (int n = 0; pEndpoints[n].epDesc; ++n)
+				{
+					auto ep = pEndpoints[n].epDesc;
+					auto companion = pEndpoints[n].companionDesc;
+					uint8_t addr, dirIn;
+					parseep(ep, addr, dirIn);
+					auto epct = controller->GetEndpointContext(mapin, addr, dirIn);
+					epct->MaxPacketSize = ep->wMaxPacketSize & 0x7FF;
+
+					auto MaxBurstSize = companion ? companion->bMaxBurst : 0;
+					epct->MaxBurstSize = MaxBurstSize;
+
+					auto usbtyp = ep->bmAttributes & USB_EP_ATTR_TYPE_MASK;
+					epct->EpType = usbtyp | (dirIn << 2);
+
+					if (dirIn)
+					{
+						auto ring = controller->MakeEventRing(1);
+						epct->TRDequeuePtr = (uint64_t)get_physical_address(ring->dequeueptr) | 1;
+					}
+
+					auto MaxEsit = epct->MaxPacketSize * (MaxBurstSize + 1);
+					epct->HID = 1;
+
+					auto IntervalExp = high_set_bit(ep->bInterval);
+
+					switch (usbtyp)
+					{
+					case USB_EP_ATTR_TYPE_CONTROL:
+						break;
+					case USB_EP_ATTR_TYPE_BULK:
+						epct->MaxPrimaryStreams = 0;
+						//TODO: Support streams
+						//epct->MaxPrimaryStreams = companion ? companion->Bulk.MaxStream : 0;
+						break;
+					case USB_EP_ATTR_TYPE_INTERRUPT:
+						epct->CErr = 3;
+						epct->MaxEsitLow = MaxEsit & 0xFFFF;
+						epct->MaxEsitHigh = MaxEsit >> 16;
+						epct->Interval = ep->bInterval;
+						epct->AverageTrbLength = 0x400;
+						break;
+					case USB_EP_ATTR_TYPE_ISOCHRONOUS:
+						epct->Mult = companion ? companion->Isochronous.Mult : 0;
+						break;
+					default:
+						break;
+					}
+				}
+
+				//Issue address device command
+				last_command = controller->cmdring.enqueue(create_configureendpoint_command(incontxt, slotid, false));
 			}
-
-			//while (1);
-
-			//Issue address device command
-			void* last_command = controller->cmdring.enqueue(create_configureendpoint_command(incontxt, slotid, false));
 			uint64_t* curevt = (uint64_t*)controller->waitComplete(last_command, 1000);
 			if (get_trb_completion_code(curevt) != XHCI_COMPLETION_SUCCESS)
 			{
 				kprintf(u"Error configuring endpoint: %x\n", get_trb_completion_code(curevt));
-				return USB_FAIL;
+				return USB_XHCI_TRB_ERR(get_trb_completion_code(curevt));
 			}
 
 			return USB_SUCCESS;
@@ -875,51 +918,51 @@ private:
 		return raw_offset<volatile xhci_endpoint_context*>(devct, stride * (epNum * 2 + dirIn));
 	}
 
-	bool update_packet_size_fs(xhci_device_info* port)
-	{
-		uint8_t* buffer = new uint8_t[8];
-		REQUEST_PACKET device_packet;
-		device_packet.request_type = USB_BM_REQUEST_INPUT | USB_BM_REQUEST_STANDARD | USB_BM_REQUEST_DEVICE;
-		device_packet.request = USB_BREQUEST_GET_DESCRIPTOR;
-		device_packet.value = USB_DESCRIPTOR_WVALUE(USB_DESCRIPTOR_DEVICE, 0);
-		device_packet.index = 0;
-		device_packet.length = 8;
+	//bool update_packet_size_fs(xhci_device_info* port)
+	//{
+	//	uint8_t* buffer = new uint8_t[8];
+	//	REQUEST_PACKET device_packet;
+	//	device_packet.request_type = USB_BM_REQUEST_INPUT | USB_BM_REQUEST_STANDARD | USB_BM_REQUEST_DEVICE;
+	//	device_packet.request = USB_BREQUEST_GET_DESCRIPTOR;
+	//	device_packet.value = USB_DESCRIPTOR_WVALUE(USB_DESCRIPTOR_DEVICE, 0);
+	//	device_packet.index = 0;
+	//	device_packet.length = 8;
 
-		if (size_t res = xhci_control_in(port, &device_packet, buffer, 8))
-		{
-			kprintf(u"Error getting FullSpeed packet size: %d\n", res);
-			return false;
-		}
+	//	if (size_t res = xhci_control_in(port, &device_packet, buffer, 8))
+	//	{
+	//		kprintf(u"Error getting FullSpeed packet size: %d\n", res);
+	//		return false;
+	//	}
 
-		usb_device_descriptor* devdes = (usb_device_descriptor*)buffer;
-		if (devdes->bDeviceClass == 0x09)
-			kprintf(u"USB Hub\n");
-		//Update information
-		if (devdes->bMaxPacketSize0 != 64)
-		{
-			//Create input context
-			//Allocate input context
-			paddr_t incontext = pmmngr_allocate(1);
-			void* mapincontxt = find_free_paging(PAGESIZE);
-			paging_map(mapincontxt, incontext, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING);
-			memset(mapincontxt, 0, PAGESIZE);
-			//Set input control context
-			volatile uint32_t* aflags = raw_offset<volatile uint32_t*>(mapincontxt, 4);
-			*aflags = 2;
-			//Copy existing data structures
-			memcpy(raw_offset<void*>(mapincontxt, 0x20), port->device_context, 0x20 * 2);
-			*raw_offset<uint16_t*>(mapincontxt, 0x40 + 0x6) = devdes->bMaxPacketSize0;
-			//Notify xHCI
-			void* lastcmd = cmdring.enqueue(create_evaluate_command(incontext, port->slotid));
-			void* res = waitComplete(lastcmd, 1000);
-			if (get_trb_completion_code(res) != XHCI_COMPLETION_SUCCESS)
-			{
-				kprintf(u"Error updating device context\n");
-				return false;
-			}
-		}
-		return true;
-	}
+	//	usb_device_descriptor* devdes = (usb_device_descriptor*)buffer;
+	//	if (devdes->bDeviceClass == 0x09)
+	//		kprintf(u"USB Hub\n");
+	//	//Update information
+	//	if (devdes->bMaxPacketSize0 != 64)
+	//	{
+	//		//Create input context
+	//		//Allocate input context
+	//		paddr_t incontext = pmmngr_allocate(1);
+	//		void* mapincontxt = find_free_paging(PAGESIZE);
+	//		paging_map(mapincontxt, incontext, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING);
+	//		memset(mapincontxt, 0, PAGESIZE);
+	//		//Set input control context
+	//		volatile uint32_t* aflags = raw_offset<volatile uint32_t*>(mapincontxt, 4);
+	//		*aflags = 2;
+	//		//Copy existing data structures
+	//		memcpy(raw_offset<void*>(mapincontxt, 0x20), port->device_context, 0x20 * 2);
+	//		*raw_offset<uint16_t*>(mapincontxt, 0x40 + 0x6) = devdes->bMaxPacketSize0;
+	//		//Notify xHCI
+	//		void* lastcmd = cmdring.enqueue(create_evaluate_command(incontext, port->slotid));
+	//		void* res = waitComplete(lastcmd, 1000);
+	//		if (get_trb_completion_code(res) != XHCI_COMPLETION_SUCCESS)
+	//		{
+	//			kprintf(u"Error updating device context\n");
+	//			return false;
+	//		}
+	//	}
+	//	return true;
+	//}
 
 	void ringDoorbell(size_t slot, size_t endpoint)
 	{
@@ -1479,7 +1522,7 @@ private:
 		return pRootHub;
 	}
 
-	size_t xhci_control_in(xhci_device_info* pinfo, const REQUEST_PACKET* request, void* dest, const size_t len)
+	usb_status_t xhci_control_in(xhci_device_info* pinfo, const REQUEST_PACKET* request, void* dest, const size_t len)
 	{
 		xhci_command** devcmds = new xhci_command*[5];
 		devcmds[0] = create_setup_stage_trb(request->request_type, request->request, request->value, request->index, request->length, 3);		//IN data stage
@@ -1498,10 +1541,9 @@ private:
 		void* res = waitComplete(statusevt, 1000);
 
 		size_t result = get_trb_completion_code(res);
-		if (result != XHCI_COMPLETION_SUCCESS)
-		{
-			return (result == 0 ? 0x100 : result);
-		}
+		if (result == XHCI_COMPLETION_SUCCESS)
+			return USB_SUCCESS;
+		return USB_XHCI_TRB_ERR(result);
 
 		/*devcmds[0] = create_status_stage_trb(true);
 		devcmds[1] = nullptr;

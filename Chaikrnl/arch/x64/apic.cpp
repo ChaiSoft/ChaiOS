@@ -343,7 +343,7 @@ static bool icr_busy()
 	return (read_apic_register(LAPIC_REGISTER_ICR) & (1 << 12)) != 0;
 }
 
-static void Stall(uint32_t milliseconds)
+void Stall(uint32_t milliseconds)
 {
 	uint64_t current = arch_get_system_timer();
 	while (arch_get_system_timer() - current < milliseconds);

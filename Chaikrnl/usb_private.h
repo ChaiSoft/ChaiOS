@@ -30,6 +30,7 @@
 #define USB_DESCRIPTOR_STRING 3
 #define USB_DESCRIPTOR_INTERFACE 4
 #define USB_DESCRIPTOR_ENDPOINT 5
+#define USB3_DESCRIPTOR_ENDPOINT_COMPANION 0x30
 
 #define USB_DESCRIPTOR_WVALUE(type, index) \
 ((type << 8) | index)
@@ -100,13 +101,37 @@ typedef struct _usb_endpoint_descriptor : public usb_descriptor {
 	uint16_t wMaxPacketSize;
 	uint8_t bInterval;
 }usb_endpoint_descriptor;
+
+typedef struct _usb3_endpoint_companion_descriptor : public usb_descriptor {
+	uint8_t bMaxBurst;
+	union {
+		uint8_t bmAttributes;
+		struct {
+			uint8_t MaxStream : 5;
+			uint8_t ResZ : 3;
+		}Bulk;
+		struct {
+			uint8_t Mult : 2;
+			uint8_t ResZ : 6;
+		}Isochronous;
+	};
+	uint16_t BytesPerInterval;
+}usb3_endpoint_companion_descriptor;
+static_assert(sizeof(usb3_endpoint_companion_descriptor) == 6, "Packing error - usb3_endpoint_companion_descriptor");
 #pragma pack(pop)
+
+typedef struct _UsbEndpointDesc {
+	usb_endpoint_descriptor* epDesc; 
+	usb3_endpoint_companion_descriptor* companionDesc;
+}UsbEndpointDesc;
 
 typedef uint32_t usb_status_t;
 
 #define USB_SUCCESS 0
 #define USB_FAIL 1
 #define USB_NOTIMPL 2
+
+#define USB_XHCI_TRB_ERR(x) (x + 0x1000)
 
 #define USB_FAILED(st) (st != USB_SUCCESS)
 
@@ -130,7 +155,7 @@ public:
 	virtual size_t OperatingPacketSize() = 0;
 	virtual usb_status_t UpdatePacketSize(size_t size) = 0;
 	virtual usb_status_t RequestData(REQUEST_PACKET& device_packet, void** resultData) = 0;
-	virtual usb_status_t ConfigureEndpoint(usb_endpoint_descriptor** pEndpoints, uint8_t config, uint8_t interface, uint8_t alternate, uint8_t downstreamports) = 0;
+	virtual usb_status_t ConfigureEndpoint(UsbEndpointDesc* pEndpoints, uint8_t config, uint8_t interface, uint8_t alternate, uint8_t downstreamports, bool clearold = false) = 0;
 	virtual USBHub* GetParent() { return &m_Parent; }
 	virtual uint8_t GetPort() { return m_Port; }
 
@@ -150,6 +175,7 @@ public:
 	virtual bool PortConnected(uint8_t port) = 0;
 	virtual uint8_t NumberPorts() = 0;
 	virtual usb_status_t AssignSlot(uint8_t port, UsbDeviceInfo*& slot, uint32_t PortSpeed, UsbDeviceInfo* parent, uint32_t routestring = 0) = 0;
+	virtual uint8_t HubDepth() = 0;
 };
 
 class USBRootHub : public USBHub
@@ -164,6 +190,8 @@ public:
 };
 
 void RegisterHostController(USBHostController* hc);
+usb_status_t ConfigureDevice(UsbDeviceInfo* device, int CONFIG, uint8_t HubPorts);
+bool LogFailure(char16_t* message, usb_status_t stat);
 
 static inline size_t pow2(size_t p)
 {
