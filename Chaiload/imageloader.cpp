@@ -379,7 +379,7 @@ static bool relocation_fixup(const void* LoadedFile, PIMAGE_NT_HEADERS ntHeaders
 			}
 		}
 		
-		uint32_t nextOffset = DIV_ROUND_UP(curBlock->BlockSize, 4) * 4;
+		uint32_t nextOffset = ALIGN_UP(curBlock->BlockSize, 4);
 		curBlock = raw_offset<PIMAGE_RELOCATION_BLOCK>(curBlock, nextOffset);
 	}
 

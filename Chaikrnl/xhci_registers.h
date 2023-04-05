@@ -65,6 +65,12 @@
 #define XHCI_LEGCTLSTS_DISABLE_SMI	((0x7 << 1) + (0xff << 5) + (0x7 << 17))
 #define XHCI_LEGCTLSTS_EVENTS_SMI	(0x7 << 29)
 
+#define XHCI_TRB_TYPE_NORMAL 1
+#define XHCI_TRB_TYPE_SETUP_STAGE 2
+#define XHCI_TRB_TYPE_DATA_STAGE 3
+#define XHCI_TRB_TYPE_STATUS_STAGE 4
+#define XHCI_TRB_TYPE_LINK 6
+#define XHCI_TRB_TYPE_EVENT_DATA_STAGE 7
 #define XHCI_TRB_TYPE_NOOP 8
 #define XHCI_TRB_TYPE_ENABLE_SLOT 9
 #define XHCI_TRB_TYPE_ADDRESS_DEVICE 11
@@ -74,10 +80,7 @@
 #define XHCI_TRB_TYPE_TRANSFER_EVENT 32
 #define XHCI_TRB_TYPE_COMMAND_COMPLETE 33
 #define XHCI_TRB_TYPE_PORT_STATUS_CHANGE 34
-#define XHCI_TRB_TYPE_SETUP_STAGE 2
-#define XHCI_TRB_TYPE_DATA_STAGE 3
-#define XHCI_TRB_TYPE_STATUS_STAGE 4
-#define XHCI_TRB_TYPE_EVENT_DATA_STAGE 7
+
 
 #define XHCI_TRB_TYPE(x) ((uint64_t)x << 42)
 #define XHCI_TRB_SLOTID(x) ((uint64_t)x << 56)
@@ -89,6 +92,7 @@
 #define XHCI_TRB_CONFIGUREEP_DECONF ((uint64_t)1<<41)
 #define XHCI_TRB_ENABLED 0x100000000
 #define XHCI_TRB_ENT 0x200000000
+#define XHCI_TRB_TOGGLECYCLE 0x200000000
 #define XHCI_TRB_ISP 0x400000000
 #define XHCI_TRB_CN 0x1000000000
 #define XHCI_TRB_IOC 0x2000000000
@@ -102,6 +106,8 @@
 
 #define XHCI_DOORBELL(slot) \
 (XHCI_DOORBELL_HOST+slot*4)
+
+#define XHCI_DOORBELL_ENDPOINT(epindex, streamid) ((streamid << 16) | epindex)
 
 #define XHCI_COMPLETION_SUCCESS 1
 #define XHCI_COMPLETION_STALL 6
@@ -618,10 +624,15 @@ public:
 	}
 };
 
-struct xhci_command {
+#pragma pack(push, 1)
+struct xhci_trb {
 	uint64_t lowval;
 	uint64_t highval;
 };
+
+struct xhci_command : public xhci_trb {
+};
+#pragma pack(pop)
 
 static xhci_command* create_address_command(bool bsr, paddr_t context, uint16_t slot)
 {
@@ -709,6 +720,23 @@ static xhci_command* create_status_stage_trb(bool indirection)
 	xhci_command* ret = new xhci_command;
 	ret->lowval = 0;
 	ret->highval = XHCI_TRB_ENT | (indirection ? 0 : XHCI_TRB_DIR_IN) | XHCI_TRB_TYPE(XHCI_TRB_TYPE_STATUS_STAGE) | XHCI_TRB_IOC;
+	return ret;
+}
+
+static xhci_trb* create_link_trb(paddr_t nextSegment, bool togglecycle)
+{
+	xhci_trb* ret = new xhci_trb;
+	ret->lowval = nextSegment;
+	ret->highval = XHCI_TRB_TYPE(XHCI_TRB_TYPE_LINK) | (togglecycle ? XHCI_TRB_TOGGLECYCLE : 0);
+	return ret;
+}
+
+static xhci_trb* create_normal_trb(paddr_t dataBuffer, uint32_t transferLength, uint8_t TdSize, uint16_t InterrupterTarget, bool chain)
+{
+	xhci_trb* ret = new xhci_trb;
+	ret->lowval = dataBuffer;
+	ret->highval = ((InterrupterTarget & 0x3FF) << 22) | ((TdSize & 0x1F) << 17) | (transferLength & 0x1FFFF) | \
+		(chain ? XHCI_TRB_CN : 0) | (!chain ? XHCI_TRB_IOC : 0) | XHCI_TRB_TYPE(XHCI_TRB_TYPE_NORMAL);
 	return ret;
 }
 

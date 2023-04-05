@@ -102,8 +102,11 @@ usb_status_t ConfigureDevice(UsbDeviceInfo* device, int CONFIG, uint8_t HubPorts
 	{
 		if (descep->bDescriptorType == USB_DESCRIPTOR_ENDPOINT)
 		{
-			endpointdata[i++].epDesc = (usb_endpoint_descriptor*)descep;
+			endpointdata[i].epDesc = (usb_endpoint_descriptor*)descep;
+			endpointdata[i++].pEndpoint = nullptr;
+
 			descep = raw_offset<usb_descriptor*>(descep, descep->bLength);
+
 			if (descep->bDescriptorType == USB3_DESCRIPTOR_ENDPOINT_COMPANION)
 			{
 				endpointdata[i - 1].companionDesc = (usb3_endpoint_companion_descriptor*)descep;
@@ -130,6 +133,7 @@ usb_status_t ConfigureDevice(UsbDeviceInfo* device, int CONFIG, uint8_t HubPorts
 	status = device->RequestData(device_packet, (void**)&devdesc);
 	if (LogFailure(u"Failed to set configuration: %x\n", status))
 		return status;
+
 	return USB_SUCCESS;
 }
 

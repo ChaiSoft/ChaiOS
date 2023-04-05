@@ -658,50 +658,19 @@ private:
 		size_t port;
 	};
 
-	class CommandRing {
+	class TransferRingBase {
 	public:
-		CommandRing(XHCI* parent, size_t slot, size_t endpoint)
+		TransferRingBase(XHCI* parent, size_t slot, size_t endpoint)
 			: m_parent(parent), m_slot(slot), m_endpoint(endpoint)
 		{
 			ring_lock = create_spinlock();
 			m_ringbase = m_enqueue = pmmngr_allocate(1);
-			m_mapped_enqueue = find_free_paging(PAGESIZE);
+			m_mapped_enqueue = (xhci_trb*)find_free_paging(PAGESIZE);
 			paging_map(m_mapped_enqueue, m_enqueue, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING);
 			memset(m_mapped_enqueue, 0, PAGESIZE);
 			slotbit = XHCI_TRB_ENABLED;
-		}
-		void* enqueue(xhci_command* command)
-		{
-			auto st = acquire_spinlock(m_parent->tree_lock);
-			m_parent->PendingCommands[m_enqueue] = command;
-			release_spinlock(m_parent->tree_lock, st);
-			st = acquire_spinlock(ring_lock);
-			//Write command
-			m_mapped_enqueue = place_trb(m_mapped_enqueue, command->lowval, command->highval, m_enqueue);
-			m_parent->ringDoorbell(m_slot, m_endpoint);
-			release_spinlock(ring_lock, st);
-			delete command;
-			return command;
-		}
 
-		void* enqueue_commands(xhci_command** commands)
-		{
-			auto st = acquire_spinlock(ring_lock);
-			//Write command
-			size_t n = 0;
-			while (commands[n])
-			{
-				paddr_t lastcmd = m_enqueue;
-				m_mapped_enqueue = place_trb(m_mapped_enqueue, commands[n]->lowval, commands[n]->highval, m_enqueue);
-				auto st2 = acquire_spinlock(m_parent->tree_lock);
-				m_parent->PendingCommands[lastcmd] = commands;
-				release_spinlock(m_parent->tree_lock, st2);
-				delete commands[n];
-				++n;
-			}
-			m_parent->ringDoorbell(m_slot, m_endpoint);
-			release_spinlock(ring_lock, st);
-			return commands;
+			WriteLink(raw_offset<xhci_trb*>(m_ringbase, PAGESIZE), m_ringbase, m_mapped_enqueue, true);
 		}
 
 		paddr_t getBaseAddress()
@@ -709,24 +678,64 @@ private:
 			return m_ringbase;
 		}
 
-		static void* xhci_write_crb(void* crbc, uint64_t low, uint64_t high, paddr_t& penq)
+	protected:
+		void* EnqueueTrbs(xhci_trb** trbs)
+		{
+			auto st = acquire_spinlock(ring_lock);
+			//Write command
+			size_t n = 0;
+			while (trbs[n])
+			{
+				paddr_t lastcmd = m_enqueue;
+				m_mapped_enqueue = place_trb(m_mapped_enqueue, trbs[n]->lowval, trbs[n]->highval, m_enqueue);
+				m_parent->EnqueueTrb(trbs[n], m_enqueue);
+				auto st2 = acquire_spinlock(m_parent->tree_lock);
+				m_parent->PendingCommands[lastcmd] = trbs;
+				release_spinlock(m_parent->tree_lock, st2);
+				delete trbs[n];
+				++n;
+			}
+			m_parent->ringDoorbell(m_slot, m_endpoint);
+			release_spinlock(ring_lock, st);
+			return trbs;
+		}
+
+	private:
+		static void WriteLink(xhci_trb* segmentEnd, paddr_t NextSegment, void* NextSegmentMapped, bool togglecycle)
+		{
+			auto cycleback = create_link_trb(NextSegment, togglecycle);
+			paddr_t discard = 0;
+			xhci_write_crb(&segmentEnd[-2], cycleback->lowval, cycleback->highval, discard);
+			auto mappedhelper = create_event_data_trb((paddr_t)NextSegmentMapped);
+			xhci_write_crb(&segmentEnd[-1], mappedhelper->lowval, mappedhelper->highval, discard);
+		}
+
+		static const int TRB_SIZE = 0x10;
+
+		static xhci_trb* xhci_write_crb(xhci_trb* crbc, uint64_t low, uint64_t high, paddr_t& penq)
 		{
 			//kprintf(u"Writing TRB to %x(%x) <- %x:%x\n", crbc, penq, high, low);
 			*raw_offset<volatile uint64_t*>(crbc, 8) = high;
 			arch_memory_barrier();
 			*raw_offset<volatile uint64_t*>(crbc, 0) = low;
-			penq += 0x10;
-			return raw_offset<void*>(crbc, 16);
+			penq += TRB_SIZE;
+			return raw_offset<xhci_trb*>(crbc, TRB_SIZE);
 		}
-	private:
-		void* place_trb(void* crbc, uint64_t low, uint64_t high, paddr_t& penq)
+
+		xhci_trb* place_trb(xhci_trb* crbc, uint64_t low, uint64_t high, paddr_t& penq)
 		{
-			void* ret = xhci_write_crb(crbc, low, high | slotbit, penq);
-			if (penq == m_ringbase + PAGESIZE)
+			xhci_trb* ret = xhci_write_crb(crbc, low, high | slotbit, penq);
+			if (XHCI_GET_TRB_TYPE(ret->highval) == XHCI_TRB_TYPE_LINK)
 			{
-				penq = m_ringbase;
-				slotbit = (slotbit == 0) ? XHCI_TRB_ENABLED : 0;
-				ret = raw_offset<void*>(ret, -PAGESIZE);
+				//Enable the link TRB for the current cycle
+				ret->highval &= (~XHCI_TRB_TOGGLECYCLE);
+				ret->highval |= slotbit;
+
+				penq = ret->lowval;
+				if(ret->highval & XHCI_TRB_TOGGLECYCLE)
+					slotbit = (slotbit == 0) ? XHCI_TRB_ENABLED : 0;
+
+				ret = (xhci_trb*)ret[1].lowval;				
 			}
 			return ret;
 		}
@@ -734,10 +743,128 @@ private:
 		spinlock_t ring_lock;
 		paddr_t m_enqueue;
 		paddr_t m_ringbase;
-		void* m_mapped_enqueue;
+		xhci_trb* m_mapped_enqueue;
 		size_t m_slot;
 		size_t m_endpoint;
 		uint64_t slotbit;
+	};
+
+	class TransferRing : public TransferRingBase {
+	public:
+		TransferRing(XHCI* parent, size_t slot, size_t endpoint)
+			: TransferRingBase(parent, slot, endpoint)
+		{
+
+		}
+
+		void* enqueue(xhci_trb* trb)
+		{
+			xhci_trb* trbs[2];
+			trbs[0] = trb;
+			trbs[1] = nullptr;
+			return enqueue_trbs(trbs);
+		}
+
+		void* enqueue_trbs(xhci_trb** tbs)
+		{
+			return EnqueueTrbs(tbs);
+		}
+	};
+
+	class CommandRing : public TransferRingBase {
+	public:
+		CommandRing(XHCI* parent, size_t slot, size_t endpoint)
+			: TransferRingBase(parent, slot, endpoint)
+		{
+		}
+
+		void* enqueue(xhci_command* command)
+		{
+			xhci_command* cmds[2];
+			cmds[0] = command;
+			cmds[1] = nullptr;
+			return enqueue_commands(cmds);
+		}
+
+		void* enqueue_commands(xhci_command** commands)
+		{
+			return EnqueueTrbs((xhci_trb**)commands);
+		}
+	};
+
+	void EnqueueTrb(void* command, paddr_t enqueue)
+	{
+		auto st = acquire_spinlock(tree_lock);
+		PendingCommands[enqueue] = command;
+		release_spinlock(tree_lock, st);
+	}
+
+	class xhci_endpoint_info : public UsbEndpoint {
+	public:
+		xhci_endpoint_info(XHCI* parent, size_t slot, uint8_t epindex)
+			:transferRing(parent, slot, XHCI_DOORBELL_ENDPOINT(epindex, 0))
+		{
+		}
+
+		void InitEndpointContext(volatile xhci_endpoint_context* context)
+		{
+			context->TRDequeuePtr = transferRing.getBaseAddress() | 1;
+		}
+
+		virtual usb_status_t CreateBuffers(void** bufferptr, size_t bufsize, size_t bufcount)
+		{
+			size_t BufsPerPage = PAGESIZE / bufsize;	//Avoid individual buffer spanning two pages
+			uint8_t* ScratchBlock = new uint8_t[DIV_ROUND_UP(bufcount, BufsPerPage) * PAGESIZE + PAGESIZE - 1];
+			ScratchBlock = (uint8_t*)ALIGN_UP((size_t)ScratchBlock, PAGESIZE);
+			*bufferptr = ScratchBlock;
+			xhci_trb** trbs = new xhci_trb*[bufcount + 1];
+			size_t offset = 0;
+			for (int i = 0; i < bufcount; ++i)
+			{
+				auto buffer = raw_offset<void*>(ScratchBlock, offset);
+				paddr_t phyBase = get_physical_address(buffer);
+				trbs[i] = create_normal_trb(phyBase, bufsize, 1, 0, false);
+				offset += bufsize;
+				if (ALIGN_UP(offset + bufsize, PAGESIZE) != ALIGN_UP(offset, PAGESIZE))
+					offset = ALIGN_UP(offset, PAGESIZE);
+			}
+			trbs[bufcount] = nullptr;
+			transferRing.enqueue_trbs(trbs);
+			delete[] trbs;
+			return USB_SUCCESS;		
+		}
+
+		virtual usb_status_t AddBuffer(void* buffer, size_t length)
+		{
+			//Build scatter gather
+			paddr_t phyBase = get_physical_address(buffer);
+			size_t curLength = ALIGN_UP(phyBase, PAGESIZE) - phyBase;
+			curLength = curLength > length ? length : curLength;
+
+			size_t WorstCase = DIV_ROUND_UP(length - curLength, PAGESIZE) + 1;
+			xhci_trb** trbs = new xhci_trb*[WorstCase + 1];
+			auto trbindex = 0;
+			trbs[trbindex++] = create_normal_trb(phyBase, curLength, WorstCase - 1, 0, curLength < length);
+			while (curLength < length)
+			{
+				length -= curLength;
+				buffer = raw_offset<void*>(buffer, curLength);
+				phyBase = get_physical_address(buffer);
+				curLength = PAGESIZE;
+				for (int n = 1; (PAGESIZE * n < length) && (phyBase + PAGESIZE * n == get_physical_address(raw_offset<void*>(buffer, PAGESIZE * n))); ++n)
+					curLength += PAGESIZE;
+				curLength = curLength > length ? length : curLength;
+				curLength = curLength > MAX_TRANSFER_SIZE ? MAX_TRANSFER_SIZE : curLength;
+				trbs[trbindex++] = create_normal_trb(phyBase, curLength, DIV_ROUND_UP(length - curLength, PAGESIZE), 0, curLength < length);
+			}
+			trbs[trbindex] = nullptr;
+			transferRing.enqueue_trbs(trbs);
+			delete[] trbs;
+			return USB_SUCCESS;
+		}
+	private:
+		const int MAX_TRANSFER_SIZE = 64 * 1024;
+		TransferRing transferRing;
 	};
 
 	class xhci_device_info : public UsbDeviceInfo {
@@ -792,7 +919,7 @@ private:
 			return USB_SUCCESS;
 		}
 
-		virtual usb_status_t ConfigureEndpoint(UsbEndpointDesc* pEndpoints, uint8_t config, uint8_t iface, uint8_t alternate, uint8_t downstreamports, bool clearold = false)
+		virtual usb_status_t DoConfigureEndpoint(UsbEndpointDesc* pEndpoints, uint8_t config, uint8_t iface, uint8_t alternate, uint8_t downstreamports, bool clearold = false)
 		{
 			paddr_t incontxt;
 			size_t epAdd = 1;
@@ -861,11 +988,9 @@ private:
 					auto usbtyp = ep->bmAttributes & USB_EP_ATTR_TYPE_MASK;
 					epct->EpType = usbtyp | (dirIn << 2);
 
-					if (dirIn)
-					{
-						auto ring = controller->MakeEventRing(1);
-						epct->TRDequeuePtr = (uint64_t)get_physical_address(ring->dequeueptr) | 1;
-					}
+					auto epclass = new xhci_endpoint_info(controller, slotid, GetXhciEndpointIndex(addr, dirIn));
+					pEndpoints[n].pEndpoint = epclass;
+					epclass->InitEndpointContext(epct);
 
 					auto MaxEsit = epct->MaxPacketSize * (MaxBurstSize + 1);
 					epct->HID = 1;
@@ -913,9 +1038,7 @@ private:
 	volatile xhci_endpoint_context* GetEndpointContext(volatile xhci_device_context* devct, uint8_t epNum, uint8_t dirIn)
 	{
 		auto stride = 0x20 * (1 + Capabilities.HCCPARAMS1.CSZ);
-		if (epNum == 0)
-			dirIn = 1;
-		return raw_offset<volatile xhci_endpoint_context*>(devct, stride * (epNum * 2 + dirIn));
+		return raw_offset<volatile xhci_endpoint_context*>(devct, stride * GetXhciEndpointIndex(epNum, dirIn));
 	}
 
 	//bool update_packet_size_fs(xhci_device_info* port)
@@ -1066,6 +1189,10 @@ private:
 #if 1
 					if (XHCI_GET_TRB_TYPE(ret[1]) == XHCI_TRB_TYPE_TRANSFER_EVENT)
 					{
+						if (((ret[1] >> 48) & 0x1F) > 1)
+						{
+							//kprintf(u"Event from non-control endpoint %x!\n", (ret[1] >> 48) & 0x1F);
+						}
 						//kprintf(u"Event for rethandle %x (TRB %x)\n", waiting_handle, cmd_trb);
 					}
 #endif
@@ -1520,6 +1647,14 @@ private:
 	virtual USBHub& RootHub()
 	{
 		return pRootHub;
+	}
+
+
+	static size_t GetXhciEndpointIndex(uint8_t epNum, uint8_t dirIn)
+	{
+		if (epNum == 0)
+			dirIn = 1;
+		return epNum * 2 + dirIn;
 	}
 
 	usb_status_t xhci_control_in(xhci_device_info* pinfo, const REQUEST_PACKET* request, void* dest, const size_t len)

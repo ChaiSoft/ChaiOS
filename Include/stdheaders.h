@@ -45,4 +45,6 @@ extern "C++" {
 #define DIV_ROUND_UP(x, y) \
 ((x + y - 1) / y)
 
+#define ALIGN_UP(x, y) (DIV_ROUND_UP(x,y)*y)
+
 #endif

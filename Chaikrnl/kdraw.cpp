@@ -242,7 +242,7 @@ void* CreateWindow(size_t width, size_t height, size_t pixelsPerLine)
 	size_t bufsz = height * pixelsPerLine * bppbyte;
 	//align
 	void* buffer = new uint8_t[bufsz + PAGESIZE * 2 - 1];
-	buffer = (void*)(DIV_ROUND_UP((size_t)buffer, PAGESIZE) * PAGESIZE);
+	buffer = (void*)ALIGN_UP((size_t)buffer, PAGESIZE);
 	set_paging_attributes(buffer, bufsz, PAGE_ATTRIBUTE_WRITE_COMBINING, 0);
 	wnd->framebuffer = buffer;
 	wnd->h_res = width;

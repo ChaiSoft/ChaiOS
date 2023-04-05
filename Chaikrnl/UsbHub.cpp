@@ -167,8 +167,19 @@ usb_status_t NormalUsbHub::Init()
 			continue;*/
 	}
 
-
-
+	UsbEndpointDesc* desc;
+	for (int idx = 0; desc = m_pDevice->GetEndpointIdx(idx); idx++)
+	{
+		if ((desc->epDesc->bmAttributes & USB_EP_ATTR_TYPE_MASK) == USB_EP_ATTR_TYPE_INTERRUPT)
+		{
+			break;
+		}
+	}
+	if (desc)
+	{
+		void* bufdata = nullptr;
+		desc->pEndpoint->CreateBuffers(&bufdata, desc->epDesc->wMaxPacketSize, 256);
+	}
 	/*auto confdesc = (usb_configuration_descriptor*)GetStandardDescriptor(m_pDevice, USB_DESCRIPTOR_CONFIGURATION, 1, 9);
 	confdesc = (usb_configuration_descriptor*)GetStandardDescriptor(m_pDevice, USB_DESCRIPTOR_CONFIGURATION, 1, confdesc->wTotalLength);*/
 	return USB_SUCCESS;
