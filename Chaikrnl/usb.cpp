@@ -11,6 +11,67 @@ RedBlackTree<size_t, USBHostController*> controllers;
 
 static size_t HandleAlloc;
 
+static RedBlackTree<uint32_t, usb_register_callback> usb_by_vendor;
+static RedBlackTree<uint32_t, usb_register_callback> usb_by_class;
+
+#define USB_TOKEN_BYVENDOR(vendor, device) \
+	((device << 16) | vendor)
+
+#define USB_TOKEN_BYCLASS(classcode, subclass, progif) \
+	((classcode << 16) | (subclass << 8) | progif)
+
+static bool driver_init = false;
+
+
+static bool usb_driver_matcher(UsbDeviceInfo* device, uint16_t idVendor, uint16_t idProduct, uint8_t bDeviceClass, uint8_t bDeviceSublass, uint8_t bDeviceProtocol)
+{
+	auto vendortoken = USB_TOKEN_BYVENDOR(idVendor, idProduct);
+	auto it = usb_by_vendor.find(vendortoken);
+	if (it != usb_by_vendor.end())
+	{
+		it->second(device);
+		return false;
+	}
+
+	uint32_t classtoken = USB_TOKEN_BYCLASS(bDeviceClass, bDeviceSublass, bDeviceProtocol);
+	it = usb_by_class.find(classtoken);
+	if (it != usb_by_class.end())
+	{
+		//Perfect match on classcode
+		it->second(device);
+		return false;
+	}
+	//Try class:subclass only
+	classtoken = USB_TOKEN_BYCLASS(bDeviceClass, bDeviceSublass, USB_CLASS_ANY);
+	it = usb_by_class.find(classtoken);
+	if (it != usb_by_class.end())
+	{
+		//Matched
+		it->second(device);
+		return false;
+	}
+	//Try class only
+	classtoken = USB_TOKEN_BYCLASS(bDeviceClass, USB_CLASS_ANY, USB_CLASS_ANY);
+	it = usb_by_class.find(classtoken);
+	if (it != usb_by_class.end())
+	{
+		//Matched
+		it->second(device);
+		return false;
+	}
+	//As a last resort, try vendor only
+	vendortoken = USB_TOKEN_BYVENDOR(idVendor, USB_VENDOR_ANY);
+	it = usb_by_vendor.find(vendortoken);
+	if (it != usb_by_vendor.end())
+	{
+		it->second(device);
+		return false;
+	}
+	//No driver
+	return false;
+}
+
+
 void setup_usb()
 {
 	HandleAlloc = 0;
@@ -134,6 +195,8 @@ usb_status_t ConfigureDevice(UsbDeviceInfo* device, int CONFIG, uint8_t HubPorts
 	if (LogFailure(u"Failed to set configuration: %x\n", status))
 		return status;
 
+
+
 	return USB_SUCCESS;
 }
 
@@ -238,7 +301,33 @@ static void EnumerateHub(USBHub& roothb)
 				NormalUsbHub* hub = new NormalUsbHub(rootSlot);
 				EnumerateHub(*hub);
 			}
-
+			else if (devdesc->bDeviceClass == 0x00)
+			{
+				//Interface defined
+				REQUEST_PACKET device_packet;
+				device_packet.request_type = USB_BM_REQUEST_INPUT | USB_BM_REQUEST_STANDARD | USB_BM_REQUEST_DEVICE;
+				device_packet.request = USB_BREQUEST_GET_DESCRIPTOR;
+				device_packet.value = USB_DESCRIPTOR_WVALUE(USB_DESCRIPTOR_CONFIGURATION, 0);
+				device_packet.index = 0;
+				auto configdesc = GetCompleteDescriptor<usb_configuration_descriptor>(rootSlot, device_packet, &GetConfigLength);
+				if (!configdesc)
+					continue;
+				usb_descriptor* desc = raw_offset<usb_descriptor*>(configdesc, configdesc->bLength);
+				while (raw_diff(desc, configdesc) < configdesc->wTotalLength)
+				{
+					if (desc->bDescriptorType == USB_DESCRIPTOR_INTERFACE)
+					{
+						auto defiface = reinterpret_cast<usb_interface_descriptor*>(desc);
+						kprintf(u"Interface defined device: %x:%x:%x\n", defiface->bInterfaceClass, defiface->bInterfaceSublass, defiface->bInterfaceProtocol);
+						usb_driver_matcher(rootSlot, devdesc->idVendor, devdesc->idProduct, defiface->bInterfaceClass, defiface->bInterfaceSublass, defiface->bInterfaceProtocol);
+					}
+					desc = raw_offset<usb_descriptor*>(desc, desc->bLength);
+				}
+			}
+			else
+			{
+				usb_driver_matcher(rootSlot, devdesc->idVendor, devdesc->idProduct, devdesc->bDeviceClass, devdesc->bDeviceSublass, devdesc->bDeviceProtocol);
+			}
 		}
 	}
 }
@@ -250,8 +339,77 @@ static void InitUsbController(USBHostController* hc, size_t handle)
 	EnumerateHub(roothb);
 }
 
+static usb_device_declaration hid_devs[] = {
+	{USB_VENDOR_ANY, USB_VENDOR_ANY, 0x03, USB_CLASS_ANY, USB_CLASS_ANY},
+	USB_DEVICE_END
+};
+
+class UsbHidDriver : protected UsbEndpointInterruptHandler {
+public:
+	UsbHidDriver(UsbDeviceInfo* devinfo)
+	{
+		m_pDeviceInfo = devinfo;
+	}
+	usb_status_t Init();
+	virtual void HandleInterrupt(uint8_t endpoint);
+private:
+	UsbDeviceInfo* m_pDeviceInfo;
+};
+
+void UsbHidDriver::HandleInterrupt(uint8_t endpoint)
+{
+	kputs(u"HID Interrupt\n");
+}
+
+usb_status_t UsbHidDriver::Init()
+{
+	usb_status_t status = USB_FAIL;
+	kputs(u"USB HID init\n");
+	auto devdesc = m_pDeviceInfo->GetDeviceDescriptor();
+
+	//Try to get hub descriptor before configuring, may fail
+	REQUEST_PACKET device_packet;
+
+	const uint8_t DEFAULT_HubPorts = 4;
+	uint8_t HubPorts = DEFAULT_HubPorts;
+
+	auto CONFIG = 1;
+	if (USB_FAILED(status = ConfigureDevice(m_pDeviceInfo, CONFIG, HubPorts)))
+		return status;
+
+	UsbEndpointDesc* desc;
+	for (int idx = 0; desc = m_pDeviceInfo->GetEndpointIdx(idx); idx++)
+	{
+		if ((desc->epDesc->bmAttributes & USB_EP_ATTR_TYPE_MASK) == USB_EP_ATTR_TYPE_INTERRUPT)
+		{
+			break;
+		}
+	}
+	if (desc)
+	{
+		void* bufdata = nullptr;
+		desc->pEndpoint->CreateBuffers(&bufdata, desc->epDesc->wMaxPacketSize, 256);
+		desc->pEndpoint->RegisterInterruptHandler(this);
+		kputs(u"Register hub interrupt handler\n");
+	}
+	return USB_SUCCESS;
+}
+
+static bool hid_usb_register(UsbDeviceInfo* devinfo)
+{
+	auto hid = new UsbHidDriver(devinfo);
+	return !USB_FAILED(hid->Init());
+
+}
+
+static usb_device_registration hid_usb_reg = {
+	hid_devs,
+	& hid_usb_register
+};
+
 void usb_run()
 {
+	register_usb_driver(&hid_usb_reg);
 	for (auto it = controllers.begin(); it != controllers.end(); ++it)
 		InitUsbController(it->second, it->first);
 }
@@ -260,4 +418,26 @@ void RegisterHostController(USBHostController* hc)
 {
 	size_t handle = ++HandleAlloc;
 	controllers[handle] = hc;
+}
+
+CHAIKRNL_FUNC void register_usb_driver(usb_device_registration* registr)
+{
+	usb_device_declaration* devids = registr->ids_list;
+	for (int n = 0; !(devids[n].vendor == USB_VENDOR_ANY && devids[n].dev_class == USB_CLASS_ANY); ++n)
+	{
+		if (devids[n].vendor != USB_VENDOR_ANY)
+		{
+			uint32_t token = USB_TOKEN_BYVENDOR(devids[n].vendor, devids[n].product);
+			usb_by_vendor[token] = registr->callback;
+		}
+		else if (devids[n].dev_class != USB_CLASS_ANY)
+		{
+			uint32_t token = USB_TOKEN_BYCLASS(devids[n].dev_class, devids[n].subclass, devids[n].interface);
+			usb_by_class[token] = registr->callback;
+		}
+	}
+	if (driver_init)
+	{
+		//TODO
+	}
 }

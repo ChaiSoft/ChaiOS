@@ -179,6 +179,8 @@ usb_status_t NormalUsbHub::Init()
 	{
 		void* bufdata = nullptr;
 		desc->pEndpoint->CreateBuffers(&bufdata, desc->epDesc->wMaxPacketSize, 256);
+		desc->pEndpoint->RegisterInterruptHandler(this);
+		kputs(u"Register hub interrupt handler\n");
 	}
 	/*auto confdesc = (usb_configuration_descriptor*)GetStandardDescriptor(m_pDevice, USB_DESCRIPTOR_CONFIGURATION, 1, 9);
 	confdesc = (usb_configuration_descriptor*)GetStandardDescriptor(m_pDevice, USB_DESCRIPTOR_CONFIGURATION, 1, confdesc->wTotalLength);*/
@@ -217,7 +219,7 @@ bool NormalUsbHub::PortConnected(uint8_t port)
 	return (*status & 1) != 0;
 }
 
-usb_status_t NormalUsbHub::AssignSlot(uint8_t port, UsbDeviceInfo*& slot, uint32_t PortSpeed, UsbDeviceInfo* parent, uint32_t routestring)
+usb_status_t NormalUsbHub::DoAssignSlot(uint8_t port, UsbDeviceInfo*& slot, uint32_t PortSpeed, UsbDeviceInfo* parent, uint32_t routestring)
 {
 	if (PortSpeed == USB_DEVICE_INVALIDSPEED)
 	{
@@ -229,5 +231,14 @@ usb_status_t NormalUsbHub::AssignSlot(uint8_t port, UsbDeviceInfo*& slot, uint32
 		else
 			PortSpeed = USB_DEVICE_FULLSPEED;
 	}
-	return m_parent.AssignSlot(m_pDevice->GetPort(), slot, PortSpeed, parent ? parent : m_pDevice, (routestring << 4) | (port & 0xF));
+	if (parent == nullptr)
+	{
+		parent = m_pDevice;
+	}
+	return m_parent.AssignSlot(m_pDevice->GetPort(), slot, PortSpeed, parent, (routestring << 4) | (port & 0xF));
+}
+
+void NormalUsbHub::HandleInterrupt(uint8_t endpoint)
+{
+	kprintf(u"Hub status interrupt\n");
 }

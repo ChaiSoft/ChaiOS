@@ -336,7 +336,20 @@ private:
 			return m_Parent.getMaxPorts();
 		}
 
-		virtual usb_status_t AssignSlot(uint8_t port, UsbDeviceInfo*& slot, uint32_t PortSpeed, UsbDeviceInfo* parent, uint32_t routestring = 0)
+		void SlotChanged(uint8_t slot)
+		{
+			if (PortConnected(slot))
+			{
+
+			}
+			else
+			{
+				kprintf(u"Device disconnected from slot %d\n", slot);
+				GetChild(slot)->NotifyDisconnect();
+			}
+		}
+	protected:
+		virtual usb_status_t DoAssignSlot(uint8_t port, UsbDeviceInfo*& slot, uint32_t PortSpeed, UsbDeviceInfo* parent, uint32_t routestring = 0)
 		{
 			XhciPortRegisterBlock portregs = m_Parent.Operational.Port(port);
 			if(PortSpeed == USB_DEVICE_INVALIDSPEED)
@@ -647,11 +660,19 @@ private:
 		//kprintf(u"XHCI supported protocols loaded\n");
 	}
 
-	static void Stall(uint32_t milliseconds)
+	RedBlackTree<size_t, UsbEndpointInterruptHandler*> m_InterruptHandlers;
+
+	static size_t IhandlerIndex(size_t slot, uint8_t endpoint)
 	{
-		uint64_t current = arch_get_system_timer();
-		while (arch_get_system_timer() - current < milliseconds);
+		return (slot << 8) | endpoint;
 	}
+
+	void RegisterInterruptHandler(UsbEndpointInterruptHandler* handler, size_t slot, uint8_t endpoint)
+	{
+		kprintf(u"Registering handler on slot %d, endpoint %d, indexer %x\n", slot, endpoint, IhandlerIndex(slot, endpoint));
+		m_InterruptHandlers[IhandlerIndex(slot, endpoint)] = handler;
+	}
+
 
 	struct xhci_thread_port_startup {
 		XHCI* cinfo;
@@ -802,7 +823,10 @@ private:
 	class xhci_endpoint_info : public UsbEndpoint {
 	public:
 		xhci_endpoint_info(XHCI* parent, size_t slot, uint8_t epindex)
-			:transferRing(parent, slot, XHCI_DOORBELL_ENDPOINT(epindex, 0))
+			:transferRing(parent, slot, XHCI_DOORBELL_ENDPOINT(epindex, 0)),
+			controller(parent),
+			m_slot(slot),
+			m_epindex(epindex)
 		{
 		}
 
@@ -862,8 +886,16 @@ private:
 			delete[] trbs;
 			return USB_SUCCESS;
 		}
+
+		virtual void RegisterInterruptHandler(UsbEndpointInterruptHandler* handler)
+		{
+			controller->RegisterInterruptHandler(handler, m_slot, m_epindex);
+		}
 	private:
 		const int MAX_TRANSFER_SIZE = 64 * 1024;
+		XHCI* controller;
+		size_t m_slot;
+		uint8_t m_epindex;
 		TransferRing transferRing;
 	};
 
@@ -919,7 +951,7 @@ private:
 			return USB_SUCCESS;
 		}
 
-		virtual usb_status_t DoConfigureEndpoint(UsbEndpointDesc* pEndpoints, uint8_t config, uint8_t iface, uint8_t alternate, uint8_t downstreamports, bool clearold = false)
+		virtual usb_status_t DoConfigureEndpoint(UsbEndpointDesc* pEndpoints, uint8_t config, uint8_t iface, uint8_t alternate, uint8_t downstreamports)
 		{
 			paddr_t incontxt;
 			size_t epAdd = 1;
@@ -950,19 +982,6 @@ private:
 					auto bitset = BitToSet(pEndpoints[n].epDesc);
 					epAdd |= (1 << bitset);
 					highbit = bitset > highbit ? bitset : highbit;
-				}
-
-				if (clearold)
-				{
-					epAdd = epAdd & (~(size_t)1);
-					auto mapclear = controller->CreateInputContext(incontxt, 0, epAdd, config, iface, alternate);
-					void* last_command = controller->cmdring.enqueue(create_configureendpoint_command(incontxt, slotid, true));
-					uint64_t* curevt = (uint64_t*)controller->waitComplete(last_command, 1000);
-					if (get_trb_completion_code(curevt) != XHCI_COMPLETION_SUCCESS)
-					{
-						kprintf(u"Error configuring endpoint: %x\n", get_trb_completion_code(curevt));
-						return USB_XHCI_TRB_ERR(get_trb_completion_code(curevt));
-					}
 				}
 
 				auto mapin = controller->CreateInputContext(incontxt, epAdd, 0, config, iface, alternate);
@@ -1139,6 +1158,46 @@ private:
 		return (readCapabilityRegister(ecap, 32)) & 0xFF;
 	}
 
+	void SignalCommandComplete(volatile uint64_t* ret)
+	{
+		paddr_t cmd_trb = ret[0];
+		auto st = acquire_spinlock(tree_lock);
+		void* waiting_handle = nullptr;
+		auto it = PendingCommands.find(cmd_trb);
+		if (it != PendingCommands.end())
+		{
+			waiting_handle = it->second;
+			PendingCommands.remove(cmd_trb);
+		}
+		//kprintf(u"Event for TRB %x\n", waiting_handle);
+		if (waiting_handle)
+		{
+			CompletedCommands[waiting_handle] = (void*)ret;
+			if (WaitingCommands.find(waiting_handle) != WaitingCommands.end())
+			{
+				semaphore_t waiter = WaitingCommands[waiting_handle];
+				release_spinlock(tree_lock, st);
+				signal_semaphore(waiter, 1);
+			}
+			else
+			{
+				release_spinlock(tree_lock, st);
+			}
+		}
+		else
+			release_spinlock(tree_lock, st);
+#if 1
+		if (XHCI_GET_TRB_TYPE(ret[1]) == XHCI_TRB_TYPE_TRANSFER_EVENT)
+		{
+			if (((ret[1] >> 48) & 0x1F) > 1)
+			{
+				//kprintf(u"Event from non-control endpoint %x!\n", (ret[1] >> 48) & 0x1F);
+			}
+			//kprintf(u"Event for rethandle %x (TRB %x)\n", waiting_handle, cmd_trb);
+		}
+#endif
+	}
+
 	void eventThread()
 	{
 		while (1)
@@ -1150,69 +1209,33 @@ private:
 			uint64_t erdp = Runtime.Interrupter(0).ERDP.DequeuePtr;
 			while (ret[1] & XHCI_TRB_ENABLED)
 			{
+				size_t slotid = ret[1] >> 56;
+				size_t epcode = (ret[1] >> 48) & 0x1F;
 #if 1
 				if (get_trb_completion_code((void*)ret) == XHCI_COMPLETION_STALL)
 				{
 					//STALL, reset endpoint
-					size_t slotid = ret[1] >> 56;
+					
 					cmdring.enqueue(create_resetendpoint_command(slotid, 1));
+				}
+				size_t usbepcode = (epcode & 1 << 7) | (epcode >> 1);
+				auto irpt = m_InterruptHandlers.find(IhandlerIndex(slotid,epcode));
+				if (irpt != m_InterruptHandlers.end())
+				{
+					irpt->second->HandleInterrupt(usbepcode);
+					//return;
 				}
 				//kprintf(u"Event fired: type %d, value %x:%x\n", XHCI_GET_TRB_TYPE(ret[1]), ret[1], ret[0]);
 				if (XHCI_GET_TRB_TYPE(ret[1]) == XHCI_TRB_TYPE_COMMAND_COMPLETE || XHCI_GET_TRB_TYPE(ret[1]) == XHCI_TRB_TYPE_TRANSFER_EVENT)
 				{
-					paddr_t cmd_trb = ret[0];
-					auto st = acquire_spinlock(tree_lock);
-					void* waiting_handle = nullptr;
-					auto it = PendingCommands.find(cmd_trb);
-					if (it != PendingCommands.end())
-					{
-						waiting_handle = it->second;
-						PendingCommands.remove(cmd_trb);
-					}
-					//kprintf(u"Event for TRB %x\n", waiting_handle);
-					if (waiting_handle)
-					{
-						CompletedCommands[waiting_handle] = (void*)ret;
-						if (WaitingCommands.find(waiting_handle) != WaitingCommands.end())
-						{
-							semaphore_t waiter = WaitingCommands[waiting_handle];
-							release_spinlock(tree_lock, st);
-							signal_semaphore(waiter, 1);
-						}
-						else
-						{
-							release_spinlock(tree_lock, st);
-						}
-					}
-					else
-						release_spinlock(tree_lock, st);
-#if 1
-					if (XHCI_GET_TRB_TYPE(ret[1]) == XHCI_TRB_TYPE_TRANSFER_EVENT)
-					{
-						if (((ret[1] >> 48) & 0x1F) > 1)
-						{
-							//kprintf(u"Event from non-control endpoint %x!\n", (ret[1] >> 48) & 0x1F);
-						}
-						//kprintf(u"Event for rethandle %x (TRB %x)\n", waiting_handle, cmd_trb);
-					}
-#endif
+					SignalCommandComplete(ret);
 				}
 
-#if 0
+#if 1
 				else if (XHCI_GET_TRB_TYPE(ret[1]) == XHCI_TRB_TYPE_PORT_STATUS_CHANGE)
 				{
 					uint32_t port = (ret[0] >> 24) & 0xFF;
-					auto st = acquire_spinlock(port_tree_lock);
-					CompletedPorts[port] = (void*)ret;
-					if (PortStatusChange.find(port) != PortStatusChange.end())
-					{
-						semaphore_t waiter = PortStatusChange[port];
-						signal_semaphore(waiter, 1);
-					}
-					else
-					{
-					}
-					release_spinlock(port_tree_lock, st);
+					pRootHub.SlotChanged(port);
 				}
 #endif
 #endif
