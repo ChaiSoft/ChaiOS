@@ -170,6 +170,9 @@
     <ClInclude Include="UsbHub.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="kdraw_acceleration.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <NASM Include="arch\x64\asm_x64.asm">

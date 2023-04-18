@@ -645,7 +645,7 @@ void pmmngr_free(paddr_t addr, size_t length)
 BOOL PmmngrLockPageDma(paddr_t paddr)
 {
 	page* pg = GetPFD(paddr);
-	volatile size_t* pgflags = (volatile size_t*)pgflags;
+	volatile size_t* pgflags = (volatile size_t*)pg->flags;
 	size_t val = *pgflags;
 	while ((val & PAGE_FLAG_DMALOCKED) == 0)
 	{

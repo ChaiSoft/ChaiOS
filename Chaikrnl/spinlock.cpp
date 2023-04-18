@@ -6,7 +6,7 @@ typedef struct _spinlock {
 	size_t value;
 }spinlock, *pspinlock;
 
-static spinlock s_lock;
+static spinlock s_lock = { 0 };
 
 EXTERN CHAIKRNL_FUNC spinlock_t get_static_spinlock()
 {

@@ -53,7 +53,7 @@ static void* early_page_allocate(size_t numPages)
 		return nullptr;
 		//NOT MULTIPROCESSOR SAFE
 		heapaddr = find_free_paging(numPages*PAGESIZE, heapaddr);
-		if (!paging_map(heapaddr, PADDR_ALLOCATE, numPages * PAGESIZE, PAGE_ATTRIBUTE_WRITABLE))
+		if (!paging_map(heapaddr, PADDR_ALLOCATE, alloc_size, PAGE_ATTRIBUTE_WRITABLE))
 		{
 			return nullptr;
 		}

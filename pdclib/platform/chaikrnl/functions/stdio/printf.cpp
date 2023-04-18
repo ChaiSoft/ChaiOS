@@ -21,6 +21,11 @@ EXTERN KCSTDLIB_FUNC void kputs(const char16_t* str)
 	puts_s(str, hnd);
 }
 
+EXTERN KCSTDLIB_FUNC void kputsWnd(const char16_t* str, void* wnd)
+{
+	puts_s(str, wnd);
+}
+
 static int ltolower(int c)
 {
 	if (c >= 'A' && c <= 'Z')

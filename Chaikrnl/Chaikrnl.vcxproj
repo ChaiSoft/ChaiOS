@@ -300,6 +300,7 @@
     <ClInclude Include="arch\x64\apic.h" />
     <ClInclude Include="asciifont.h" />
     <ClInclude Include="kdraw.h" />
+    <ClInclude Include="kdraw_acceleration.h" />
     <ClInclude Include="multiprocessor.h" />
     <ClInclude Include="nic.h" />
     <ClInclude Include="pciexpress.h" />

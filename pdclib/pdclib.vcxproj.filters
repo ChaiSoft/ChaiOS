@@ -190,9 +190,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="functions\_dlmalloc\malloc.c">
-      <Filter>functions\_dlmalloc</Filter>
-    </ClCompile>
     <ClCompile Include="functions\_PDCLIB\_PDCLIB_atomax.c">
       <Filter>functions\_PDCLIB</Filter>
     </ClCompile>
@@ -922,7 +919,7 @@
     <ClCompile Include="platform\chaikrnl\functions\time\timespec_get.c">
       <Filter>platform\chaikrnl\functions\time</Filter>
     </ClCompile>
-    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_memory.c">
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_memory.cpp">
       <Filter>platform\chaikrnl\functions\_PDCLIB</Filter>
     </ClCompile>
     <ClCompile Include="platform\chaikrnl\functions\stdio\printf.cpp">

@@ -800,11 +800,12 @@ struct IDTR {
 	uint16_t length;
 	void* idtaddr;
 };
+static const int IST_ENTRIES = 7;
 struct TSS {
 	uint32_t reserved;
 	size_t rsp[3];
 	size_t reserved2;
-	size_t IST[7];
+	size_t IST[IST_ENTRIES];
 	size_t resv3;
 	uint16_t resv4;
 	uint16_t iomapbase;
@@ -844,8 +845,10 @@ typedef RedBlackTree<uint32_t, dispatch_data*> dispatch_tree;
 typedef dispatch_tree* cpu_dispatch;
 static cpu_dispatch dispatch_funcs[256] = { nullptr };
 
+#define DBG_IRPT 0
 extern "C" void x64_interrupt_dispatcher(size_t vector, interrupt_stack_frame* istack_frame)
 {
+#if !DBG_IRPT
 	uint32_t previrql = pcpu_data.irql;
 	pcpu_data.irql = IRQL_INTERRUPT;
 	auto treeptr = dispatch_funcs[vector];
@@ -854,13 +857,18 @@ extern "C" void x64_interrupt_dispatcher(size_t vector, interrupt_stack_frame* i
 	{
 		valid = (treeptr->find(pcpu_data.cpuid) != treeptr->end());
 	}
+#else
+	kputsWnd(u"Unknown Interrupt", NULL);
+	while (1);
+	bool valid = false;
+#endif
 	if (!valid)
 	{
 		kprintf(u"An unknown interrupt occurred: %x\n", vector);
 		kprintf(u"Stack frame: %x\n", istack_frame);
 		kprintf(u"Error code: %x\n", istack_frame->error);
 		kprintf(u"Return address: %x:%x\n", istack_frame->cs, istack_frame->rip);
-		kprintf(u"CPU %d, thread %x\n", pcpu_data.cpuid, pcpu_data.runningthread);
+		//kprintf(u"CPU %d, thread %x\n", pcpu_data.cpuid, pcpu_data.runningthread);
 		kprintf(u" Base Pointer: %x\n", istack_frame->baseptr);
 #if 0
 		stack_frame* prevframe = istack_frame->baseptr;
@@ -873,6 +881,7 @@ extern "C" void x64_interrupt_dispatcher(size_t vector, interrupt_stack_frame* i
 #endif
 		while (1);
 	}
+#if !DBG_IRPT
 	dispatch_data* dispdata = (*treeptr)[pcpu_data.cpuid];
 	dispatch_interrupt_handler handler = reinterpret_cast<dispatch_interrupt_handler>(dispdata->func);
 	void* param = dispdata->param;
@@ -882,6 +891,7 @@ extern "C" void x64_interrupt_dispatcher(size_t vector, interrupt_stack_frame* i
 	if (dispdata->post_event)
 		dispdata->post_event();
 	pcpu_data.irql = previrql;
+#endif
 }
 
 extern "C" uint8_t page_fault_handler(size_t vector, void* param)
@@ -1124,6 +1134,12 @@ void arch_setup_interrupts()
 	//Create the TSS for this CPU
 	TSS* cpu_tss = new TSS;
 	cpu_tss->iomapbase = sizeof(TSS);
+	for (int i = 0; i < IST_ENTRIES; ++i)
+	{
+		auto stack = arch_create_stack(0, 0);
+		auto stckpt = arch_init_stackptr(stack, 0);
+		cpu_tss->IST[i] = (size_t)stckpt;
+	}
 	size_t tss_addr = (size_t)cpu_tss;
 	gdtr curr_gdt;
 	x64_sgdt(&curr_gdt);

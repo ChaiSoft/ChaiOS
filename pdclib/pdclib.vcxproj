@@ -248,20 +248,11 @@
     <ClCompile Include="functions\time\localtime_s.c" />
     <ClCompile Include="functions\time\mktime.c" />
     <ClCompile Include="functions\time\strftime.c" />
-    <ClCompile Include="functions\_dlmalloc\liballoc.c" />
-    <ClCompile Include="functions\_dlmalloc\malloc.c">
-      <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ShowIncludes>
-      <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</ShowIncludes>
-      <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ShowIncludes>
-      <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ShowIncludes>
-      <PreprocessToFile Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</PreprocessToFile>
-      <PreprocessToFile Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</PreprocessToFile>
-      <PreprocessToFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</PreprocessToFile>
-      <PreprocessToFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</PreprocessToFile>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    <ClCompile Include="functions\_dlmalloc\liballoc.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="functions\_PDCLIB\assert.c" />
     <ClCompile Include="functions\_PDCLIB\errno.c" />
@@ -488,7 +479,7 @@
     <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_Exit.c" />
     <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_fillbuffer.c" />
     <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_flushbuffer.c" />
-    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_memory.c" />
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_memory.cpp" />
     <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_open.c" />
     <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_realpath.c" />
     <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_remove.c" />

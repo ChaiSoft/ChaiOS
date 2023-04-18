@@ -71,6 +71,7 @@ extern KCSTDLIB_FUNC void    *PREFIX(malloc)(size_t);				///< The standard funct
 extern KCSTDLIB_FUNC void    *PREFIX(realloc)(void *, size_t);		///< The standard function.
 extern KCSTDLIB_FUNC void    *PREFIX(calloc)(size_t, size_t);		///< The standard function.
 extern KCSTDLIB_FUNC void     PREFIX(free)(void *);					///< The standard function.
+
 #if 0
 extern KCSTDLIB_FUNC void liballoc_dump();
 #endif

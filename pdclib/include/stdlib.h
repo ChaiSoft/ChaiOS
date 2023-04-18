@@ -155,7 +155,9 @@ _PDCLIB_PUBLIC int at_quick_exit( void ( *func )( void ) );
    reverse order of registration (last-in, first-out).
    Returns zero if registration is successfull, nonzero if it failed.
 */
+#ifndef __cplusplus
 _PDCLIB_PUBLIC int atexit( void ( *func )( void ) );
+#endif
 
 /* Normal process termination. Functions registered by atexit() (see above) are
    called, streams flushed, files closed and temporary files removed before the
