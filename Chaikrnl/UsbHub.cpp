@@ -238,7 +238,7 @@ usb_status_t NormalUsbHub::DoAssignSlot(uint8_t port, UsbDeviceInfo*& slot, uint
 	return m_parent.AssignSlot(m_pDevice->GetPort(), slot, PortSpeed, parent, (routestring << 4) | (port & 0xF));
 }
 
-void NormalUsbHub::HandleInterrupt(uint8_t endpoint)
+void NormalUsbHub::HandleInterrupt(uint8_t endpoint, uint64_t eventData)
 {
 	kprintf(u"Hub status interrupt\n");
 }

@@ -669,7 +669,7 @@ private:
 
 	void RegisterInterruptHandler(UsbEndpointInterruptHandler* handler, size_t slot, uint8_t endpoint)
 	{
-		kprintf(u"Registering handler on slot %d, endpoint %d, indexer %x\n", slot, endpoint, IhandlerIndex(slot, endpoint));
+		//kprintf(u"Registering handler on slot %d, endpoint %d, indexer %x\n", slot, endpoint, IhandlerIndex(slot, endpoint));
 		m_InterruptHandlers[IhandlerIndex(slot, endpoint)] = handler;
 	}
 
@@ -841,13 +841,14 @@ private:
 			uint8_t* ScratchBlock = new uint8_t[DIV_ROUND_UP(bufcount, BufsPerPage) * PAGESIZE + PAGESIZE - 1];
 			ScratchBlock = (uint8_t*)ALIGN_UP((size_t)ScratchBlock, PAGESIZE);
 			*bufferptr = ScratchBlock;
-			xhci_trb** trbs = new xhci_trb*[bufcount + 1];
+			xhci_trb** trbs = new xhci_trb*[bufcount * 2 + 1];
 			size_t offset = 0;
 			for (int i = 0; i < bufcount; ++i)
 			{
 				auto buffer = raw_offset<void*>(ScratchBlock, offset);
 				paddr_t phyBase = get_physical_address(buffer);
-				trbs[i] = create_normal_trb(phyBase, bufsize, 1, 0, false);
+				trbs[2*i] = create_normal_trb(phyBase, bufsize, 1, 0, true);
+				trbs[2 * i + 1] = create_event_data_trb((paddr_t)buffer);
 				offset += bufsize;
 				if (ALIGN_UP(offset + bufsize, PAGESIZE) != ALIGN_UP(offset, PAGESIZE))
 					offset = ALIGN_UP(offset, PAGESIZE);
@@ -866,9 +867,9 @@ private:
 			curLength = curLength > length ? length : curLength;
 
 			size_t WorstCase = DIV_ROUND_UP(length - curLength, PAGESIZE) + 1;
-			xhci_trb** trbs = new xhci_trb*[WorstCase + 1];
+			xhci_trb** trbs = new xhci_trb*[WorstCase + 2];
 			auto trbindex = 0;
-			trbs[trbindex++] = create_normal_trb(phyBase, curLength, WorstCase - 1, 0, curLength < length);
+			trbs[trbindex++] = create_normal_trb(phyBase, curLength, WorstCase - 1, 0, true);
 			while (curLength < length)
 			{
 				length -= curLength;
@@ -879,8 +880,9 @@ private:
 					curLength += PAGESIZE;
 				curLength = curLength > length ? length : curLength;
 				curLength = curLength > MAX_TRANSFER_SIZE ? MAX_TRANSFER_SIZE : curLength;
-				trbs[trbindex++] = create_normal_trb(phyBase, curLength, DIV_ROUND_UP(length - curLength, PAGESIZE), 0, curLength < length);
+				trbs[trbindex++] = create_normal_trb(phyBase, curLength, DIV_ROUND_UP(length - curLength, PAGESIZE), 0, true);
 			}
+			trbs[trbindex++] = create_event_data_trb((paddr_t)buffer);
 			trbs[trbindex] = nullptr;
 			transferRing.enqueue_trbs(trbs);
 			delete[] trbs;
@@ -1161,6 +1163,17 @@ private:
 	void SignalCommandComplete(volatile uint64_t* ret)
 	{
 		paddr_t cmd_trb = ret[0];
+		size_t slotid = ret[1] >> 56;
+		size_t epcode = (ret[1] >> 48) & 0x1F;
+
+		size_t usbepcode = (epcode & 1 << 7) | (epcode >> 1);
+		auto irpt = m_InterruptHandlers.find(IhandlerIndex(slotid, epcode));
+		if (irpt != m_InterruptHandlers.end())
+		{
+			irpt->second->HandleInterrupt(usbepcode, ret[0]);
+			return;
+		}
+
 		auto st = acquire_spinlock(tree_lock);
 		void* waiting_handle = nullptr;
 		auto it = PendingCommands.find(cmd_trb);
@@ -1210,7 +1223,6 @@ private:
 			while (ret[1] & XHCI_TRB_ENABLED)
 			{
 				size_t slotid = ret[1] >> 56;
-				size_t epcode = (ret[1] >> 48) & 0x1F;
 #if 1
 				if (get_trb_completion_code((void*)ret) == XHCI_COMPLETION_STALL)
 				{
@@ -1218,15 +1230,9 @@ private:
 					
 					cmdring.enqueue(create_resetendpoint_command(slotid, 1));
 				}
-				size_t usbepcode = (epcode & 1 << 7) | (epcode >> 1);
-				auto irpt = m_InterruptHandlers.find(IhandlerIndex(slotid,epcode));
-				if (irpt != m_InterruptHandlers.end())
-				{
-					irpt->second->HandleInterrupt(usbepcode);
-					//return;
-				}
+				
 				//kprintf(u"Event fired: type %d, value %x:%x\n", XHCI_GET_TRB_TYPE(ret[1]), ret[1], ret[0]);
-				if (XHCI_GET_TRB_TYPE(ret[1]) == XHCI_TRB_TYPE_COMMAND_COMPLETE || XHCI_GET_TRB_TYPE(ret[1]) == XHCI_TRB_TYPE_TRANSFER_EVENT)
+				else if (XHCI_GET_TRB_TYPE(ret[1]) == XHCI_TRB_TYPE_COMMAND_COMPLETE || XHCI_GET_TRB_TYPE(ret[1]) == XHCI_TRB_TYPE_TRANSFER_EVENT)
 				{
 					SignalCommandComplete(ret);
 				}

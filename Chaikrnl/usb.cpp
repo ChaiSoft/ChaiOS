@@ -340,7 +340,7 @@ static void InitUsbController(USBHostController* hc, size_t handle)
 }
 
 static usb_device_declaration hid_devs[] = {
-	{USB_VENDOR_ANY, USB_VENDOR_ANY, 0x03, USB_CLASS_ANY, USB_CLASS_ANY},
+	{USB_VENDOR_ANY, USB_VENDOR_ANY, 0x03, 0x01, 0x01},
 	USB_DEVICE_END
 };
 
@@ -351,14 +351,19 @@ public:
 		m_pDeviceInfo = devinfo;
 	}
 	usb_status_t Init();
-	virtual void HandleInterrupt(uint8_t endpoint);
+	virtual void HandleInterrupt(uint8_t endpoint, uint64_t eventData);
 private:
 	UsbDeviceInfo* m_pDeviceInfo;
 };
 
-void UsbHidDriver::HandleInterrupt(uint8_t endpoint)
+void UsbHidDriver::HandleInterrupt(uint8_t endpoint, uint64_t eventData)
 {
-	kputs(u"HID Interrupt\n");
+	uint8_t* hiddata = reinterpret_cast<uint8_t*>(eventData);
+	if (hiddata[2] == 0) return;
+	char16_t data[2];
+	data[0]  = (hiddata[2] - 0x04) + 'A';
+	data[1] = 0;
+	kputs(data);
 }
 
 usb_status_t UsbHidDriver::Init()
@@ -390,7 +395,7 @@ usb_status_t UsbHidDriver::Init()
 		void* bufdata = nullptr;
 		desc->pEndpoint->CreateBuffers(&bufdata, desc->epDesc->wMaxPacketSize, 256);
 		desc->pEndpoint->RegisterInterruptHandler(this);
-		kputs(u"Register hub interrupt handler\n");
+		//kputs(u"Register hub interrupt handler\n");
 	}
 	return USB_SUCCESS;
 }

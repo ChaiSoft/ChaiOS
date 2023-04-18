@@ -23,7 +23,7 @@ class USBHub;
 
 class UsbEndpointInterruptHandler {
 public:
-	virtual void HandleInterrupt(uint8_t endpoint) = 0;
+	virtual void HandleInterrupt(uint8_t endpoint, uint64_t eventData) = 0;
 };
 
 

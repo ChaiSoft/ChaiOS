@@ -24,7 +24,7 @@ public:
 	{
 		return m_NumPorts;
 	}
-	virtual void HandleInterrupt(uint8_t endpoint);
+	virtual void HandleInterrupt(uint8_t endpoint, uint64_t eventData);
 protected:
 	virtual usb_status_t DoAssignSlot(uint8_t port, UsbDeviceInfo*& slot, uint32_t PortSpeed, UsbDeviceInfo* parent, uint32_t routestring = 0);
 private:
