@@ -324,7 +324,7 @@ ACPI_EXPORT_SYMBOL (AcpiEvaluateObjectTyped)
 ACPI_STATUS
 AcpiEvaluateObject (
     ACPI_HANDLE             Handle,
-    ACPI_STRING             Pathname,
+    const ACPI_STRING             Pathname,
     ACPI_OBJECT_LIST        *ExternalParams,
     ACPI_BUFFER             *ReturnBuffer)
 {

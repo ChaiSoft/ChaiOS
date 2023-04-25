@@ -687,14 +687,14 @@ AcpiFindRootPointer (
 ACPI_EXTERNAL_RETURN_STATUS (
 ACPI_STATUS
 AcpiGetTableHeader (
-    ACPI_STRING             Signature,
+    ACPI_CSTRING            Signature,
     UINT32                  Instance,
     ACPI_TABLE_HEADER       *OutTableHeader))
 
 ACPI_EXTERNAL_RETURN_STATUS (
 ACPI_API_FUNCTION ACPI_STATUS
 AcpiGetTable (
-    ACPI_STRING             Signature,
+    ACPI_CSTRING            Signature,
     UINT32                  Instance,
     ACPI_TABLE_HEADER       **OutTable))
 
@@ -793,7 +793,7 @@ ACPI_EXTERNAL_RETURN_STATUS (
 	ACPI_API_FUNCTION ACPI_STATUS
 AcpiEvaluateObject (
     ACPI_HANDLE             Object,
-    ACPI_STRING             Pathname,
+    ACPI_CSTRING            Pathname,
     ACPI_OBJECT_LIST        *ParameterObjects,
     ACPI_BUFFER             *ReturnObjectBuffer))
 

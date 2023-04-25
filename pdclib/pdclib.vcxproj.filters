@@ -1,0 +1,920 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="include">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="include\pdclib">
+      <UniqueIdentifier>{706a94da-d109-4338-81a5-341263a263e0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="functions">
+      <UniqueIdentifier>{17052e06-fd7a-453e-b054-a570872f128f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="functions\_dlmalloc">
+      <UniqueIdentifier>{132d7960-9a95-4023-8b3a-2760d8a1d6b0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="functions\_PDCLIB">
+      <UniqueIdentifier>{acf02c79-6320-4931-bc5a-c6accb8d4215}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="functions\_tzcode">
+      <UniqueIdentifier>{c3135ab3-83bb-4eb7-98d9-621412700568}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="functions\ctype">
+      <UniqueIdentifier>{748135a1-1579-41f3-93f9-3a05c3037444}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="functions\inttypes">
+      <UniqueIdentifier>{c3d2f30b-e84c-44a2-ab36-4e033d9ed58f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="functions\locale">
+      <UniqueIdentifier>{ad8caed5-954d-476c-97eb-2ecbb30008e7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="functions\stdio">
+      <UniqueIdentifier>{5368bb94-bb78-4d9e-a53a-fafadffaac0d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="functions\stdlib">
+      <UniqueIdentifier>{14b25d7f-f57b-49ef-a216-e1ab2ed96dd6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="functions\string">
+      <UniqueIdentifier>{8c57dd7e-b790-4cde-96af-aadd937ec3f4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="functions\time">
+      <UniqueIdentifier>{fa0aa666-2ca1-4174-b250-7fa42f5b2bf6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="platform">
+      <UniqueIdentifier>{a8279ae8-438c-456e-9ed6-0e602fd74ae4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="platform\chaikrnl">
+      <UniqueIdentifier>{ad89cbdf-143a-4bef-8214-394c5872313f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="platform\chaikrnl\include">
+      <UniqueIdentifier>{bd1a0fd4-bce2-44ba-ab70-afcb8c7a2ee8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="platform\chaikrnl\functions">
+      <UniqueIdentifier>{7ac3111a-d00f-4c53-bf56-75a1d3394c67}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="platform\chaikrnl\include\pdclib">
+      <UniqueIdentifier>{f6aea0c5-065a-41a1-a79d-bf72ce038d99}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="platform\chaikrnl\functions\_PDCLIB">
+      <UniqueIdentifier>{8d02635f-cde7-4cff-9abc-6e76e558a8b3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="platform\chaikrnl\functions\signal">
+      <UniqueIdentifier>{82520805-20cc-46a3-b5f9-eab0b519f088}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="platform\chaikrnl\functions\stdio">
+      <UniqueIdentifier>{46beaf83-ab29-4f24-b7e1-81db968afaea}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="platform\chaikrnl\functions\stdlib">
+      <UniqueIdentifier>{29e9dff6-4c15-4ac6-9c51-2a8ec67eb31e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="platform\chaikrnl\functions\threads">
+      <UniqueIdentifier>{b6484c8c-0872-4fc0-839c-196852b35eaa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="platform\chaikrnl\functions\time">
+      <UniqueIdentifier>{b0acec94-6132-4cf8-951c-0bb5e6d73f3b}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="COPYING.CC0" />
+    <None Include=".gitignore" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Internals.txt" />
+    <Text Include="Notes.txt" />
+    <Text Include="Quickstart.txt" />
+    <Text Include="Readme.txt" />
+    <Text Include="functions\_PDCLIB\Readme.txt">
+      <Filter>functions\_PDCLIB</Filter>
+    </Text>
+    <Text Include="functions\_tzcode\Readme.txt">
+      <Filter>functions\_tzcode</Filter>
+    </Text>
+    <Text Include="platform\chaikrnl\Readme.txt">
+      <Filter>platform\chaikrnl</Filter>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\assert.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\ctype.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\errno.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\float.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\inttypes.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\iso646.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\limits.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\locale.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\stdalign.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\stdarg.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\stdbool.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\stddef.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\stdint.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\stdio.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\stdlib.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\stdnoreturn.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\string.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\time.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\wctype.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="include\pdclib\_PDCLIB_glue.h">
+      <Filter>include\pdclib</Filter>
+    </ClInclude>
+    <ClInclude Include="include\pdclib\_PDCLIB_internal.h">
+      <Filter>include\pdclib</Filter>
+    </ClInclude>
+    <ClInclude Include="include\pdclib\_PDCLIB_lib_ext1.h">
+      <Filter>include\pdclib</Filter>
+    </ClInclude>
+    <ClInclude Include="include\pdclib\_PDCLIB_print.h">
+      <Filter>include\pdclib</Filter>
+    </ClInclude>
+    <ClInclude Include="include\pdclib\_PDCLIB_tzcode.h">
+      <Filter>include\pdclib</Filter>
+    </ClInclude>
+    <ClInclude Include="platform\chaikrnl\include\float.h">
+      <Filter>platform\chaikrnl\include</Filter>
+    </ClInclude>
+    <ClInclude Include="platform\chaikrnl\include\signal.h">
+      <Filter>platform\chaikrnl\include</Filter>
+    </ClInclude>
+    <ClInclude Include="platform\chaikrnl\include\threads.h">
+      <Filter>platform\chaikrnl\include</Filter>
+    </ClInclude>
+    <ClInclude Include="platform\chaikrnl\include\pdclib\_PDCLIB_config.h">
+      <Filter>platform\chaikrnl\include\pdclib</Filter>
+    </ClInclude>
+    <ClInclude Include="platform\chaikrnl\include\pdclib\_PDCLIB_defguard.h">
+      <Filter>platform\chaikrnl\include\pdclib</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="functions\_dlmalloc\malloc.c">
+      <Filter>functions\_dlmalloc</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_atomax.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_add.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_cmp.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_div.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_div_dig.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_invlog2.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_log2.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_mant.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_mul.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_mul_dig.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_shl.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_sub.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_tostring.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint2.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint10.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint32.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint64.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_closeall.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_digits.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_filemode.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_getstream.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_init_file_t.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_is_leap.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_isstream.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_load_lc_collate.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_load_lc_ctype.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_load_lc_messages.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_load_lc_monetary.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_load_lc_numeric.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_load_lc_time.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_load_lines.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_prepread.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_prepwrite.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_print.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_print_fp.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_print_integer.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_print_string.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_scan.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_seed.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_strtod_main.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_strtod_scan.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_strtok.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_strtox_main.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_strtox_prelim.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\assert.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\errno.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\stdarg.c">
+      <Filter>functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_tzcode\_PDCLIB_gmtcheck.c">
+      <Filter>functions\_tzcode</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_tzcode\_PDCLIB_gmtsub.c">
+      <Filter>functions\_tzcode</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_tzcode\_PDCLIB_increment_overflow.c">
+      <Filter>functions\_tzcode</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_tzcode\_PDCLIB_init_ttinfo.c">
+      <Filter>functions\_tzcode</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_tzcode\_PDCLIB_localsub.c">
+      <Filter>functions\_tzcode</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_tzcode\_PDCLIB_localtime_tzset.c">
+      <Filter>functions\_tzcode</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_tzcode\_PDCLIB_mktime_tzname.c">
+      <Filter>functions\_tzcode</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_tzcode\_PDCLIB_timesub.c">
+      <Filter>functions\_tzcode</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_tzcode\_PDCLIB_tzload.c">
+      <Filter>functions\_tzcode</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_tzcode\_PDCLIB_tzparse.c">
+      <Filter>functions\_tzcode</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_tzcode\_PDCLIB_tzset_unlocked.c">
+      <Filter>functions\_tzcode</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\_tzcode\_PDCLIB_update_tzname_etc.c">
+      <Filter>functions\_tzcode</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\ctype\isalnum.c">
+      <Filter>functions\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\ctype\isalpha.c">
+      <Filter>functions\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\ctype\isblank.c">
+      <Filter>functions\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\ctype\iscntrl.c">
+      <Filter>functions\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\ctype\isdigit.c">
+      <Filter>functions\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\ctype\isgraph.c">
+      <Filter>functions\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\ctype\islower.c">
+      <Filter>functions\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\ctype\isprint.c">
+      <Filter>functions\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\ctype\ispunct.c">
+      <Filter>functions\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\ctype\isspace.c">
+      <Filter>functions\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\ctype\isupper.c">
+      <Filter>functions\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\ctype\isxdigit.c">
+      <Filter>functions\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\ctype\tolower.c">
+      <Filter>functions\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\ctype\toupper.c">
+      <Filter>functions\ctype</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\inttypes\imaxabs.c">
+      <Filter>functions\inttypes</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\inttypes\imaxdiv.c">
+      <Filter>functions\inttypes</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\inttypes\strtoimax.c">
+      <Filter>functions\inttypes</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\inttypes\strtoumax.c">
+      <Filter>functions\inttypes</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\locale\localeconv.c">
+      <Filter>functions\locale</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\locale\setlocale.c">
+      <Filter>functions\locale</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\clearerr.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\fclose.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\feof.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\ferror.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\fflush.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\fgetc.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\fgetpos.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\fgets.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\fopen.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\fopen_s.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\fprintf.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\fputc.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\fputs.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\fread.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\freopen.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\freopen_s.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\fscanf.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\fseek.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\fsetpos.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\ftell.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\fwrite.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\getc.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\getchar.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\perror.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\printf.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\putc.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\putchar.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\puts.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\remove.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\rename.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\rewind.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\scanf.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\setbuf.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\setvbuf.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\snprintf.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\sprintf.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\sscanf.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\tmpfile_s.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\tmpnam.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\ungetc.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\vfprintf.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\vfscanf.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\vprintf.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\vscanf.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\vsnprintf.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\vsprintf.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdio\vsscanf.c">
+      <Filter>functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\_Exit.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\abort.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\abort_handler_s.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\abs.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\at_quick_exit.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\atexit.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\atoi.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\atol.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\atoll.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\bsearch.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\bsearch_s.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\div.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\exit.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\ignore_handler_s.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\labs.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\ldiv.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\llabs.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\lldiv.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\qsort.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\qsort_s.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\quick_exit.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\rand.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\set_constraint_handler_s.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\srand.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\strtol.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\strtoll.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\strtoul.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\strtoull.c">
+      <Filter>functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\memchr.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\memcmp.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\memcpy.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\memcpy_s.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\memmove.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\memmove_s.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\memset.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\memset_s.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strcat.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strcat_s.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strchr.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strcmp.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strcoll.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strcpy.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strcpy_s.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strcspn.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strerror.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strerror_s.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strerrorlen_s.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strlen.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strncat.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strncat_s.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strncmp.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strncpy.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strncpy_s.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strpbrk.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strrchr.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strspn.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strstr.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strtok.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strtok_s.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\string\strxfrm.c">
+      <Filter>functions\string</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\time\asctime.c">
+      <Filter>functions\time</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\time\asctime_s.c">
+      <Filter>functions\time</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\time\ctime.c">
+      <Filter>functions\time</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\time\ctime_s.c">
+      <Filter>functions\time</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\time\difftime.c">
+      <Filter>functions\time</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\time\gmtime.c">
+      <Filter>functions\time</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\time\gmtime_s.c">
+      <Filter>functions\time</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\time\localtime.c">
+      <Filter>functions\time</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\time\localtime_s.c">
+      <Filter>functions\time</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\time\mktime.c">
+      <Filter>functions\time</Filter>
+    </ClCompile>
+    <ClCompile Include="functions\time\strftime.c">
+      <Filter>functions\time</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_changemode.c">
+      <Filter>platform\chaikrnl\functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_close.c">
+      <Filter>platform\chaikrnl\functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_Exit.c">
+      <Filter>platform\chaikrnl\functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_fillbuffer.c">
+      <Filter>platform\chaikrnl\functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_flushbuffer.c">
+      <Filter>platform\chaikrnl\functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_open.c">
+      <Filter>platform\chaikrnl\functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_realpath.c">
+      <Filter>platform\chaikrnl\functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_remove.c">
+      <Filter>platform\chaikrnl\functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_rename.c">
+      <Filter>platform\chaikrnl\functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_seek.c">
+      <Filter>platform\chaikrnl\functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_stdinit.c">
+      <Filter>platform\chaikrnl\functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\signal\raise.c">
+      <Filter>platform\chaikrnl\functions\signal</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\signal\signal.c">
+      <Filter>platform\chaikrnl\functions\signal</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\stdio\tmpfile.c">
+      <Filter>platform\chaikrnl\functions\stdio</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\stdlib\getenv.c">
+      <Filter>platform\chaikrnl\functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\stdlib\getenv_s.c">
+      <Filter>platform\chaikrnl\functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\stdlib\system.c">
+      <Filter>platform\chaikrnl\functions\stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\call_once.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\cnd_broadcast.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\cnd_destroy.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\cnd_init.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\cnd_signal.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\cnd_timedwait.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\cnd_wait.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\mtx_destroy.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\mtx_init.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\mtx_lock.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\mtx_timedlock.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\mtx_trylock.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\mtx_unlock.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\thrd_create.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\thrd_current.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\thrd_detach.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\thrd_equal.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\thrd_exit.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\thrd_join.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\thrd_sleep.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\thrd_yield.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\tss_create.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\tss_delete.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\tss_get.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\tss_set.c">
+      <Filter>platform\chaikrnl\functions\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\time\clock.c">
+      <Filter>platform\chaikrnl\functions\time</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\time\time.c">
+      <Filter>platform\chaikrnl\functions\time</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\time\timespec_get.c">
+      <Filter>platform\chaikrnl\functions\time</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

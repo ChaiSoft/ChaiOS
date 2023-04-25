@@ -107,13 +107,13 @@ class USBRootHub : public USBHub
 
 class USBHostController {
 public:
-	virtual char16_t* ControllerType() = 0;
+	virtual const char16_t* ControllerType() = 0;
 	virtual USBHub& RootHub() = 0;
 };
 
 void RegisterHostController(USBHostController* hc);
 usb_status_t ConfigureDevice(UsbDeviceInfo* device, int CONFIG, uint8_t HubPorts);
-bool LogFailure(char16_t* message, usb_status_t stat);
+bool LogFailure(const char16_t* message, usb_status_t stat);
 
 static inline size_t pow2(size_t p)
 {

@@ -1,7 +1,8 @@
 #ifndef CHAIOS_VA_ARGS_H
 #define CHAIOS_VA_ARGS_H
 
-#define __midl
+//#define __midl
+#define _INC_CTYPE
 
 #include <stdint.h>
 #include <stdarg.h>

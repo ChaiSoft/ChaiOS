@@ -131,10 +131,15 @@ void arch_halt();
 void arch_local_eoi();
 
 typedef void* context_t;
+typedef void* context_coop_t;
 context_t context_factory();
+context_coop_t context_factory_coop();
 void context_destroy(context_t ctx);
+void context_destroy_coop(context_coop_t ctx);
 int save_context(context_t ctxt);
 void jump_context(context_t ctxt, int value);
+int save_context_coop(context_coop_t ctxt);
+void jump_context_coop(context_coop_t ctxt, int value);
 
 typedef void* stack_t;
 stack_t arch_create_stack(size_t length, uint8_t user);

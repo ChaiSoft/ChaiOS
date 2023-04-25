@@ -5,7 +5,7 @@
 #include <chaikrnl.h>
 
 struct PerformanceElement {
-	char16_t* Name;
+	const char16_t* Name;
 	uint64_t Counter;
 	uint64_t CounterUse;
 };

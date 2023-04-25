@@ -156,11 +156,20 @@ static void sync_cpu(uint32_t cpuid, volatile cpu_data* data)
 		arch_destroy_stack(info->init_stack, 0);
 		return;
 	}
-	while (data->rendezvous);
+	kprintf(u"Waiting for CPU %d Rendezvous: ", cpuid);
+	const int timeout = 1000;
+	for (int i = 0; i <= timeout && data->rendezvous; ++i)
+		if (i == timeout) return kputs(u"failed\n");	
+
+	kputs(u"Done\n");
+	//Now send stack
+
 	//CPU now has its comms area and stack
 	//now tell it the entry point
-	arch_cas((size_t*)&comms->entryfunc, 0, (size_t)&ap_startup_routine);
-	arch_cas((size_t*)&comms->data, 0, (size_t)comms);
+	if (!arch_cas((size_t*)&comms->entryfunc, 0, (size_t)&ap_startup_routine))
+		kputs(u"CAS failed\n");
+	if (!arch_cas((size_t*)&comms->data, 0, (size_t)comms))
+		kputs(u"CAS failed\n");
 }
 
 static void get_cpu_count(ACPI_TABLE_MADT* madt, size_t* numcpus, size_t* numenabled)

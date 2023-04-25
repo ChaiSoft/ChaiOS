@@ -46,13 +46,13 @@ void startup_acpi()
 		kprintf(u"Could not load tables: %d\n", Status);
 		return;
 	}
-	AcpiInstallInterface("ChaiOS");
-	AcpiInstallInterface("Windows 2015");
-	AcpiInstallInterface("Windows 2016");
-	AcpiInstallInterface("Windows 2017");
-	AcpiInstallInterface("Windows 2017.2");
-	AcpiInstallInterface("Windows 2018");
-	AcpiInstallInterface("Windows 2018.2");
+	AcpiInstallInterface((char*)"ChaiOS");
+	AcpiInstallInterface((char*)"Windows 2015");
+	AcpiInstallInterface((char*)"Windows 2016");
+	AcpiInstallInterface((char*)"Windows 2017");
+	AcpiInstallInterface((char*)"Windows 2017.2");
+	AcpiInstallInterface((char*)"Windows 2018");
+	AcpiInstallInterface((char*)"Windows 2018.2");
 	Status = AcpiEnableSubsystem(ACPI_FULL_INITIALIZATION);
 	if (ACPI_FAILURE(Status))
 	{

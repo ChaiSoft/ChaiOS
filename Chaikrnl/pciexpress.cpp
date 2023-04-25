@@ -142,12 +142,12 @@ static void* internal_read_pci(uint16_t segment, uint16_t bus, uint16_t device, 
 	{
 		paddr_t dev = find_pci_device(segment, bus, device, function);
 		if (dev == 0)
-			return false;
+			return nullptr;
 		mapped = find_free_paging(PAGESIZE);
 		if (!paging_map(mapped, dev, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING))
 		{
 			kprintf(u"Error mapping PCI memory: %x, %x\n", mapped, dev);
-			return false;
+			return nullptr;
 		}
 	}
 	bool written = true;
@@ -183,12 +183,12 @@ static void* internal_write_pci(uint16_t segment, uint16_t bus, uint16_t device,
 	{
 		paddr_t dev = find_pci_device(segment, bus, device, function);
 		if (dev == 0)
-			return false;
+			return nullptr;
 		void* mapped = find_free_paging(PAGESIZE);
 		if (!paging_map(mapped, dev, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING))
 		{
 			kprintf(u"Error mapping PCI memory: %x, %x\n", mapped, dev);
-			return false;
+			return nullptr;
 		}
 	}
 	bool written = true;
@@ -301,6 +301,7 @@ uint32_t pci_get_classcode(uint16_t segment, uint8_t bus, uint8_t device, uint8_
 paddr_t read_pci_bar(uint16_t segment, uint16_t bus, uint16_t device, uint16_t function, size_t BAR, size_t* BARSIZE)
 {
 	uint64_t baseaddr, highbits, headertype;
+	uint32_t bartype;
 	void* internalptr = nullptr;
 	internalptr = internal_read_pci(segment, bus, device, function, PCI_REG_HDRTYPE, 32, &headertype, internalptr);
 	headertype >>= 16;
@@ -311,7 +312,7 @@ paddr_t read_pci_bar(uint16_t segment, uint16_t bus, uint16_t device, uint16_t f
 	if (BAR > 5)
 		goto end;
 	internalptr = internal_read_pci(segment, bus, device, function, BAR + PCI_REG_BAR0, 32, &baseaddr, internalptr);
-	uint32_t bartype = baseaddr & 0xF;
+	bartype = baseaddr & 0xF;
 	if (PCI_IS_IO_BAR(bartype))
 	{
 		ret = baseaddr;		//I/O BAR

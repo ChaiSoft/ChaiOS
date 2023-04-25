@@ -84,7 +84,7 @@ static void Stall(uint32_t milliseconds)
 	while (arch_get_system_timer() - current < milliseconds);
 }
 
-bool LogFailure(char16_t* message, usb_status_t stat)
+bool LogFailure(const char16_t* message, usb_status_t stat)
 {
 	if (USB_FAILED(stat))
 	{
@@ -242,11 +242,12 @@ static void EnumerateHub(USBHub& roothb)
 	{
 		if (roothb.PortConnected(n))
 		{
-			if (USB_FAILED(status = roothb.Reset(n))) 
-				continue;
 			for (int i = 0; i < roothb.HubDepth(); ++i)
 				kputs(u"  ");
-			kprintf(u"Reset Port %d\n", n);
+			kprintf(u"Reset Port %d:", n);
+			if (USB_FAILED(status = roothb.Reset(n))) 
+				continue;
+			kputs(u" done\n");
 			UsbDeviceInfo* rootSlot;
 			if (USB_FAILED(status = roothb.AssignSlot(n, rootSlot, USB_DEVICE_INVALIDSPEED, nullptr))) continue;
 			//Now we get device descriptor

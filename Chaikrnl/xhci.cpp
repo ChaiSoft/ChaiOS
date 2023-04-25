@@ -206,7 +206,7 @@ public:
 		port_tree_lock = 0;
 		interrupt_msi = false;
 	}
-	virtual char16_t* ControllerType()
+	virtual const char16_t* ControllerType()
 	{
 		return u"XHCI";
 	}
@@ -411,6 +411,7 @@ private:
 
 			uint32_t resetBit = (proto != 0) ? (1 << 31) : (1 << 4);
 			uint32_t resetChange = (proto != 0) ? (1 << 19) : (1 << 21);
+			kputs(u"XHCI Port Reset: ");
 			writeOperationalRegister(HCPortStatusOff, PortPower | resetBit, 32);
 			int timeout = 500;
 			while (timeout > 0)
@@ -418,12 +419,15 @@ private:
 				if (readOperationalRegister(HCPortStatusOff, 32) & resetChange)
 					break;
 				Stall(1);
+				--timeout;
 			}
 			if (timeout == 0)
 			{
+				kputs(u"timed out\n");
 				//kprintf(u"Reset Port %d timed out\n", portindex);
 				return false;
 			}
+			kputs(u"done\n");
 			Stall(20);
 			//kprintf(u"Reset Port %d\n", portindex);
 		}

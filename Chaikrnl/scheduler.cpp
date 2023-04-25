@@ -6,6 +6,7 @@
 #include <spinlock.h>
 #include <kstdio.h>
 #include <liballoc.h>
+#include <string.h>
 
 enum THREAD_STATE {
 	RUNNING,
@@ -37,7 +38,7 @@ static PTLSBLOCK tls_block_factory()
 		block->initTls[i] = i - 1;
 	}
 	block->free_slot = INITTLSSIZE - 1;
-	block->free_slot = -1;
+	//block->free_slot = -1;
 	return block;
 }
 
@@ -267,6 +268,7 @@ void scheduler_init(void(*eoi)())
 	the_eoi = eoi;
 	//Create thread database
 	PTHREAD kthread = new THREAD;	//Initial kernel thread
+	memset(kthread, 0, sizeof(THREAD));
 	kthread->cpu_id = arch_current_processor_id();
 	kthread->state = RUNNING;
 	kthread->kernel_stack = getBootInfo()->bootstack;
@@ -287,8 +289,8 @@ void scheduler_init(void(*eoi)())
 	ready_lock = create_spinlock();
 	timeout_lock = create_spinlock();
 	timeouts.init(&timeout_nodef);
-	scheduler_ready = true;
 	create_thread(&idle_thread, nullptr, THREAD_PRIORITY_IDLE, KERNEL_IDLE);
+	scheduler_ready = true;
 	iterate_aps(&tap_callback);
 }
 

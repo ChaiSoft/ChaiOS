@@ -472,7 +472,7 @@ ACPI_EXPORT_SYMBOL (AcpiGetTableHeader)
 
 ACPI_STATUS
 AcpiGetTable (
-    char                    *Signature,
+    const char              *Signature,
     UINT32                  Instance,
     ACPI_TABLE_HEADER       **OutTable)
 {

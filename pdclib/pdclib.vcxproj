@@ -1,0 +1,619 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include=".gitignore" />
+    <None Include="COPYING.CC0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="functions\_PDCLIB\Readme.txt" />
+    <Text Include="functions\_tzcode\Readme.txt" />
+    <Text Include="Internals.txt" />
+    <Text Include="Notes.txt" />
+    <Text Include="platform\chaikrnl\Readme.txt" />
+    <Text Include="Quickstart.txt" />
+    <Text Include="Readme.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\assert.h" />
+    <ClInclude Include="include\ctype.h" />
+    <ClInclude Include="include\errno.h" />
+    <ClInclude Include="include\float.h" />
+    <ClInclude Include="include\inttypes.h" />
+    <ClInclude Include="include\iso646.h" />
+    <ClInclude Include="include\limits.h" />
+    <ClInclude Include="include\locale.h" />
+    <ClInclude Include="include\pdclib\_PDCLIB_glue.h" />
+    <ClInclude Include="include\pdclib\_PDCLIB_internal.h" />
+    <ClInclude Include="include\pdclib\_PDCLIB_lib_ext1.h" />
+    <ClInclude Include="include\pdclib\_PDCLIB_print.h" />
+    <ClInclude Include="include\pdclib\_PDCLIB_tzcode.h" />
+    <ClInclude Include="include\stdalign.h" />
+    <ClInclude Include="include\stdarg.h" />
+    <ClInclude Include="include\stdbool.h" />
+    <ClInclude Include="include\stddef.h" />
+    <ClInclude Include="include\stdint.h" />
+    <ClInclude Include="include\stdio.h" />
+    <ClInclude Include="include\stdlib.h" />
+    <ClInclude Include="include\stdnoreturn.h" />
+    <ClInclude Include="include\string.h" />
+    <ClInclude Include="include\time.h" />
+    <ClInclude Include="include\wctype.h" />
+    <ClInclude Include="platform\chaikrnl\include\float.h" />
+    <ClInclude Include="platform\chaikrnl\include\pdclib\_PDCLIB_config.h" />
+    <ClInclude Include="platform\chaikrnl\include\pdclib\_PDCLIB_defguard.h" />
+    <ClInclude Include="platform\chaikrnl\include\signal.h" />
+    <ClInclude Include="platform\chaikrnl\include\threads.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="functions\ctype\isalnum.c" />
+    <ClCompile Include="functions\ctype\isalpha.c" />
+    <ClCompile Include="functions\ctype\isblank.c" />
+    <ClCompile Include="functions\ctype\iscntrl.c" />
+    <ClCompile Include="functions\ctype\isdigit.c" />
+    <ClCompile Include="functions\ctype\isgraph.c" />
+    <ClCompile Include="functions\ctype\islower.c" />
+    <ClCompile Include="functions\ctype\isprint.c" />
+    <ClCompile Include="functions\ctype\ispunct.c" />
+    <ClCompile Include="functions\ctype\isspace.c" />
+    <ClCompile Include="functions\ctype\isupper.c" />
+    <ClCompile Include="functions\ctype\isxdigit.c" />
+    <ClCompile Include="functions\ctype\tolower.c" />
+    <ClCompile Include="functions\ctype\toupper.c" />
+    <ClCompile Include="functions\inttypes\imaxabs.c" />
+    <ClCompile Include="functions\inttypes\imaxdiv.c" />
+    <ClCompile Include="functions\inttypes\strtoimax.c" />
+    <ClCompile Include="functions\inttypes\strtoumax.c" />
+    <ClCompile Include="functions\locale\localeconv.c" />
+    <ClCompile Include="functions\locale\setlocale.c" />
+    <ClCompile Include="functions\stdio\clearerr.c" />
+    <ClCompile Include="functions\stdio\fclose.c" />
+    <ClCompile Include="functions\stdio\feof.c" />
+    <ClCompile Include="functions\stdio\ferror.c" />
+    <ClCompile Include="functions\stdio\fflush.c" />
+    <ClCompile Include="functions\stdio\fgetc.c" />
+    <ClCompile Include="functions\stdio\fgetpos.c" />
+    <ClCompile Include="functions\stdio\fgets.c" />
+    <ClCompile Include="functions\stdio\fopen.c" />
+    <ClCompile Include="functions\stdio\fopen_s.c" />
+    <ClCompile Include="functions\stdio\fprintf.c" />
+    <ClCompile Include="functions\stdio\fputc.c" />
+    <ClCompile Include="functions\stdio\fputs.c" />
+    <ClCompile Include="functions\stdio\fread.c" />
+    <ClCompile Include="functions\stdio\freopen.c" />
+    <ClCompile Include="functions\stdio\freopen_s.c" />
+    <ClCompile Include="functions\stdio\fscanf.c" />
+    <ClCompile Include="functions\stdio\fseek.c" />
+    <ClCompile Include="functions\stdio\fsetpos.c" />
+    <ClCompile Include="functions\stdio\ftell.c" />
+    <ClCompile Include="functions\stdio\fwrite.c" />
+    <ClCompile Include="functions\stdio\getc.c" />
+    <ClCompile Include="functions\stdio\getchar.c" />
+    <ClCompile Include="functions\stdio\perror.c" />
+    <ClCompile Include="functions\stdio\printf.c" />
+    <ClCompile Include="functions\stdio\putc.c" />
+    <ClCompile Include="functions\stdio\putchar.c" />
+    <ClCompile Include="functions\stdio\puts.c" />
+    <ClCompile Include="functions\stdio\remove.c" />
+    <ClCompile Include="functions\stdio\rename.c" />
+    <ClCompile Include="functions\stdio\rewind.c" />
+    <ClCompile Include="functions\stdio\scanf.c" />
+    <ClCompile Include="functions\stdio\setbuf.c" />
+    <ClCompile Include="functions\stdio\setvbuf.c" />
+    <ClCompile Include="functions\stdio\snprintf.c" />
+    <ClCompile Include="functions\stdio\sprintf.c" />
+    <ClCompile Include="functions\stdio\sscanf.c" />
+    <ClCompile Include="functions\stdio\tmpfile_s.c" />
+    <ClCompile Include="functions\stdio\tmpnam.c" />
+    <ClCompile Include="functions\stdio\ungetc.c" />
+    <ClCompile Include="functions\stdio\vfprintf.c" />
+    <ClCompile Include="functions\stdio\vfscanf.c" />
+    <ClCompile Include="functions\stdio\vprintf.c" />
+    <ClCompile Include="functions\stdio\vscanf.c" />
+    <ClCompile Include="functions\stdio\vsnprintf.c" />
+    <ClCompile Include="functions\stdio\vsprintf.c" />
+    <ClCompile Include="functions\stdio\vsscanf.c" />
+    <ClCompile Include="functions\stdlib\abort.c" />
+    <ClCompile Include="functions\stdlib\abort_handler_s.c" />
+    <ClCompile Include="functions\stdlib\abs.c">
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</WholeProgramOptimization>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</WholeProgramOptimization>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\atexit.c" />
+    <ClCompile Include="functions\stdlib\atoi.c" />
+    <ClCompile Include="functions\stdlib\atol.c" />
+    <ClCompile Include="functions\stdlib\atoll.c" />
+    <ClCompile Include="functions\stdlib\at_quick_exit.c" />
+    <ClCompile Include="functions\stdlib\bsearch.c" />
+    <ClCompile Include="functions\stdlib\bsearch_s.c" />
+    <ClCompile Include="functions\stdlib\div.c">
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</WholeProgramOptimization>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</WholeProgramOptimization>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\exit.c" />
+    <ClCompile Include="functions\stdlib\ignore_handler_s.c" />
+    <ClCompile Include="functions\stdlib\labs.c">
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</WholeProgramOptimization>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</WholeProgramOptimization>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\ldiv.c">
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</WholeProgramOptimization>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</WholeProgramOptimization>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\llabs.c">
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</WholeProgramOptimization>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</WholeProgramOptimization>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\lldiv.c">
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</WholeProgramOptimization>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</WholeProgramOptimization>
+    </ClCompile>
+    <ClCompile Include="functions\stdlib\qsort.c" />
+    <ClCompile Include="functions\stdlib\qsort_s.c" />
+    <ClCompile Include="functions\stdlib\quick_exit.c" />
+    <ClCompile Include="functions\stdlib\rand.c" />
+    <ClCompile Include="functions\stdlib\set_constraint_handler_s.c" />
+    <ClCompile Include="functions\stdlib\srand.c" />
+    <ClCompile Include="functions\stdlib\strtol.c" />
+    <ClCompile Include="functions\stdlib\strtoll.c" />
+    <ClCompile Include="functions\stdlib\strtoul.c" />
+    <ClCompile Include="functions\stdlib\strtoull.c" />
+    <ClCompile Include="functions\stdlib\_Exit.c" />
+    <ClCompile Include="functions\string\memchr.c">
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</WholeProgramOptimization>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</WholeProgramOptimization>
+    </ClCompile>
+    <ClCompile Include="functions\string\memcmp.c">
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</WholeProgramOptimization>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</WholeProgramOptimization>
+    </ClCompile>
+    <ClCompile Include="functions\string\memcpy.c">
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</WholeProgramOptimization>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</WholeProgramOptimization>
+    </ClCompile>
+    <ClCompile Include="functions\string\memcpy_s.c" />
+    <ClCompile Include="functions\string\memmove.c">
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</WholeProgramOptimization>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</WholeProgramOptimization>
+    </ClCompile>
+    <ClCompile Include="functions\string\memmove_s.c" />
+    <ClCompile Include="functions\string\memset.c">
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</WholeProgramOptimization>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</WholeProgramOptimization>
+    </ClCompile>
+    <ClCompile Include="functions\string\memset_s.c" />
+    <ClCompile Include="functions\string\strcat.c">
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</WholeProgramOptimization>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</WholeProgramOptimization>
+    </ClCompile>
+    <ClCompile Include="functions\string\strcat_s.c" />
+    <ClCompile Include="functions\string\strchr.c" />
+    <ClCompile Include="functions\string\strcmp.c">
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</WholeProgramOptimization>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</WholeProgramOptimization>
+    </ClCompile>
+    <ClCompile Include="functions\string\strcoll.c" />
+    <ClCompile Include="functions\string\strcpy.c">
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</WholeProgramOptimization>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</WholeProgramOptimization>
+    </ClCompile>
+    <ClCompile Include="functions\string\strcpy_s.c" />
+    <ClCompile Include="functions\string\strcspn.c" />
+    <ClCompile Include="functions\string\strerror.c" />
+    <ClCompile Include="functions\string\strerrorlen_s.c" />
+    <ClCompile Include="functions\string\strerror_s.c" />
+    <ClCompile Include="functions\string\strlen.c">
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</WholeProgramOptimization>
+      <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</WholeProgramOptimization>
+    </ClCompile>
+    <ClCompile Include="functions\string\strncat.c" />
+    <ClCompile Include="functions\string\strncat_s.c" />
+    <ClCompile Include="functions\string\strncmp.c" />
+    <ClCompile Include="functions\string\strncpy.c" />
+    <ClCompile Include="functions\string\strncpy_s.c" />
+    <ClCompile Include="functions\string\strpbrk.c" />
+    <ClCompile Include="functions\string\strrchr.c" />
+    <ClCompile Include="functions\string\strspn.c" />
+    <ClCompile Include="functions\string\strstr.c" />
+    <ClCompile Include="functions\string\strtok.c" />
+    <ClCompile Include="functions\string\strtok_s.c" />
+    <ClCompile Include="functions\string\strxfrm.c" />
+    <ClCompile Include="functions\time\asctime.c" />
+    <ClCompile Include="functions\time\asctime_s.c" />
+    <ClCompile Include="functions\time\ctime.c" />
+    <ClCompile Include="functions\time\ctime_s.c" />
+    <ClCompile Include="functions\time\difftime.c" />
+    <ClCompile Include="functions\time\gmtime.c" />
+    <ClCompile Include="functions\time\gmtime_s.c" />
+    <ClCompile Include="functions\time\localtime.c" />
+    <ClCompile Include="functions\time\localtime_s.c" />
+    <ClCompile Include="functions\time\mktime.c" />
+    <ClCompile Include="functions\time\strftime.c" />
+    <ClCompile Include="functions\_dlmalloc\malloc.c">
+      <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ShowIncludes>
+      <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</ShowIncludes>
+      <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ShowIncludes>
+      <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ShowIncludes>
+      <PreprocessToFile Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</PreprocessToFile>
+      <PreprocessToFile Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</PreprocessToFile>
+      <PreprocessToFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</PreprocessToFile>
+      <PreprocessToFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</PreprocessToFile>
+    </ClCompile>
+    <ClCompile Include="functions\_PDCLIB\assert.c" />
+    <ClCompile Include="functions\_PDCLIB\errno.c" />
+    <ClCompile Include="functions\_PDCLIB\stdarg.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_atomax.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint10.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint2.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint32.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint64.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_add.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_cmp.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_div.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_div_dig.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_invlog2.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_log2.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_mant.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_mul.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_mul_dig.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_shl.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_sub.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_bigint_tostring.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_closeall.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_digits.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_filemode.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_getstream.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_init_file_t.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_isstream.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_is_leap.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_load_lc_collate.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_load_lc_ctype.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_load_lc_messages.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_load_lc_monetary.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_load_lc_numeric.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_load_lc_time.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_load_lines.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_prepread.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_prepwrite.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_print.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_print_fp.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_print_integer.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_print_string.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_scan.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_seed.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_strtod_main.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_strtod_scan.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_strtok.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_strtox_main.c" />
+    <ClCompile Include="functions\_PDCLIB\_PDCLIB_strtox_prelim.c" />
+    <ClCompile Include="functions\_tzcode\_PDCLIB_gmtcheck.c" />
+    <ClCompile Include="functions\_tzcode\_PDCLIB_gmtsub.c" />
+    <ClCompile Include="functions\_tzcode\_PDCLIB_increment_overflow.c" />
+    <ClCompile Include="functions\_tzcode\_PDCLIB_init_ttinfo.c" />
+    <ClCompile Include="functions\_tzcode\_PDCLIB_localsub.c" />
+    <ClCompile Include="functions\_tzcode\_PDCLIB_localtime_tzset.c" />
+    <ClCompile Include="functions\_tzcode\_PDCLIB_mktime_tzname.c" />
+    <ClCompile Include="functions\_tzcode\_PDCLIB_timesub.c" />
+    <ClCompile Include="functions\_tzcode\_PDCLIB_tzload.c" />
+    <ClCompile Include="functions\_tzcode\_PDCLIB_tzparse.c" />
+    <ClCompile Include="functions\_tzcode\_PDCLIB_tzset_unlocked.c" />
+    <ClCompile Include="functions\_tzcode\_PDCLIB_update_tzname_etc.c" />
+    <ClCompile Include="platform\chaikrnl\functions\signal\raise.c" />
+    <ClCompile Include="platform\chaikrnl\functions\signal\signal.c" />
+    <ClCompile Include="platform\chaikrnl\functions\stdio\tmpfile.c" />
+    <ClCompile Include="platform\chaikrnl\functions\stdlib\getenv.c" />
+    <ClCompile Include="platform\chaikrnl\functions\stdlib\getenv_s.c" />
+    <ClCompile Include="platform\chaikrnl\functions\stdlib\system.c" />
+    <ClCompile Include="platform\chaikrnl\functions\threads\call_once.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\cnd_broadcast.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\cnd_destroy.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\cnd_init.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\cnd_signal.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\cnd_timedwait.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\cnd_wait.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\mtx_destroy.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\mtx_init.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\mtx_lock.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\mtx_timedlock.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\mtx_trylock.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\mtx_unlock.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\thrd_create.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\thrd_current.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\thrd_detach.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\thrd_equal.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\thrd_exit.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\thrd_join.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\thrd_sleep.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\thrd_yield.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\tss_create.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\tss_delete.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\tss_get.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\threads\tss_set.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\time\clock.c" />
+    <ClCompile Include="platform\chaikrnl\functions\time\time.c" />
+    <ClCompile Include="platform\chaikrnl\functions\time\timespec_get.c" />
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_changemode.c" />
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_close.c" />
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_Exit.c" />
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_fillbuffer.c" />
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_flushbuffer.c" />
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_open.c" />
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_realpath.c" />
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_remove.c" />
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_rename.c" />
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_seek.c" />
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_stdinit.c" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>15.0</VCProjectVersion>
+    <ProjectGuid>{eb76ac5c-db92-405b-9fc8-8534fd0e0224}</ProjectGuid>
+    <RootNamespace>pdclib</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\ChaikrnlDriver.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\ChaikrnlDriver.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\ChaikrnlDriver.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\ChaikrnlDriver.props" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup />
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <PreprocessorDefinitions>CHAIOS;_PDCLIB_BUILD;X64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\pdclib\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\pdclib\platform\chaikrnl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <StructMemberAlignment>1Byte</StructMemberAlignment>
+      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
+    </ClCompile>
+    <Link>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <PreprocessorDefinitions>CHAIOS;_PDCLIB_BUILD;X86;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\pdclib\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\pdclib\platform\chaikrnl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <StructMemberAlignment>1Byte</StructMemberAlignment>
+      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <PreprocessorDefinitions>CHAIOS;_PDCLIB_BUILD;X64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\pdclib\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\pdclib\platform\chaikrnl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <StructMemberAlignment>1Byte</StructMemberAlignment>
+      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <PreprocessorDefinitions>CHAIOS;_PDCLIB_BUILD;X86;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\pdclib\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\pdclib\platform\chaikrnl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <StructMemberAlignment>1Byte</StructMemberAlignment>
+      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
+    </ClCompile>
+    <Link>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
