@@ -29,6 +29,8 @@
 #define NULL 0
 #define _PDCLIB_NULL_DEFINED
 
+#define _PDCLIB_static_assert(e, m) static_assert(e, m);
+
 /* qsort() in <stdlib.h> requires a function that swaps two memory areas.     */
 /* Below is a naive implementation that can be improved significantly for     */
 /* specific platforms, e.g. by swapping int instead of char.                  */
@@ -90,7 +92,7 @@
 
 //Compiler independent, architecture dependent
 #if defined(X64)
-#define HAS_OPT_MEMCPY
+//#define HAS_OPT_MEMCPY
 #endif
 
 //Compiler dependent

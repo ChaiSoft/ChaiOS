@@ -232,7 +232,6 @@ void startup_multiprocessor()
 
 	fill_cputree(madt);
 	get_cpu_count(madt, &numcpus, &enabledcpus);
-	
 	kprintf(u"%d CPUs, %d enabled\r\n", numcpus, enabledcpus);
 	static const size_t SECOND = 1000000;
 	{

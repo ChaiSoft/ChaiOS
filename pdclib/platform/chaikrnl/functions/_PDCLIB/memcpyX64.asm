@@ -4,8 +4,9 @@ section .text
 ;RCX - s1
 ;RDX - s2
 ; R8 - n
-global memcpy
-memcpy:
+export memcpy
+extern memcpy
+memcpy2:
 cmp r8, 0
 ;Zero length
 je .end
@@ -33,6 +34,20 @@ rep movsb
 xchg r9, rcx
 xchg rdi, rcx
 xchg rsi, rdx
+ret
+
+export memcmp
+extern memcmp
+
+export memset
+extern memset
+
+export strcmp
+extern strcmp
+
+export _purecall
+global _purecall
+_purecall:
 ret
 
 section .rdata

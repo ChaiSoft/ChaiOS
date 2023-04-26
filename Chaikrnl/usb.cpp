@@ -284,15 +284,21 @@ static void EnumerateHub(USBHub& roothb)
 			{
 				//Get device string
 				devstr = GetDeviceString(rootSlot, devdesc->iManufacturer);
-				if(devstr)
+				if (devstr)
+				{
+					devstr[(*devstr & 0xFF) / sizeof(char16_t)] = u'\0';
 					kprintf(u"   Device vendor %s\n", ++devstr);
+				}
 			}
 			if (devdesc->iProduct != 0)
 			{
 				//Get device string
 				devstr = GetDeviceString(rootSlot, devdesc->iProduct);
 				if (devstr)
+				{
+					devstr[(*devstr & 0xFF) / sizeof(char16_t)] = u'\0';
 					kprintf(u"   %s\n", ++devstr);
+				}
 
 			}
 			kprintf_a("   Device %x:%x class %x:%x:%x USB version %x\n", devdesc->idVendor, devdesc->idProduct, devdesc->bDeviceClass, devdesc->bDeviceSublass, devdesc->bDeviceProtocol, devdesc->bcdUSB);

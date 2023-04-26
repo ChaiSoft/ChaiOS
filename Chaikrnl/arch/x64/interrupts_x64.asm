@@ -218,7 +218,7 @@ global x64_interrupt_handler_%2
 x64_interrupt_handler_%2:
 cld
 %if %1 == 0
-push 0xDEADBEEF			;Dummy error code
+push 0x0BADC0DE			;Dummy error code
 %endif
 ;Stack frame
 push rbp
