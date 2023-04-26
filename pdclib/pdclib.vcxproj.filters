@@ -916,5 +916,13 @@
     <ClCompile Include="platform\chaikrnl\functions\time\timespec_get.c">
       <Filter>platform\chaikrnl\functions\time</Filter>
     </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_memory.c">
+      <Filter>platform\chaikrnl\functions\_PDCLIB</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <NASM Include="platform\chaikrnl\functions\_PDCLIB\crt.asm">
+      <Filter>platform\chaikrnl\functions\_PDCLIB</Filter>
+    </NASM>
   </ItemGroup>
 </Project>

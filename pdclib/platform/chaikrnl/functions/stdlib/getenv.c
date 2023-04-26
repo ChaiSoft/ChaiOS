@@ -12,8 +12,6 @@
 
 #ifndef REGTEST
 
-extern char ** environ;
-
 /* The standard states (7.22.4.6 (3), "the implementation shall behave
    as if no library function calls the getenv function." That is,
    however, in context of the previous paragraph stating that getenv
@@ -23,19 +21,6 @@ extern char ** environ;
 */
 char * getenv( const char * name )
 {
-    size_t len = strlen( name );
-    size_t index = 0;
-
-    while ( environ[ index ] != NULL )
-    {
-        if ( strncmp( environ[ index ], name, len ) == 0 )
-        {
-            return environ[ index ] + len + 1;
-        }
-
-        index++;
-    }
-
     return NULL;
 }
 

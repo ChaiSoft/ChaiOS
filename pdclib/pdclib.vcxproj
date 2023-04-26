@@ -480,12 +480,16 @@
     <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_Exit.c" />
     <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_fillbuffer.c" />
     <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_flushbuffer.c" />
+    <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_memory.c" />
     <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_open.c" />
     <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_realpath.c" />
     <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_remove.c" />
     <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_rename.c" />
     <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_seek.c" />
     <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_stdinit.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <NASM Include="platform\chaikrnl\functions\_PDCLIB\crt.asm" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
@@ -522,6 +526,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\nasm.props" />
   </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
@@ -552,15 +557,19 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <PreprocessorDefinitions>CHAIOS;_PDCLIB_BUILD;X64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\pdclib\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\pdclib\platform\chaikrnl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\pdclib\include;$(SolutionDir)\pdclib\platform\chaikrnl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <StructMemberAlignment>1Byte</StructMemberAlignment>
       <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
       <WholeProgramOptimization>true</WholeProgramOptimization>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>
+      </AdditionalDependencies>
+      <EntryPointSymbol />
+      <NoEntryPoint>true</NoEntryPoint>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -570,12 +579,16 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <PreprocessorDefinitions>CHAIOS;_PDCLIB_BUILD;X86;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\pdclib\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\pdclib\platform\chaikrnl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\pdclib\include;$(SolutionDir)\pdclib\platform\chaikrnl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <StructMemberAlignment>1Byte</StructMemberAlignment>
       <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>
+      </AdditionalDependencies>
+      <EntryPointSymbol />
+      <NoEntryPoint>true</NoEntryPoint>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -585,12 +598,16 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <PreprocessorDefinitions>CHAIOS;_PDCLIB_BUILD;X64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\pdclib\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\pdclib\platform\chaikrnl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\pdclib\include;$(SolutionDir)\pdclib\platform\chaikrnl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <StructMemberAlignment>1Byte</StructMemberAlignment>
       <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>
+      </AdditionalDependencies>
+      <EntryPointSymbol />
+      <NoEntryPoint>true</NoEntryPoint>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -602,18 +619,23 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <PreprocessorDefinitions>CHAIOS;_PDCLIB_BUILD;X86;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\pdclib\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\pdclib\platform\chaikrnl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\pdclib\include;$(SolutionDir)\pdclib\platform\chaikrnl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <StructMemberAlignment>1Byte</StructMemberAlignment>
       <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
       <WholeProgramOptimization>true</WholeProgramOptimization>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>
+      </AdditionalDependencies>
+      <EntryPointSymbol />
+      <NoEntryPoint>true</NoEntryPoint>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\nasm.targets" />
   </ImportGroup>
 </Project>

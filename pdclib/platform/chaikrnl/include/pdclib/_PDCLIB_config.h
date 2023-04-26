@@ -207,6 +207,10 @@
 #define __builtin_va_start __crt_va_start
 #define __builtin_va_end __crt_va_end
 
+#define _Thread_local __declspec( thread )
+
+#define SleepEx(x,y)
+
 
 //-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //

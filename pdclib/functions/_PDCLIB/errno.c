@@ -8,7 +8,7 @@
 
 #include "pdclib/_PDCLIB_internal.h"
 
-#if __STDC_VERSION__ >= 201112L
+#if __STDC_VERSION__ >= 201112L && !defined(__STDC_NO_THREADS__)
 _Thread_local int _PDCLIB_errno = 0;
 #else
 static int _PDCLIB_errno = 0;
