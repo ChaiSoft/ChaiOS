@@ -1,3 +1,6 @@
 [submodule "uefi"]
 	path = uefi
 	url = https://github.com/kiznit/uefi-headers.git
+[submodule "EASTL"]
+	path = EASTL
+	url = https://github.com/electronicarts/EASTL.git
