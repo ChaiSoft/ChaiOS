@@ -29,7 +29,6 @@ void* heapaddr = (void*)0xFFFFD40000000000;
 size_t heap_usage = 0;
 static void* early_page_allocate(size_t numPages)
 {
-	FLT_MANT_DIG
 	volatile size_t* token = reinterpret_cast<volatile size_t*>(&heapaddr);
 	size_t alloc_size = numPages * PAGESIZE;
 	bool success = false;
