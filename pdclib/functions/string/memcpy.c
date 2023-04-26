@@ -8,6 +8,8 @@
 
 #ifndef REGTEST
 
+#ifndef HAS_OPT_MEMCPY
+
 PDCLIB_SUPPRESS_INTRINSIC(memcpy)
 void * memcpy( void * _PDCLIB_restrict s1, const void * _PDCLIB_restrict s2, size_t n )
 {
@@ -21,6 +23,8 @@ void * memcpy( void * _PDCLIB_restrict s1, const void * _PDCLIB_restrict s2, siz
 
     return s1;
 }
+
+#endif
 
 #endif
 

@@ -1,5 +1,6 @@
-section .text
 BITS 64
+section .text
+
 
 global x64_read_cr0
 x64_read_cr0:

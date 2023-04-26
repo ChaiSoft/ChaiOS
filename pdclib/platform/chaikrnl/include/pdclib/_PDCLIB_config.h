@@ -83,6 +83,12 @@
   #endif
 #endif
 
+//Compiler independent, architecture dependent
+#if defined(X64)
+#define HAS_OPT_MEMCPY
+#endif
+
+//Compiler dependent
 #ifdef _MSC_VER
 #define __CHAR_BIT__ 8
 #define __SCHAR_MAX__ 0x7F
