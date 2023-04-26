@@ -1658,7 +1658,7 @@ private:
 		*raw_offset<volatile uint32_t*>(epdesc, 0x10) = MK_ENDPOINT_CONTEXT_DWORD4(0, 8);		//Average TRB length 8 for control
 
 		//Apparently we write these to the device context
-		memcpy(mapdctxt, inctxt, 0x40);
+		memcpy(mapdctxt, (const void*)inctxt, 0x40);
 
 		if (!AddressDevice(incontext, pinfo->slotid))
 			return false;

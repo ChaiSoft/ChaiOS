@@ -96,10 +96,11 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <AssemblerOutput>AssemblyAndSourceCode</AssemblerOutput>
-      <AdditionalIncludeDirectories>$(SolutionDir)LwIP\include;$(SolutionDir)acpica\include;$(SolutionDir)Kcstdlib;$(SolutionDir)Chaikrnl;$(SolutionDir)Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)LwIP\include;$(SolutionDir)acpica\include;$(SolutionDir)pdclib\platform\chaikrnl\include;$(SolutionDir)pdclib\include;$(SolutionDir)Chaikrnl;$(SolutionDir)Include;$(SolutionDir)EASTL\include;$(SolutionDir)EASTL\test\packages\EABase\include\Common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OmitFramePointers>false</OmitFramePointers>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -136,9 +137,10 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <AssemblerOutput>AssemblyAndSourceCode</AssemblerOutput>
-      <AdditionalIncludeDirectories>$(SolutionDir)LwIP\include;$(SolutionDir)acpica\include;$(SolutionDir)Kcstdlib;$(SolutionDir)Chaikrnl;$(SolutionDir)Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)LwIP\include;$(SolutionDir)acpica\include;$(SolutionDir)pdclib\platform\chaikrnl\include;$(SolutionDir)pdclib\include;$(SolutionDir)Chaikrnl;$(SolutionDir)Include;$(SolutionDir)EASTL\include;$(SolutionDir)EASTL\test\packages\EABase\include\Common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
     </ClCompile>
     <Link>
       <AdditionalDependencies>Kcstdbas.lib;Kcstdlib.lib;Acpica.lib;netstack.lib</AdditionalDependencies>
@@ -176,10 +178,11 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <AssemblerOutput>AssemblyAndSourceCode</AssemblerOutput>
-      <AdditionalIncludeDirectories>$(SolutionDir)LwIP\include;$(SolutionDir)acpica\include;$(SolutionDir)Kcstdlib;$(SolutionDir)Chaikrnl;$(SolutionDir)Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)LwIP\include;$(SolutionDir)acpica\include;$(SolutionDir)pdclib\platform\chaikrnl\include;$(SolutionDir)pdclib\include;$(SolutionDir)Chaikrnl;$(SolutionDir)Include;$(SolutionDir)EASTL\include;$(SolutionDir)EASTL\test\packages\EABase\include\Common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OmitFramePointers>false</OmitFramePointers>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
     </ClCompile>
     <Link>
       <AdditionalDependencies>Kcstdbas.lib;Kcstdlib.lib;Acpica.lib;netstack.lib</AdditionalDependencies>
@@ -219,9 +222,10 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <AssemblerOutput>AssemblyAndSourceCode</AssemblerOutput>
-      <AdditionalIncludeDirectories>$(SolutionDir)LwIP\include;$(SolutionDir)acpica\include;$(SolutionDir)Kcstdlib;$(SolutionDir)Chaikrnl;$(SolutionDir)Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)LwIP\include;$(SolutionDir)acpica\include;$(SolutionDir)pdclib\platform\chaikrnl\include;$(SolutionDir)pdclib\include;$(SolutionDir)Chaikrnl;$(SolutionDir)Include;$(SolutionDir)EASTL\include;$(SolutionDir)EASTL\test\packages\EABase\include\Common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -255,7 +259,12 @@
     </ClCompile>
     <ClCompile Include="arch\x64\cpu_x64.cpp" />
     <ClCompile Include="kdraw.cpp" />
-    <ClCompile Include="kentry.cpp" />
+    <ClCompile Include="kentry.cpp">
+      <IgnoreStandardIncludePath Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</IgnoreStandardIncludePath>
+      <IgnoreStandardIncludePath Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</IgnoreStandardIncludePath>
+      <IgnoreStandardIncludePath Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</IgnoreStandardIncludePath>
+      <IgnoreStandardIncludePath Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</IgnoreStandardIncludePath>
+    </ClCompile>
     <ClCompile Include="kgraphics.cpp" />
     <ClCompile Include="multiprocessor.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>

@@ -57,10 +57,12 @@
     <ClInclude Include="include\time.h" />
     <ClInclude Include="include\wctype.h" />
     <ClInclude Include="platform\chaikrnl\include\float.h" />
+    <ClInclude Include="platform\chaikrnl\include\kstdio.h" />
     <ClInclude Include="platform\chaikrnl\include\pdclib\_PDCLIB_config.h" />
     <ClInclude Include="platform\chaikrnl\include\pdclib\_PDCLIB_defguard.h" />
     <ClInclude Include="platform\chaikrnl\include\signal.h" />
     <ClInclude Include="platform\chaikrnl\include\threads.h" />
+    <ClInclude Include="platform\chaikrnl\include\vadefs.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="functions\ctype\isalnum.c" />
@@ -318,6 +320,7 @@
     <ClCompile Include="functions\_tzcode\_PDCLIB_update_tzname_etc.c" />
     <ClCompile Include="platform\chaikrnl\functions\signal\raise.c" />
     <ClCompile Include="platform\chaikrnl\functions\signal\signal.c" />
+    <ClCompile Include="platform\chaikrnl\functions\stdio\printf.cpp" />
     <ClCompile Include="platform\chaikrnl\functions\stdio\tmpfile.c" />
     <ClCompile Include="platform\chaikrnl\functions\stdlib\getenv.c" />
     <ClCompile Include="platform\chaikrnl\functions\stdlib\getenv_s.c" />
@@ -565,15 +568,14 @@
       <PreprocessorDefinitions>CHAIOS;_PDCLIB_BUILD;X64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(SolutionDir)\pdclib\include;$(SolutionDir)\pdclib\platform\chaikrnl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <StructMemberAlignment>1Byte</StructMemberAlignment>
-      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
+      <IgnoreStandardIncludePath>true</IgnoreStandardIncludePath>
       <WholeProgramOptimization>true</WholeProgramOptimization>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>
-      </AdditionalDependencies>
+      <AdditionalDependencies>Chaikrnl.lib</AdditionalDependencies>
       <EntryPointSymbol />
       <NoEntryPoint>true</NoEntryPoint>
     </Link>
@@ -587,12 +589,11 @@
       <PreprocessorDefinitions>CHAIOS;_PDCLIB_BUILD;X86;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(SolutionDir)\pdclib\include;$(SolutionDir)\pdclib\platform\chaikrnl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <StructMemberAlignment>1Byte</StructMemberAlignment>
-      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
+      <IgnoreStandardIncludePath>true</IgnoreStandardIncludePath>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>
-      </AdditionalDependencies>
+      <AdditionalDependencies>Chaikrnl.lib</AdditionalDependencies>
       <EntryPointSymbol />
       <NoEntryPoint>true</NoEntryPoint>
     </Link>
@@ -606,12 +607,11 @@
       <PreprocessorDefinitions>CHAIOS;_PDCLIB_BUILD;X64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(SolutionDir)\pdclib\include;$(SolutionDir)\pdclib\platform\chaikrnl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <StructMemberAlignment>1Byte</StructMemberAlignment>
-      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
+      <IgnoreStandardIncludePath>true</IgnoreStandardIncludePath>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>
-      </AdditionalDependencies>
+      <AdditionalDependencies>Chaikrnl.lib</AdditionalDependencies>
       <EntryPointSymbol />
       <NoEntryPoint>true</NoEntryPoint>
     </Link>
@@ -627,15 +627,14 @@
       <PreprocessorDefinitions>CHAIOS;_PDCLIB_BUILD;X86;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(SolutionDir)\pdclib\include;$(SolutionDir)\pdclib\platform\chaikrnl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <StructMemberAlignment>1Byte</StructMemberAlignment>
-      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
+      <IgnoreStandardIncludePath>true</IgnoreStandardIncludePath>
       <WholeProgramOptimization>true</WholeProgramOptimization>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>
-      </AdditionalDependencies>
+      <AdditionalDependencies>Chaikrnl.lib</AdditionalDependencies>
       <EntryPointSymbol />
       <NoEntryPoint>true</NoEntryPoint>
     </Link>

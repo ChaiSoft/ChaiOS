@@ -555,7 +555,7 @@ CHAIKRNL_FUNC void arch_flush_cache()
 }
 
 
-static int strcmp(const char* s1, const char* s2)
+static int lstrcmp(const char* s1, const char* s2)
 {
 	while (*s1 && *s1++ == *s2++);
 	return *s1 - *s2;

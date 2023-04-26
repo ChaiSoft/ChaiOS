@@ -647,7 +647,7 @@ BOOL PmmngrLockPageDma(paddr_t paddr)
 	page* pg = GetPFD(paddr);
 	volatile size_t* pgflags = (volatile size_t*)pgflags;
 	size_t val = *pgflags;
-	while (val & PAGE_FLAG_DMALOCKED == 0)
+	while ((val & PAGE_FLAG_DMALOCKED) == 0)
 	{
 		if (arch_cas(pgflags, val, val | PAGE_FLAG_DMALOCKED))
 			return true;

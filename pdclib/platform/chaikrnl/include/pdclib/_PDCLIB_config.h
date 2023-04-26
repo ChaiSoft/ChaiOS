@@ -26,6 +26,9 @@
 #define _PDCLIB_SUCCESS 0
 #define _PDCLIB_FAILURE -1
 
+#define NULL 0
+#define _PDCLIB_NULL_DEFINED
+
 /* qsort() in <stdlib.h> requires a function that swaps two memory areas.     */
 /* Below is a naive implementation that can be improved significantly for     */
 /* specific platforms, e.g. by swapping int instead of char.                  */
@@ -57,7 +60,7 @@
   #define _PDCLIB_PUBLIC
   #define _PDCLIB_LOCAL
 #else
-  #if defined _WIN32 || defined __CYGWIN__
+  #if defined _WIN32 || defined __CYGWIN__ || defined(CHAIOS)
     #ifdef _PDCLIB_BUILD
       #ifdef __GNUC__
         #define _PDCLIB_PUBLIC __attribute__ ((dllexport))
@@ -82,6 +85,8 @@
     #endif
   #endif
 #endif
+
+#define KCSTDLIB_FUNC _PDCLIB_PUBLIC
 
 //Compiler independent, architecture dependent
 #if defined(X64)
@@ -204,6 +209,16 @@
 #define __UINTMAX_C __UINTMAX_TYPE__
 #define __INTMAX_MAX__ __INT64_MAX__
 #define __UINTMAX_MAX__ __UINT64_MAX__
+
+#define SIZE_MAX __SIZE_MAX__
+#define INT8_MAX __INT8_MAX__
+#define INT16_MAX __INT16_MAX__
+#define INT32_MAX __INT32_MAX__
+#define INT64_MAX __INT64_MAX__
+#define UINT8_MAX __UINT8_MAX__
+#define UINT16_MAX __UINT16_MAX__
+#define UINT32_MAX __UINT32_MAX__
+#define UINT64_MAX __UINT64_MAX__
 
 #include <vadefs.h>
 #define COMPILER_BUILTIN_VALIST

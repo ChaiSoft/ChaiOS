@@ -2,7 +2,7 @@
 #define _LIBALLOC_H
 
 #include <stdheaders.h>
-#include <kcstdlib.h>
+//#include <kcstdlib.h>
 
 /** \defgroup ALLOCHOOKS liballoc hooks 
  *

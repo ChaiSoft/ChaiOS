@@ -19,6 +19,7 @@
 #include <lwip/api.h>
 #include <vds.h>
 #include <vfs.h>
+#include <EASTL/hash_map.h>
 
 #define CHAIOS_KERNEL_VERSION_MAJOR 0
 #define CHAIOS_KERNEL_VERSION_MINOR 9
@@ -291,6 +292,8 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 		}
 		image = image->next;
 	}
+
+	eastl::hash_map<int, void*> test();
 #if 0
 	kstack_t ustack = arch_create_kernel_stack();
 	void* ustackptr = arch_init_stackptr(ustack);

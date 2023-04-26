@@ -182,6 +182,12 @@
     <ClInclude Include="platform\chaikrnl\include\pdclib\_PDCLIB_defguard.h">
       <Filter>platform\chaikrnl\include\pdclib</Filter>
     </ClInclude>
+    <ClInclude Include="platform\chaikrnl\include\kstdio.h">
+      <Filter>platform\chaikrnl\include</Filter>
+    </ClInclude>
+    <ClInclude Include="platform\chaikrnl\include\vadefs.h">
+      <Filter>platform\chaikrnl\include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="functions\_dlmalloc\malloc.c">
@@ -918,6 +924,9 @@
     </ClCompile>
     <ClCompile Include="platform\chaikrnl\functions\_PDCLIB\_PDCLIB_memory.c">
       <Filter>platform\chaikrnl\functions\_PDCLIB</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\chaikrnl\functions\stdio\printf.cpp">
+      <Filter>platform\chaikrnl\functions\stdio</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
