@@ -85,8 +85,9 @@ extern "C" {
 /*                                   fit for Annex K constraint violation     */
 /*                                   handler.                                 */
 /* -------------------------------------------------------------------------- */
-
+#ifndef _PDCLIB_static_assert
 #define _PDCLIB_static_assert( e, m ) enum { _PDCLIB_concat( _PDCLIB_assert_, __LINE__ ) = 1 / ( !!(e) ) }
+#endif
 
 #define _PDCLIB_TYPE_SIGNED( type ) (((type) -1) < 0)
 

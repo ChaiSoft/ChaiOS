@@ -928,6 +928,9 @@
     <ClCompile Include="platform\chaikrnl\functions\stdio\printf.cpp">
       <Filter>platform\chaikrnl\functions\stdio</Filter>
     </ClCompile>
+    <ClCompile Include="functions\_dlmalloc\liballoc.c">
+      <Filter>functions\_dlmalloc</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <NASM Include="platform\chaikrnl\functions\_PDCLIB\crt.asm">

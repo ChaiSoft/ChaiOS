@@ -19,7 +19,6 @@
 #include <lwip/api.h>
 #include <vds.h>
 #include <vfs.h>
-#include <EASTL/hash_map.h>
 
 #define CHAIOS_KERNEL_VERSION_MAJOR 0
 #define CHAIOS_KERNEL_VERSION_MINOR 9
@@ -30,6 +29,7 @@ void* heapaddr = (void*)0xFFFFD40000000000;
 size_t heap_usage = 0;
 static void* early_page_allocate(size_t numPages)
 {
+	//size_t numPages = DIV_ROUND_UP(alloc_size, PAGESIZE);
 	volatile size_t* token = reinterpret_cast<volatile size_t*>(&heapaddr);
 	size_t alloc_size = numPages * PAGESIZE;
 	bool success = false;
@@ -53,8 +53,10 @@ static void* early_page_allocate(size_t numPages)
 		return nullptr;
 		//NOT MULTIPROCESSOR SAFE
 		heapaddr = find_free_paging(numPages*PAGESIZE, heapaddr);
-		if (!paging_map(heapaddr, PADDR_ALLOCATE, numPages*PAGESIZE, PAGE_ATTRIBUTE_WRITABLE))
+		if (!paging_map(heapaddr, PADDR_ALLOCATE, numPages * PAGESIZE, PAGE_ATTRIBUTE_WRITABLE))
+		{
 			return nullptr;
+		}
 	}
 	
 	heap_usage += alloc_size;
@@ -273,7 +275,7 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 	arch_setup_interrupts();
 	//Scheduler is now running
 	//startup_acpi();
-	startup_multiprocessor();
+	//startup_multiprocessor();
 	//Welcome to the thunderdome
 	StartupGraphics();
 	void* wnd = CreateStdioWindow(900, 700);		//Double buffer the entire screen
@@ -292,8 +294,6 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 		}
 		image = image->next;
 	}
-
-	eastl::hash_map<int, void*> test();
 #if 0
 	kstack_t ustack = arch_create_kernel_stack();
 	void* ustackptr = arch_init_stackptr(ustack);
@@ -348,7 +348,7 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 
 	kputs(u"System timer: ");
 	//Test usermode
-#if 1
+#if 0
 	void* ufn = find_free_paging(PAGESIZE, (void*)0x1000000000);
 	if (!paging_map(ufn, PADDR_ALLOCATE, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE))
 	{
