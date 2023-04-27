@@ -8,6 +8,8 @@
 
 #ifndef REGTEST
 
+#if !defined(HAS_OPT_MEMSET) || !HAS_OPT_MEMSET
+
 PDCLIB_SUPPRESS_INTRINSIC(memset)
 void * memset( void * s, int c, size_t n )
 {
@@ -22,7 +24,7 @@ void * memset( void * s, int c, size_t n )
 }
 
 #endif
-
+#endif
 #ifdef TEST
 
 #include "_PDCLIB_test.h"

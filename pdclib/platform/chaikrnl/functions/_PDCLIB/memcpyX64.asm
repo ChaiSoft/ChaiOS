@@ -4,8 +4,10 @@ section .text
 ;RCX - s1
 ;RDX - s2
 ; R8 - n
+export memcpy
 global memcpy
 memcpy:
+jmp erepMemcpy
 cmp r8, 0
 ;Zero length
 je .end
@@ -28,10 +30,9 @@ ret
 erepMemcpy:
 xchg rsi, rdx
 xchg rdi, rcx
-xchg r9, rcx
+xchg r8, rcx
 rep movsb
-xchg r9, rcx
-xchg rdi, rcx
+mov rdi, r8
 xchg rsi, rdx
 ret
 

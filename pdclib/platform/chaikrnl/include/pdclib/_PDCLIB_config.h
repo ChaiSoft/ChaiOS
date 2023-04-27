@@ -90,7 +90,8 @@
 
 //Compiler independent, architecture dependent
 #if defined(X64)
-#define HAS_OPT_MEMCPY
+#define HAS_OPT_MEMCPY 1
+#define HAS_OPT_MEMSET 1
 #endif
 
 //Compiler dependent

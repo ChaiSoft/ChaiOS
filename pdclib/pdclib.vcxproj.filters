@@ -936,5 +936,8 @@
     <NASM Include="platform\chaikrnl\functions\_PDCLIB\memcpyX64.asm">
       <Filter>platform\chaikrnl\functions\_PDCLIB</Filter>
     </NASM>
+    <NASM Include="platform\chaikrnl\functions\_PDCLIB\memsetX64.asm">
+      <Filter>platform\chaikrnl\functions\_PDCLIB</Filter>
+    </NASM>
   </ItemGroup>
 </Project>
