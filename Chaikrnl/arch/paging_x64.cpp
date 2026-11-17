@@ -357,13 +357,13 @@ EXTERN bool paging_map(void* vaddr, paddr_t paddr, size_t length, size_t attribu
 EXTERN void paging_free(void* vaddr, size_t length, bool free_physical)
 {
 	PTAB_ENTRY* ptab = getPTAB(vaddr);
-	for (size_t index = getPTABindex(vaddr), offset = 0; offset < (length + PAGESIZE - 1) / PAGESIZE; ++index, ++offset)
+	for (size_t index = getPTABindex(vaddr), offset = 0; offset < DIV_ROUND_UP(length, PAGESIZE); ++index, ++offset)
 	{
 		paddr_t paddr = ptab[index] & (SIZE_MAX - 0xFFF);
 		ptab[index] = 0;
 		arch_flush_tlb(raw_offset<void*>(vaddr, index * PAGESIZE));
 		if (free_physical)
-			pmmngr_free(paddr, length);
+			pmmngr_free(paddr, DIV_ROUND_UP(length, PAGESIZE));
 	}
 }
 

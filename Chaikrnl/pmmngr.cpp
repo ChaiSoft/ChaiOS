@@ -309,10 +309,10 @@ static bool EfiFreeMemory(EFI_MEMORY_TYPE type)
 	switch (type)
 	{
 	case EfiLoaderCode:
-		return true;
+		return false;
 		break;
 	case EfiLoaderData:
-		return true;
+		return false;
 		break;
 	case EfiBootServicesCode:
 		return true;
@@ -621,8 +621,10 @@ paddr_t pmmngr_allocate(size_t pages, uint8_t region, numa_t domain, cache_colou
 				}
 			}
 		}
+		if (val == nullptr)
+			return 0;
 		++(val->ref_count);
-		return val == nullptr ? 0 : GetPaddr(val);
+		return GetPaddr(val);
 	}
 }
 
@@ -645,9 +647,9 @@ void pmmngr_free(paddr_t addr, size_t length)
 BOOL PmmngrLockPageDma(paddr_t paddr)
 {
 	page* pg = GetPFD(paddr);
-	volatile size_t* pgflags = (volatile size_t*)pgflags;
+	volatile size_t* pgflags = (volatile size_t*)&(pg->flags);
 	size_t val = *pgflags;
-	while (val & PAGE_FLAG_DMALOCKED == 0)
+	while ((val & PAGE_FLAG_DMALOCKED) == 0)
 	{
 		if (arch_cas(pgflags, val, val | PAGE_FLAG_DMALOCKED))
 			return true;
