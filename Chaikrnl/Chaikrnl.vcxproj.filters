@@ -178,5 +178,8 @@
     <NASM Include="arch\x64\interrupts_x64.asm">
       <Filter>arch\x64</Filter>
     </NASM>
+    <NASM Include="arch\x86\ap_startup.asm">
+      <Filter>arch\x64</Filter>
+    </NASM>
   </ItemGroup>
 </Project>
