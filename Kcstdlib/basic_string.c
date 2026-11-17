@@ -38,9 +38,22 @@ EXTERN KCSTDLIB_FUNC int strncmp(const char* s1, const char* s2, size_t length)
 	return (*s1 - *s2);
 }
 
+EXTERN KCSTDLIB_FUNC int strcmp(const char* s1, const char* s2)
+{
+	for (; *s1 && *s1 == *s2; ++s1, ++s2);
+	return (*s1 - *s2);
+}
+
 EXTERN KCSTDLIB_FUNC char* strncpy(char* s1, const char* s2, size_t length)
 {
 	for (size_t n = 0; s2[n] && n < length; ++n)
+		s1[n] = s2[n];
+	return s1;
+}
+
+EXTERN KCSTDLIB_FUNC char* strcpy(char* s1, const char* s2)
+{
+	for (size_t n = 0; s2[n]; ++n)
 		s1[n] = s2[n];
 	return s1;
 }
@@ -51,4 +64,12 @@ EXTERN KCSTDLIB_FUNC char* strncat(char* destination, const char* source, size_t
 	for (; *tmp; ++tmp);
 	strncpy(tmp, source, num);
 	return tmp;
+}
+
+EXTERN KCSTDLIB_FUNC size_t strlen(const char* str)
+{
+	size_t result = 0;
+	while (*str++)
+		++result;
+	return result;
 }

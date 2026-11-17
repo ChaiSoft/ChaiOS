@@ -38,12 +38,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="kcstdlib.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="kstdio.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\Include\stdheaders.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -53,13 +47,19 @@
     <ClInclude Include="..\Include\liballoc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="string.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\Include\linkedlist.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\Include\guid.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\kstdio.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\kcstdlib.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\string.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

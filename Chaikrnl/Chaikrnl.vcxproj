@@ -96,7 +96,7 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <AssemblerOutput>AssemblyAndSourceCode</AssemblerOutput>
-      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\LwIP\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\acpica\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Kcstdlib;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Chaikrnl;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\LwIP\include;$(SolutionDir)\Chaikrnl;$(SolutionDir)\Include;$(SolutionDir)\acpica\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OmitFramePointers>false</OmitFramePointers>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
     </ClCompile>
@@ -121,6 +121,10 @@
       <StackReserveSize>0x100000</StackReserveSize>
       <GenerateMapFile>true</GenerateMapFile>
       <MapExports>true</MapExports>
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
+      <ImportLibrary>
+      </ImportLibrary>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -135,7 +139,7 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <AssemblerOutput>AssemblyAndSourceCode</AssemblerOutput>
-      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\LwIP\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\acpica\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Kcstdlib;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Chaikrnl;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\LwIP\include;$(SolutionDir)\Chaikrnl;$(SolutionDir)\Include;$(SolutionDir)\acpica\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
     </ClCompile>
     <Link>
@@ -160,6 +164,10 @@
       <StackReserveSize>0x100000</StackReserveSize>
       <GenerateMapFile>true</GenerateMapFile>
       <MapExports>true</MapExports>
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
+      <ImportLibrary>
+      </ImportLibrary>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -174,7 +182,7 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <AssemblerOutput>AssemblyAndSourceCode</AssemblerOutput>
-      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\LwIP\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\acpica\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Kcstdlib;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Chaikrnl;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\LwIP\include;$(SolutionDir)\Chaikrnl;$(SolutionDir)\Include;$(SolutionDir)\acpica\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OmitFramePointers>false</OmitFramePointers>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
     </ClCompile>
@@ -200,6 +208,10 @@
       <StackReserveSize>0x100000</StackReserveSize>
       <GenerateMapFile>true</GenerateMapFile>
       <MapExports>true</MapExports>
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
+      <ImportLibrary>
+      </ImportLibrary>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -216,7 +228,7 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <AssemblerOutput>AssemblyAndSourceCode</AssemblerOutput>
-      <AdditionalIncludeDirectories>C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\LwIP\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\acpica\include;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Kcstdlib;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Chaikrnl;C:\Users\Nathaniel\Source\Repos\ChaiSoft\ChaiOS\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\LwIP\include;$(SolutionDir)\Chaikrnl;$(SolutionDir)\Include;$(SolutionDir)\acpica\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
     </ClCompile>
     <Link>
@@ -240,6 +252,10 @@
       <StackReserveSize>0x100000</StackReserveSize>
       <GenerateMapFile>true</GenerateMapFile>
       <MapExports>true</MapExports>
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
+      <ImportLibrary>
+      </ImportLibrary>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
