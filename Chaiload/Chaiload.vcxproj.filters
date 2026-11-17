@@ -54,6 +54,9 @@
     <ClCompile Include="liballoc.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="basic_string.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="kterm.h">

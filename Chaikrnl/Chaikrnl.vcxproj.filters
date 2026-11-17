@@ -178,8 +178,13 @@
     <NASM Include="arch\x64\interrupts_x64.asm">
       <Filter>arch\x64</Filter>
     </NASM>
-    <NASM Include="arch\x86\ap_startup.asm">
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="arch\x86\ap_startup.asm">
       <Filter>arch\x86</Filter>
-    </NASM>
+    </None>
+    <None Include="arch\x86\buildtrampoline.bat">
+      <Filter>arch\x86</Filter>
+    </None>
   </ItemGroup>
 </Project>

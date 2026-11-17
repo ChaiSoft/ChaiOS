@@ -246,6 +246,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="basic_string.c" />
     <ClCompile Include="imageloader.cpp" />
     <ClCompile Include="inih.c" />
     <ClCompile Include="kdraw.cpp" />
