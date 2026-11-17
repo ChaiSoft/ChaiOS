@@ -179,7 +179,7 @@
       <Filter>arch\x64</Filter>
     </NASM>
     <NASM Include="arch\x86\ap_startup.asm">
-      <Filter>arch\x64</Filter>
+      <Filter>arch\x86</Filter>
     </NASM>
   </ItemGroup>
 </Project>
