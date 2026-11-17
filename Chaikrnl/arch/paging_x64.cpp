@@ -361,9 +361,9 @@ EXTERN void paging_free(void* vaddr, size_t length, bool free_physical)
 	{
 		paddr_t paddr = ptab[index] & (SIZE_MAX - 0xFFF);
 		ptab[index] = 0;
-		arch_flush_tlb(raw_offset<void*>(vaddr, index * PAGESIZE));
+		arch_flush_tlb(raw_offset<void*>(vaddr, offset * PAGESIZE));
 		if (free_physical)
-			pmmngr_free(paddr, DIV_ROUND_UP(length, PAGESIZE));
+			pmmngr_free(paddr, 1);
 	}
 }
 

@@ -413,7 +413,7 @@ private:
 			uint32_t resetChange = (proto != 0) ? (1 << 19) : (1 << 21);
 			writeOperationalRegister(HCPortStatusOff, PortPower | resetBit, 32);
 			int timeout = 500;
-			while (timeout > 0)
+			while (timeout-- > 0)
 			{
 				if (readOperationalRegister(HCPortStatusOff, 32) & resetChange)
 					break;

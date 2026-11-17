@@ -143,7 +143,7 @@ static processor_info* create_info(size_t cpuidt, size_t acpid)
 	return info;
 }
 
-static void sync_cpu(uint32_t cpuid, volatile cpu_data* data)
+static bool sync_cpu(uint32_t cpuid, volatile cpu_data* data)
 {
 	//return;
 	processor_info* info = cputree[cpuid];
@@ -154,13 +154,14 @@ static void sync_cpu(uint32_t cpuid, volatile cpu_data* data)
 		kprintf(u"CPU %d wouldn't wake: %x\r\n", cpuid, data->rendezvous);
 		delete_spinlock(comms->spinlock);
 		arch_destroy_stack(info->init_stack, 0);
-		return;
+		return false;
 	}
 	while (data->rendezvous);
 	//CPU now has its comms area and stack
 	//now tell it the entry point
 	arch_cas((size_t*)&comms->entryfunc, 0, (size_t)&ap_startup_routine);
 	arch_cas((size_t*)&comms->data, 0, (size_t)comms);
+	return true;
 }
 
 static void get_cpu_count(ACPI_TABLE_MADT* madt, size_t* numcpus, size_t* numenabled)
@@ -241,7 +242,8 @@ void startup_multiprocessor()
 			{
 				continue;
 			}
-			sync_cpu(it->first, data);
+			if (!sync_cpu(it->first, data))
+				continue;		//Startup failed
 			size_t logicalIdent = logicalIdentAllocator++;
 			cpuArchToLogical[it->first] = logicalIdent;
 			cpuLogicalToArch[logicalIdent] = it->first;
