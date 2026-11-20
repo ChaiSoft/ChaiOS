@@ -267,12 +267,13 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 	//Set up the VMMNGR
 	//paging_boot_free();
 	//We're now fully in the higher half and standalone
-	kputs(u"mulitprocessor init\n");
+	kputs(u"mulitprocessor init...");
 	arch_setup_interrupts();
 	//Scheduler is now running
 	//startup_acpi();
-	
+	kputs(u" start ...");
 	startup_multiprocessor();
+	kputs(u"\nComplete\n");
 	//Welcome to the thunderdome
 	StartupGraphics();
 	void* wnd = CreateStdioWindow(900, 700);		//Double buffer the entire screen

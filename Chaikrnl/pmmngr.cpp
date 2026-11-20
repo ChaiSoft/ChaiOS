@@ -618,9 +618,12 @@ paddr_t pmmngr_allocate(size_t pages, uint8_t region, numa_t domain, cache_colou
 				{
 					cache_colour act_col = col >= num_colours ? col - num_colours : col;
 					val = region_alloc[act_dom][act_col].pop();
+					if (val != 0)
+						goto allocated;
 				}
 			}
 		}
+		allocated:
 		if (val == nullptr)
 			return 0;
 		++(val->ref_count);

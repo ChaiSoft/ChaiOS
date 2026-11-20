@@ -1,0 +1,3 @@
+.sympath C:\Users\nathanielc\source\repos\ChaiSoft\ChaiOS\x64\Debug
+.reload /f chaikrnl.exe=0xFFFFC00000000000
+.reload /f kcstdlib.dll=0xFFFFC00008000000

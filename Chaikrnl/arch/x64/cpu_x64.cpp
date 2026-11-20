@@ -1096,8 +1096,8 @@ struct arch_tls_data {
 	arch_tls_data* selfptr;
 };
 
-static_assert(sizeof(per_cpu_data) <= 0x30, "Please reallocate");
-#define PCPU_DATA_AVAILINTS 0x30
+static_assert(sizeof(per_cpu_data) == 0x20, "Please reallocate");
+#define PCPU_DATA_AVAILINTS 0x20
 
 void arch_write_kstack(stack_t stack)
 {

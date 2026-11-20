@@ -257,7 +257,7 @@ static struct liballoc_major *allocate_new_page( unsigned int size )
 void *PREFIX(malloc)(size_t req_size)
 {
 	//DEBUG
-	return liballoc_alloc(DIV_ROUND_UP(req_size, l_pageSize));
+	//return liballoc_alloc(DIV_ROUND_UP(req_size, l_pageSize));
 	int startedBet = 0;
 	unsigned long long bestSize = 0;
 	void *p = NULL;
