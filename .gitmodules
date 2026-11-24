@@ -4,3 +4,6 @@
 [submodule "eastl"]
 	path = EASTL
 	url = https://github.com/electronicarts/EASTL.git
+[submodule "EASTL"]
+	path = EASTL
+	url = https://github.com/electronicarts/EASTL.git
