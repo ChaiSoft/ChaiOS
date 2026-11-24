@@ -184,15 +184,19 @@ static void PreRenderFont()
 }
 
 
-static tls_slot_t KstdioTlsSlot = -1;
 static void** WindowArray = NULL;
 static size_t WindowArraySize;
 static size_t WindowArrayPos;
+static tls_slot_t KstdioTlsSlot = (tls_slot_t)-1;
 
 void* ReadKernelHandle()
 {
-	if (KstdioTlsSlot == -1)
+	if (!isscheduler())
+		return nullptr;
+	if (KstdioTlsSlot == (tls_slot_t)-1)
 		KstdioTlsSlot = AllocateKernelTls();
+	if (KstdioTlsSlot == (tls_slot_t)-1)
+		return nullptr;
 	return (void*)ReadKernelTls(KstdioTlsSlot);
 }
 
@@ -281,8 +285,10 @@ void SetWindowPostion(void* wnd, size_t xpos, size_t ypos)
 void* CreateStdioWindow(size_t width, size_t height, size_t xpos, size_t ypos)
 {
 	void* wnd = CreateWindow(width, height);
-	if (KstdioTlsSlot == -1)
+	if (KstdioTlsSlot == (tls_slot_t)-1)
 		KstdioTlsSlot = AllocateKernelTls();
+	if (KstdioTlsSlot == (tls_slot_t)-1)
+		return nullptr;
 	SetWindowPostion(wnd, xpos, ypos);
 	if (WindowArray == NULL)
 	{

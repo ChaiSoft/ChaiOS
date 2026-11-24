@@ -278,8 +278,8 @@ static void EnableIOAPICsACPI()
 	//We now have a list of IOAPICs
 	for (ioapic_list::iterator it = ioapic_parsing.begin(); it != ioapic_parsing.end(); ++it)
 	{
-		void* ioapic_base = find_free_paging(PAGESIZE);
 		ioapic_desc* desc = new ioapic_desc;
+		void* ioapic_base = find_free_paging(PAGESIZE);
 		desc->mapped = ioapic_base;
 		desc->apic_id = it->first;
 		desc->max_intr = 0;		//Need to ask the APIC itself
@@ -289,7 +289,11 @@ static void EnableIOAPICsACPI()
 			ACPI_MADT_IO_APIC* ioapic;
 			ioapic = reinterpret_cast<ACPI_MADT_IO_APIC*>(it->second);
 			desc->mapped = ioapic_base = raw_offset<void*>(ioapic_base, ioapic->Address & (PAGESIZE-1));
-			paging_map(ioapic_base, ioapic->Address, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING);
+			if (!paging_map(ioapic_base, ioapic->Address, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING))
+			{
+				kprintf(u"Failed to map IOAPIC physical %x at virtual %x\n", ioapic->Address, ioapic_base);
+				while (1);
+			}
 			desc->base_intr = ioapic->GlobalIrqBase;
 			ioapics[ioapic->GlobalIrqBase] = desc;
 			break;
@@ -297,7 +301,11 @@ static void EnableIOAPICsACPI()
 			ACPI_MADT_IO_SAPIC* iosapic;
 			iosapic = reinterpret_cast<ACPI_MADT_IO_SAPIC*>(it->second);
 			desc->mapped = ioapic_base = raw_offset<void*>(ioapic_base, iosapic->Address & (PAGESIZE - 1));
-			paging_map(ioapic_base, iosapic->Address, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING);
+			if (!paging_map(ioapic_base, iosapic->Address, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING))
+			{
+				kprintf(u"Failed to map IOSAPIC physical %x at virtual %x\n", iosapic->Address, ioapic_base);
+				while (1);
+			}
 			desc->base_intr = iosapic->GlobalIrqBase;
 			ioapics[iosapic->GlobalIrqBase] = desc;
 			break;
@@ -447,7 +455,11 @@ void x64_init_apic()
 		{
 			paddr_t abase = apic_base & (SIZE_MAX - 0xFFF);
 			apic = find_free_paging(PAGESIZE);
-			paging_map(apic, abase, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING | PAGE_ATTRIBUTE_NO_EXECUTE);
+			if (!paging_map(apic, abase, PAGESIZE, PAGE_ATTRIBUTE_WRITABLE | PAGE_ATTRIBUTE_NO_CACHING | PAGE_ATTRIBUTE_NO_EXECUTE))
+			{
+				kprintf(u"Failed to map local APIC physical %x at virtual %x\n", abase, apic);
+				while (1);
+			}
 		}
 		apic_base |= IA32_APIC_BASE_MSR_ENABLE;
 		x64_wrmsr(IA32_APIC_BASE_MSR, apic_base);
