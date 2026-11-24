@@ -275,8 +275,8 @@ void _kentry(PKERNEL_BOOT_INFO bootinfo)
 	startup_multiprocessor();
 	kputs(u"\nComplete\n");
 	//Welcome to the thunderdome
-	StartupGraphics();
-	void* wnd = CreateStdioWindow(900, 700);		//Double buffer the entire screen
+	//StartupGraphics();
+	//void* wnd = CreateStdioWindow(900, 700);		//Double buffer the entire screen
 	//startup_acpi();
 	setup_usb();
 	//Start Virtual Disk System

@@ -18,30 +18,54 @@ enum THREAD_STATE {
 
 static bool scheduler_ready = false;
 
+#define CURRENT_THREAD() \
+((PTHREAD)(void*)pcpu_data.runningthread)
+
 static const int INITTLSSIZE = 16;
+
+typedef struct _thread THREAD, *PTHREAD;
 
 typedef struct _thread_local {
 	struct _thread_local* selfptr;
 	size_t tls_size;
-	uint32_t free_slot;
-	tls_data_t initTls[INITTLSSIZE];
+	tls_data_t slots[INITTLSSIZE];
 }TLSBLOCK,*PTLSBLOCK;
+
+static volatile size_t next_tls_slot;
+
+static tls_slot_t allocate_tls_slot_id()
+{
+	size_t current = next_tls_slot;
+	for (;;)
+	{
+		if (current >= UINT32_MAX)
+			return UINT32_MAX;
+		if (arch_cas(&next_tls_slot, current, current + 1))
+			return (tls_slot_t)current;
+		current = next_tls_slot;
+	}
+}
+
+static tls_data_t* get_tls_slot(PTLSBLOCK block, tls_slot_t slot)
+{
+	return raw_offset<tls_data_t*>(block, sizeof(TLSBLOCK) - sizeof(block->slots) + slot * sizeof(tls_data_t));
+}
 
 static PTLSBLOCK tls_block_factory()
 {
 	PTLSBLOCK block = new TLSBLOCK;
+	if (!block)
+		return nullptr;
 	block->selfptr = block;
 	block->tls_size = INITTLSSIZE;
 	for (int i = 0; i < INITTLSSIZE; ++i)
 	{
-		block->initTls[i] = i - 1;
+		block->slots[i] = 0;
 	}
-	block->free_slot = INITTLSSIZE - 1;
-	block->free_slot = -1;
 	return block;
 }
 
-typedef struct _thread {
+struct _thread {
 	context_t threadctxt;
 	THREAD_STATE state;
 	THREAD_TYPE threadtype;
@@ -56,10 +80,34 @@ typedef struct _thread {
 	void* timeout_event;
 	PTLSBLOCK threadlocal;
 	size_t priority;
-}THREAD, *PTHREAD;
+};
 
-#define CURRENT_THREAD() \
-((PTHREAD)(void*)pcpu_data.runningthread)
+static bool ensure_tls_capacity(PTLSBLOCK& tls, tls_slot_t slot)
+{
+	if (slot < tls->tls_size)
+		return true;
+	PTLSBLOCK old_tls = tls;
+	size_t new_size = tls->tls_size;
+	while (new_size <= slot)
+		new_size *= 2;
+	size_t old_size = tls->tls_size;
+	size_t alloc_size = sizeof(TLSBLOCK) - sizeof(tls->slots) + new_size * sizeof(tls_data_t);
+	PTLSBLOCK expanded = (PTLSBLOCK)krealloc(tls, alloc_size);
+	if (!expanded)
+		return false;
+	for (size_t i = old_size; i < new_size; ++i)
+		expanded->slots[i] = 0;
+	expanded->tls_size = new_size;
+	expanded->selfptr = expanded;
+	tls = expanded;
+	PTHREAD thread = scheduler_ready ? CURRENT_THREAD() : nullptr;
+	if (thread && thread->threadlocal == old_tls)
+	{
+		thread->threadlocal = tls;
+		arch_write_tls_base(tls, 0);
+	}
+	return true;
+}
 
 EXTERN CHAIKRNL_FUNC HTHREAD current_thread()
 {
@@ -437,43 +485,20 @@ uint8_t scheduler_wait(size_t timeout, spinlock_t lock, sched_should_wait _shoul
 	return 1;
 }
 
-static tls_data_t* get_tls_slot(PTLSBLOCK block, tls_slot_t slot)
-{
-	return raw_offset<tls_data_t*>(block, sizeof(TLSBLOCK) + slot * sizeof(tls_data_t));
-}
-
 EXTERN CHAIKRNL_FUNC tls_slot_t AllocateKernelTls()
 {
-	PTLSBLOCK tls = (PTLSBLOCK)arch_read_tls(0, 0, sizeof(tls_data_t)*8);
-	if (tls->free_slot == -1)
-	{
-		static const int NEWSLOTS = 16;
-		void* tlsn = krealloc(tls, sizeof(tls) + (tls->tls_size + NEWSLOTS) * sizeof(tls_data_t));
-		if (tlsn != (void*)tls)
-		{
-			tls = (PTLSBLOCK)tlsn;
-			tls->selfptr = tls;
-			CURRENT_THREAD()->threadlocal = tls;
-			arch_write_tls_base(tls, 0);
-		}
-		auto freeblocks = raw_offset<tls_data_t*>(tls, sizeof(TLSBLOCK) + tls->tls_size * sizeof(tls_data_t));
-		for (int i = 0; i < NEWSLOTS; ++i)
-		{
-			freeblocks[i] = (tls_data_t)(tls->tls_size + i + 1);
-		}
-		freeblocks[NEWSLOTS - 1] = -1;
-		tls->free_slot = tls->tls_size;
-		tls->tls_size += NEWSLOTS;
-	}
-	auto slot = tls->free_slot;
-	tls->free_slot = *get_tls_slot(tls, slot);
-	*get_tls_slot(tls, slot) = 0;
+	tls_slot_t slot = allocate_tls_slot_id();
+	if (slot == UINT32_MAX)
+		return slot;
+	PTLSBLOCK tls = (PTLSBLOCK)arch_read_tls(0, 0, sizeof(tls_data_t) * 8);
+	if (tls && !ensure_tls_capacity(tls, slot))
+		return UINT32_MAX;
 	return slot;
 }
 EXTERN CHAIKRNL_FUNC tls_data_t ReadKernelTls(tls_slot_t slot)
 {
 	PTLSBLOCK tls = (PTLSBLOCK)arch_read_tls(0, 0, sizeof(tls_data_t) * 8);
-	if (slot >= tls->tls_size)
+	if (!tls || slot == UINT32_MAX || !ensure_tls_capacity(tls, slot))
 		return 0;
 	return *get_tls_slot(tls, slot);
 }
@@ -481,16 +506,12 @@ EXTERN CHAIKRNL_FUNC tls_data_t ReadKernelTls(tls_slot_t slot)
 EXTERN CHAIKRNL_FUNC void WriteKernelTls(tls_slot_t slot, tls_data_t value)
 {
 	PTLSBLOCK tls = (PTLSBLOCK)arch_read_tls(0, 0, sizeof(tls_data_t) * 8);
-	if (slot >= tls->tls_size)
+	if (!tls || slot == UINT32_MAX || !ensure_tls_capacity(tls, slot))
 		return;
 	*get_tls_slot(tls, slot) = value;
 }
 
 EXTERN CHAIKRNL_FUNC void FreeKernelTls(tls_slot_t slot)
 {
-	PTLSBLOCK tls = (PTLSBLOCK)arch_read_tls(0, 0, sizeof(tls_data_t) * 8);
-	if (slot >= tls->tls_size)
-		return;
-	*get_tls_slot(tls, slot) = tls->free_slot;
-	tls->free_slot = slot;
+	(void)slot;
 }

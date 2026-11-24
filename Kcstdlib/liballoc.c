@@ -612,7 +612,7 @@ void *PREFIX(malloc)(size_t req_size)
 void PREFIX(free)(void *ptr)
 {
 	//DEBUG
-	return liballoc_free(ptr, l_pageSize);
+	//return liballoc_free(ptr, l_pageSize);
 	struct liballoc_minor *min;
 	struct liballoc_major *maj;
 

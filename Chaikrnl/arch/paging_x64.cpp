@@ -207,6 +207,14 @@ static size_t get_arch_paging_attributes(size_t attributes, bool present = true)
 	return result;
 }
 
+static paddr_t allocate_paging_page()
+{
+	paddr_t page = pmmngr_allocate(1, ARCH_PHY_REGION_NORMAL);
+	if (page == 0)
+		page = pmmngr_allocate(1, ARCH_PHY_REGION_PCIDMA);
+	return page;
+}
+
 bool paging_map(void* vaddr, paddr_t paddr, size_t attributes)
 {
 	PML4_ENTRY* pml4 = getPML4(vaddr);
@@ -219,7 +227,7 @@ bool paging_map(void* vaddr, paddr_t paddr, size_t attributes)
 	size_t userflag = usersection ? PAGING_USER : 0;
 	if ((pml4ent & PAGING_PRESENT) == 0)
 	{
-		paddr_t addr = pmmngr_allocate(1);
+		paddr_t addr = allocate_paging_page();
 		if (addr == 0)
 		{
 			return false;
@@ -234,7 +242,7 @@ bool paging_map(void* vaddr, paddr_t paddr, size_t attributes)
 	PDPT_ENTRY& pdptent = pdpt[getPDPTindex(vaddr)];
 	if ((pdptent & PAGING_PRESENT) == 0)
 	{
-		paddr_t addr = pmmngr_allocate(1);
+		paddr_t addr = allocate_paging_page();
 		if (addr == 0)
 		{
 			return false;
@@ -249,7 +257,7 @@ bool paging_map(void* vaddr, paddr_t paddr, size_t attributes)
 	PD_ENTRY& pdent = pdir[getPDindex(vaddr)];
 	if ((pdent & PAGING_PRESENT) == 0)
 	{
-		paddr_t addr = pmmngr_allocate(1);
+		paddr_t addr = allocate_paging_page();
 		if (addr == 0)
 		{
 			return false;
@@ -266,7 +274,7 @@ bool paging_map(void* vaddr, paddr_t paddr, size_t attributes)
 		return false;
 	if (paddr == PADDR_ALLOCATE)
 	{
-		if (!(paddr = pmmngr_allocate(1)))
+		if (!(paddr = allocate_paging_page()))
 			return false;
 	}
 	ptabent = (size_t)paddr | get_arch_paging_attributes(attributes, true);
@@ -295,6 +303,11 @@ static bool check_free(int level, void* start_addr, void* end_addr, bool checkBu
 		}
 		else if (checkUserMode && ((paging_entry[pindex] & PAGING_USER) == 0))
 			return false;
+		else if ((level == 3 || level == 2) && ((paging_entry[pindex] & PAGING_SIZEBIT) != 0))
+		{
+			if (!checkBufPresent)
+				return false;
+		}
 		else
 		{
 			if (!check_free(level - 1, (void*)cur_addr, end_addr, checkBufPresent, checkUserMode))
@@ -323,7 +336,10 @@ EXTERN bool paging_map(void* vaddr, paddr_t paddr, size_t length, size_t attribu
 {
 	auto st = acquire_spinlock(paging_lock);
 	if (!check_free(vaddr, length))
+	{
+		release_spinlock(paging_lock, st);
 		return false;
+	}
 	size_t vptr = (size_t)vaddr;
 	size_t pgoffset = vptr & (PAGESIZE - 1);
 	vaddr = (void*)(vptr ^ pgoffset);
@@ -351,6 +367,7 @@ EXTERN bool paging_map(void* vaddr, paddr_t paddr, size_t length, size_t attribu
 			paddr = raw_offset<paddr_t>(paddr, PAGESIZE);
 	}
 	release_spinlock(paging_lock, st);
+	arch_flush_tlb(vaddr);
 	return true;
 }
 

@@ -3,4 +3,5 @@
   -drive if=pflash,format=raw,file="OVMF_VARS.fd" ^
   -drive file="fat:rw:sysroot",format=raw ^
   -cpu Skylake-Client-v4,+x2apic ^
+  -smp 4 ^
   -no-shutdown -no-reboot -monitor stdio
